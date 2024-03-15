@@ -2,17 +2,40 @@
 ;;   (concat (file-name-sans-extension (buffer-file-name)) ".el")
 ;;
 (eval-when-compile
-;; #+begin_src elisp :tangle
   (require 'use-package))
 
-(add-hook 'before-save-hook #'delete-trailing-whitespace)
+(use-package bind-key
+  :ensure t)
 
-;; #+end_src;; Main typeface
+;; (add-hook 'before-save-hook #'delete-trailing-whitespace)
+
 (set-face-attribute 'default nil :family "Monaspace Neon")
-;; #+begin_src elisp :tangle :noweb-ref Ensure installed
-;; :ensure t ;; #+end_src
-;;   ;; use nix provided org
-;; #+begin_src elisp :tangle
+
+;; memsql
+(setq-default indent-tabs-mode nil)             ; we indent with spaces only, no tabs
+(setq-default compile-command "memsql-build make debug --skip-binplace memsql-server") ; set default command for M-x compile
+(setq-default gdb-create-source-file-list nil)  ; gdb initialization takes a long time without this
+(setq-default word-wrap t)                      ; wrap long lines at word boundaries for better readability
+ 
+;; Adjust C++ style to more closely match the style we use in the MemSQL codebase
+(c-add-style "memsql"
+         '("linux"
+           (c-basic-offset . 4)
+               (c-offsets-alist
+                (inline-open . 0)
+                (innamespace . 0)       ; don't indent inside namespaces
+                )
+           ))
+(add-to-list 'c-default-style '(c++-mode . "memsql"))
+ 
+(add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode)) ; use c++-mode instead of c-mode for .h files
+ 
+;; Default settings for sql-mysql
+;; You can run a mysql/memsql client in Emacs with M-x sql-mysql
+ 
+(setq sql-user "root")
+(setq sql-password "")
+(setq sql-server "127.0.0.1")
 
 (use-package org
   :ensure t
@@ -23,32 +46,68 @@
   :ensure t
   :config
   (setq modus-themes-mixed-fonts t)
-  (load-theme 'modus-vivendi))
+  (load-theme 'modus-operandi))
 
 (tool-bar-mode -1)
 (menu-bar-mode -1)
 
-(use-package bind-key
-  :ensure t)
+(recentf-mode 1)
+
+(setq scroll-margin 10
+      scroll-conservatively 101
+      ;; aggressively doesn't get set in any buffers anyway :(
+      scroll-preserve-screen-position t
+      auto-window-vscroll nil)
 
 (require 'display-line-numbers)
 
 (add-hook 'org-mode-hook
 	  (lambda () (add-hook 'after-save-hook #'org-babel-tangle
 	       		       :append :local)))
-;; testing
-(defun next-window-or-frame ()
-  (interactive)
-  (if current-prefix-arg
-      (other-frame 1)
-    (if (one-window-p)
-	(other-frame 1)
-      (other-window 1))))
+
+;; Bash aliases from https://emacs.stackexchange.com/questions/74385/is-there-any-way-of-making-eshell-aliases-using-bash-and-zsh-aliases-syntax
+
+(require 'cl-lib)
+
+(defun eshell-load-bash-aliases ()
+  "Read Bash aliases and add them to the list of eshell aliases."
+  ;; Bash needs to be run - temporarily - interactively
+  ;; in order to get the list of aliases.
+  (with-temp-buffer
+    (call-process "bash" nil '(t nil) nil "-ci" "alias")
+    (goto-char (point-min))
+    (cl-letf (((symbol-function 'eshell-write-aliases-list) #'ignore))
+      (while (re-search-forward "alias \\(.+\\)='\\(.+\\)'$" nil t)
+        (eshell/alias (match-string 1) (match-string 2))))
+    (eshell-write-aliases-list)))
+
+;; We only want Bash aliases to be loaded when Eshell loads its own aliases,
+;; rather than every time `eshell-mode' is enabled.
+(add-hook 'eshell-alias-load-hook 'eshell-load-bash-aliases)
+
+(use-package vundo
+  :ensure t)
+
+(use-package ace-window
+  :ensure t
+  :bind ("M-o" . ace-window))
+
+(use-package magit-delta
+  :ensure t
+  :hook (magit-mode . magit-delta-mode))
 
 (use-package magit
   :ensure t)
 
-(global-set-key (kbd "C-c n")  'next-window-or-frame)
+(use-package diff-hl
+  :ensure t
+  :init
+  :config
+  (global-diff-hl-mode)
+  (diff-hl-margin-mode))
+
+(use-package git-timemachine
+  :ensure t)
 
 (use-package marginalia
   :ensure t
@@ -56,17 +115,39 @@
   :init
   (marginalia-mode))
 
+(use-package embark
+  :ensure t
+  :bind (("C-." . embark-act)         ;; pick some comfortable binding
+	 ("C-;" . embark-dwim)        ;; good alternative: M-.
+	 ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings
+  :init
+  (setq prefix-help-command #'embark-prefix-help-command)
+  :config
+    ;; Hide the mode line of the Embark live/completions buffers
+  (add-to-list 'display-buffer-alist
+               '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
+                 nil
+                 (window-parameters (mode-line-format . none)))))
+
+(use-package embark-consult
+  :ensure t)
+
+(use-package wgrep
+  :ensure t)
+
+;; builtin
+(use-package wdired)
+
 (use-package which-key
    :ensure t
    :config
    (which-key-mode))
 
-
 (use-package corfu
   :ensure t
   :custom
   (corfu-cycle t)
-  (corfu-preselect 'prompt)
+  (corfu-preselect 'first)
   (corfu-quit-no-match 'separator)
   (corfu-auto nil)
   (corfu-min-width 60)
@@ -156,8 +237,6 @@
     (lsp-snippet-tempel-eglot-init))
   )
 
-
-
 (use-package vertico
   :ensure t
   :custom
@@ -213,7 +292,7 @@
          ("M-g i" . consult-imenu)
          ("M-g I" . consult-imenu-multi)
          ;; M-s bindings in `search-map'
-         ("M-s d" . consult-find)                  ;; Alternative: consult-fd
+         ("M-s d" . consult-fd)                  ;; Alternative: consult-find
          ("M-s c" . consult-locate)
          ("M-s g" . consult-grep)
          ("M-s G" . consult-git-grep)
@@ -235,28 +314,23 @@
          ("M-r" . consult-history))                ;; orig. previous-matching-history-element
   ;; The :init configuration is always executed (Not lazy)
   :init
-
   ;; Optionally configure the register formatting. This improves the register
   ;; preview for `consult-register', `consult-register-load',
   ;; `consult-register-store' and the Emacs built-ins.
   (setq register-preview-delay 0.5
         register-preview-function #'consult-register-format)
-
   ;; Optionally tweak the register preview window.
   ;; This adds thin lines, sorting and hides the mode line of the window.
   (advice-add #'register-preview :override #'consult-register-window)
-
   ;; Use Consult to select xref locations with preview
   (setq xref-show-xrefs-function #'consult-xref
         xref-show-definitions-function #'consult-xref)
-
   ;; Configure other variables and modes in the :config section,
   ;; after lazily loading the package.
   :config
   ;; Optionally configure the narrowing key.
   ;; Both < and C-+ work reasonably well.
   (setq consult-narrow-key "<") ;; "C-+"
-
   ;; By default `consult-project-function' uses `project-root' from project.el.
   ;; Optionally configure a different project root function.
   ;;;; 1. project.el (the default)
@@ -272,6 +346,11 @@
   ;; (setq consult-project-function nil)
   )
 
+(use-package consult-lsp
+  :ensure t
+  :after consult
+  )
+
 (use-package orderless
   :ensure t
   :custom
@@ -280,6 +359,7 @@
   (completion-styles '(orderless partial-completion basic)
 		     (completion-category-overrides nil)
 		     (completion-category-defaults nil)))
+
 ;; https://kristofferbalintona.me/posts/202203130102/
 (use-package cape
   :init
@@ -319,6 +399,11 @@
 (icomplete-mode)
 (setq inhibit-splash-screen t)
 (transient-mark-mode 1)
+
+(use-package avy
+  :ensure t
+  :config
+  (avy-setup-default))
 
 (defun meow-setup ()
   (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty)
@@ -369,7 +454,7 @@
    '("D" . meow-backward-delete)
    '("e" . meow-next-word)
    '("E" . meow-next-symbol)
-   '("f" . meow-find)
+   '("f" . avy-goto-char)
    '("g" . meow-cancel-selection)
    '("G" . meow-grab)
    '("h" . meow-left)
@@ -406,15 +491,18 @@
    '("'" . repeat)
    '("<escape>" . ignore)))
 
+
 (use-package meow
   :ensure t
+  :after avy
   :config
   (meow-setup)
   (meow-global-mode 1))
 
 (use-package flycheck
   :ensure t
-  :init (global-flycheck-mode))
+  :init
+  (global-flycheck-mode))
 
 ;; (use-package flycheck-inline
 ;;   :ensure t
@@ -427,10 +515,11 @@
   (message "my/setup-lsp-mode called")
   (lsp-enable-which-key-integration)
   (lsp-diagnostics-mode 1)
-  (lsp-completion-mode 1)
+  ;; (lsp-completion-mode 1)
   ;; (when (lsp-feature? "textDocument/formatting")
   ;;  (setq my/format/buffer-function 'lsp-format-buffer))
   )
+
 (use-package lsp-mode
   :ensure t
   :commands lsp
@@ -438,16 +527,28 @@
   :custom
   (lsp-diagnostics-provider :flycheck)
   (lsp-enable-indentation t)
-  (lsp-signature-auto-activate t)
+  ;; (lsp-signature-auto-activate t)
   (lsp-enable-snippet t)
   (lsp-enable-xref t)
-  (lsp-log-io t)
+  (lsp-log-io nil)
   (lsp-enable-imenu t)
+  (lsp-semantic-tokens-enable nil)
   (read-process-output-max (* 1024 1024)) ;; 1mb
   (gc-cons-threshold (* 10 1024 1024))
   :hook
   (lsp-mode . my/setup-lsp-mode)
   :config
+  (setq lsp-clients-clangd-args '(
+				  "--all-scopes-completion"
+				  "--background-index"
+				  "--clang-tidy"
+				  "--completion-style=detailed"
+				  "--function-arg-placeholders"
+				  "--index"
+				  "-j=4"
+				  "--suggest-missing-includes"
+				  "--header-insertion=iwyu"
+				  "--header-insertion-decorators"))
   (defun lsp-booster--advice-json-parse (old-fn &rest args)
     "Try to parse bytecode instead of json."
     (or
@@ -463,7 +564,7 @@
               :around
               #'lsp-booster--advice-json-parse)
 
-  (defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
+(defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
     "Prepend emacs-lsp-booster command to lsp CMD."
     (let ((orig-result (funcall old-fn cmd test?)))
       (if (and (not test?)                             ;; for check lsp-server-present?
@@ -492,7 +593,17 @@
   :ensure t
   :mode "\\.nix\\'")
 
-(use-package ccls
+;; (use-package ccls
+;;   :custom
+;;   (setq ccls-sem-highlight-method nil)
+;;   :ensure t
+;;   )
+
+(use-package modern-cpp-font-lock
+ :ensure t
+ :hook (c++-mode . modern-c++-font-lock-mode))
+
+(use-package lsp-ui
   :ensure t)
 
 (use-package c
@@ -501,7 +612,8 @@
 
 (use-package cpp
   :ensure nil
-  :hook (c++-mode . lsp-deferred))
+  :hook (c++-mode . (lambda ()
+		      (lsp-deferred))))
 
 (use-package python-black
   :ensure t
@@ -511,6 +623,19 @@
 		   (define-key python-mode-map (kbd "C-c f b") 'python-black-buffer)
 		   (define-key python-mode-map (kbd "C-c f r") 'python-black-region))))
 
+
+(use-package rustic
+  :ensure t
+  :custom
+  (rustic-lsp-client 'lsp-mode))
+  
+
+;; (use-package flycheck-clang-tidy
+;;   :ensure t
+;;   :after flycheck lsp-mode
+;;   :hook ((flycheck-mode . flycheck-clang-tidy-setup)
+;; 	 (c-mode-common . (lambda () (flycheck-add-next-checker '
+
 ;; (use-package tree-sitter
 ;;   :ensure t
 ;;   :hook (tree-sitter-after-on-hook . tree-sitter-hl-mode)
@@ -518,3 +643,9 @@
 ;;   (global-tree-sitter-mode))
 ;; (use-package tree-sitter-langs
 ;;   :ensure t)
+
+
+(use-package editorconfig
+  :ensure t
+  :config
+  (editorconfig-mode 1))

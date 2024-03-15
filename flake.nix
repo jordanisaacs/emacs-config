@@ -81,7 +81,7 @@
     packages.x86_64-linux.default = self.packages.x86_64-linux.emacs;
 
     devShells.x86_64-linux.default = pkgs.mkShell {
-        buildInputs = [ emacs-boost pkgs.ccls pkgs.pyright pkgs.black pkgs.fd pkgs.ripgrep ];
+        buildInputs = [ emacs-boost pkgs.rustc pkgs.rust-analyzer pkgs.cargo pkgs.delta pkgs.ccls pkgs.pyright pkgs.black pkgs.fd pkgs.ripgrep ];
         shellHook = ''
             export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive";
         '';
