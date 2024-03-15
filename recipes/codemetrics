@@ -1,0 +1,1 @@
+(codemetrics :fetcher github :repo "emacs-vs/codemetrics")

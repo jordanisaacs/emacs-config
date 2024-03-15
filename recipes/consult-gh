@@ -1,0 +1,2 @@
+(consult-gh :fetcher github
+            :repo "armindarvish/consult-gh")
