@@ -30,6 +30,12 @@
 (setq display-line-numbers-current-absolute t)
 (global-display-line-numbers-mode)
 
+;; fill column
+
+(dolist (hook '(prog-mode-hook
+                text-mode-hook))
+  (add-hook hook #'display-fill-column-indicator-mode t))
+
 ;; Icons
 
 (use-package all-the-icons
@@ -89,9 +95,24 @@
 ;; recent file list
 (recentf-mode 1)
 
+;; Persist history
+(use-package savehist
+  :init
+  (savehist-mode))
+
 ;; Transient mark mode
 ;; https://emacsdocs.org/docs/emacs/Mark
 (transient-mark-mode 1)
+
+;; spell checking
+(use-package jinx
+  :ensure t
+  :hook ((prog-mode . jinx-mode)
+         (text-mode . jinx-mode)
+         (conf-mode . jinx-mode))
+  :bind (("M-$" . jinx-correct)
+         ("C-M-$" . jinx-languages))
+  )
 
 ;; TODO: org & switch init.el to org file
 (use-package org
@@ -122,8 +143,14 @@
 ;; rather than every time `eshell-mode' is enabled.
 (add-hook 'eshell-alias-load-hook 'eshell-load-bash-aliases)
 
-;; Window navigation
+;; Windows
 
+;; undo+redo window changes
+(use-package winner
+  :init
+  (winner-mode t))
+
+;; avy style winodw navigation + editing
 (use-package ace-window
   :ensure t
   :bind ("M-o" . ace-window))
@@ -158,15 +185,22 @@
   :ensure t
   :init
   (global-diff-hl-mode)
+  ;; (diff-hl-dired-mode)
   (diff-hl-margin-mode))
 
-;; Operate on buffer
+;; Operate on grep buffer
 
 (use-package wgrep
   :ensure t)
 
-;; builtin
+;; Dired
+
 (use-package wdired)
+
+(use-package diredfl
+  :ensure t
+  :init
+  (diredfl-global-mode))
 
 ;; Keymap Actions
 
@@ -598,8 +632,7 @@
 (defun my/setup-lsp-mode ()
   (message "my/setup-lsp-mode called")
   (lsp-enable-which-key-integration)
-  (lsp-diagnostics-mode 1)
-  ;; (lsp-completion-mode 1)
+  (lsp-diagnostics-mode t)
   ;; (when (lsp-feature? "textDocument/formatting")
   ;;  (setq my/format/buffer-function 'lsp-format-buffer))
   )
@@ -614,11 +647,15 @@
   (lsp-signature-auto-activate  t)
   (lsp-signature-render-documentation t)
   (lsp-diagnostics-provider :flycheck)
-  (lsp-enable-indentation t)
+  (lsp-enable-indentation nil) ;; disabled indentation
   (lsp-enable-snippet t)
   (lsp-enable-xref t)
   (lsp-enable-imenu t)
-  (lsp-semantic-tokens-enable nil)
+  (lsp-inlay-hint-enable t)
+  (lsp-enable-links t)
+  (lsp-lens-enable t)
+  (lsp-semantic-tokens-enable t)
+  (lsp-enable-semantic-highlighting t)
   (read-process-output-max (* 1024 1024)) ;; 1mb
   (gc-cons-threshold (* 10 1024 1024))
   (lsp-log-io nil)
@@ -667,6 +704,9 @@
   :hook (python-mode . (lambda ()
                          (require 'lsp-pyright)
                          (lsp-deferred))))
+
+(use-package python-pytest
+  :ensure t)
 
 ;; (use-package python-black
 ;;   :ensure t
@@ -730,7 +770,7 @@
   :config
   (editorconfig-mode t))
 
-;; memsql
+;; singlestore
 (setq-default compile-command "memsql-please make debug --skip-binplace memsql-server") ; set default command for M-x compile
 (setq-default gdb-create-source-file-list nil)  ; gdb initialization takes a long time without this
 (setq-default word-wrap t)                      ; wrap long lines at word boundaries for better readability
