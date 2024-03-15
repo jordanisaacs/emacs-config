@@ -68,6 +68,10 @@
 
 ;; TODO: autosave
 
+;; Repeat mode
+
+(repeat-mode t)
+
 ;; Tabs
 (setq-default indent-tabs-mode nil)
 
@@ -124,14 +128,16 @@
   :init
   (org-mode))
 
+;; nested markup
+;; https://list.orgmode.org/87zgrq5wi8.fsf@localhost/t/#mf75fdf28957e4c7df397bf7911099082a9d7eafd
+
 (add-hook 'org-mode-hook
           (lambda ()
             (add-hook 'after-save-hook #'org-babel-tangle
                       :append :local)))
 
-;; Bash aliases from https://emacs.stackexchange.com/questions/74385/is-there-any-way-of-making-eshell-aliases-using-bash-and-zsh-aliases-syntax
-
-;; TODO: currently broken need to investigate
+;; Bash aliases from
+;; https://emacs.stackexchange.com/questions/74385/is-there-any-way-of-making-eshell-aliases-using-bash-and-zsh-aliases-syntax
 (defun eshell-load-bash-aliases ()
   "Read Bash aliases and add them to the list of eshell aliases."
   ;; Bash needs to be run - temporarily - interactively
@@ -199,6 +205,9 @@
   :ensure t)
 
 ;; diff highlighting
+
+;; TODO: don't use margin mode, instead hack fringe ala doom
+;; https://github.com/doomemacs/doomemacs/blob/98d753e1036f76551ccaa61f5c810782cda3b48a/modules/ui/vc-gutter/config.el#L34
 (use-package diff-hl
   :ensure t
   :init
@@ -513,6 +522,33 @@
   :config
   (avy-setup-default))
 
+;; In order for the bindings in this prefix to remain active until you
+;; press ESC (or some other key not bound under the prefix), you must
+;; have `repeat-mode' enabled.
+;; https://github.com/meow-edit/meow/discussions/368#discussioncomment-4219587
+(defvar my-view-prefix)
+(define-prefix-command 'my-view-prefix)
+(define-key mode-specific-map (kbd "v") 'my-view-prefix)
+(defvar my-view-rep-map (make-sparse-keymap))
+(dolist (kb '(("@"    . View-back-to-mark)
+              ("%"    . View-goto-percent)
+              ("G"    . View-goto-line-last)
+              ("g"    . View-goto-line)
+              ("F"    . View-revert-buffer-scroll-page-forward)
+              ("k"    . View-scroll-line-backward)
+              ("j"    . View-scroll-line-forward)
+              ("u"    . View-scroll-half-page-backward)
+              ("d"    . View-scroll-half-page-forward)
+              ("z"    . View-scroll-page-forward-set-page-size)
+              ("w"    . View-scroll-page-backward-set-page-size)
+              ("b"    . View-scroll-page-backward)
+              ("f"    . View-scroll-page-forward)
+              ("o"    . View-scroll-to-buffer-end)))
+  (define-key my-view-prefix (kbd (car kb)) (cdr kb))
+  (define-key my-view-rep-map (kbd (car kb)) (cdr kb))
+  (put (cdr kb) 'repeat-map my-view-rep-map)
+  (autoload (cdr kb) "view" nil 'interactive))
+
 (defvar meow--last-avy-char)
 
 (defun meow-avy-goto-char (char &optional arg expand)
@@ -764,7 +800,8 @@
 ;; Nix
 (use-package nix-mode
   :ensure t
-  :mode "\\.nix\\'")
+  :mode "\\.nix\\'"
+  :hook (nix-mode . (lambda () (lsp-deferred)))
 
 ;; C/C++
 (use-package c
@@ -794,6 +831,9 @@
   :ensure t
   :custom
   (rustic-lsp-client 'lsp-mode))
+
+(use-package sh-script
+  :hook (sh-mode . (lambda () (lsp-deferred))))
 
 ;; TODO: treesitter
 
