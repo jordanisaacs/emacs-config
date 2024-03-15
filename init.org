@@ -1,7 +1,6 @@
 #+TITLE: Emacs Config
 #+AUTHOR: Jordan Isaacs
 
-
 * early-init.el
 
 #+begin_src emacs-lisp :tangle early-init.el
@@ -9,7 +8,6 @@
 #+end_src
 
 ** Startup
-
 Time the startup
 
 #+begin_src emacs-lisp :tangle early-init.el
@@ -155,6 +153,8 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
 ;;; -*- lexical-binding: t; -*-
 #+end_src
 
+UNDONE: test
+
 #+begin_src emacs-lisp :tangle init.el
 (eval-and-compile
   (when (getenv "DEBUG") (setq init-file-debug t))
@@ -171,7 +171,6 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
 
 (if init-file-debug
     (progn
-      (message "DEBUGGING...")
       (setq use-package-verbose t
             use-package-expand-minimally nil
             use-package-compute-statistics t
@@ -180,7 +179,6 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
         use-package-expand-minimally t))
 
 
-(message "LOADING...")
 (require 'cl-lib)
 (require 'cl-extra)
 
@@ -259,14 +257,14 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
 ;; Todo highlighting
 (use-package hl-todo
   :ensure t
-  :commands global-hl-todo-mode
-  :preface
-  (defvar hl-todo-keyword-faces nil)
-  :init
-  (global-hl-todo-mode))
+  :custom
+  (hl-todo-highlight-punctuation ":")
+  (hl-todo-keyword-faces nil)
+  :hook
+  (prog-mode-hook . hl-todo-mode)
+  (text-mode-hook . hl-todo-mode))
 
-
-;; themes
+;; TODO: test
 (use-package modus-themes
   :ensure t
   :after hl-todo
@@ -274,13 +272,15 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
   :preface
   (autoload 'modus-themes--retrieve-palette-value "modus-themes")
   (autoload 'modus-themes--current-theme-palette "modus-themes")
-  ;; (defun modus-theme-hl-undone ()
-  ;;   (modus-themes-with-colors
-  ;;     (defvar err)
-  ;;     (add-to-list 'hl-todo-keyword-faces (cons "UNDONE" err))))
-  :hook
-  (modus-themes-after-load-theme-hook #'modus-themes-hl-undone)
+  (defun modus-themes-modify ()
+    (modus-themes-with-colors
+      (custom-set-faces
+       `(diff-hl-change ((,c :foreground ,bg-changed-fringe)))
+       `(diff-hl-delete ((,c :foreground ,bg-removed-fringe)))
+       `(diff-hl-insert ((,c :foreground ,bg-added-fringe))))
+      (add-to-list 'hl-todo-keyword-faces (cons "UNDONE" err))))
   :init
+  (add-hook 'modus-themes-after-load-theme-hook #'modus-themes-modify)
   (modus-themes-load-theme 'modus-operandi))
 
 
@@ -313,11 +313,11 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
          ("C-M-$" . jinx-languages))
   )
 
-#+end_src
+#+END_SRC
 
 ** Org mode
 
-#+begin_src emacs-lisp :tangle init.el
+#+BEGIN_SRC emacs-lisp :tangle init.el
 (use-package org
   :ensure t
   :custom
@@ -419,18 +419,16 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
 
 ;; diff highlighting
 
-;; TODO: don't use margin mode, instead hack fringe ala doom
 ;; https://github.com/doomemacs/doomemacs/blob/98d753e1036f76551ccaa61f5c810782cda3b48a/modules/ui/vc-gutter/config.el#L34
 (use-package diff-hl
   :ensure t
   :commands diff-hl-stage-current-hunk diff-hl-revert-hunk diff-hl-next-hunk diff-hl-previous-hunk
-  ;; :custom
-  ;; (vc-git-diff-switches '("--histogram"))
+  :custom
+  (vc-git-diff-switches '("--histogram"))
   :preface
   (defun diff-hl-define-thin-bitmaps (&rest _)
-    (message "setting diff-hl bitmaps")
-    (define-fringe-bitmap 'diff-hl-bmp-middle [224] nil nil '(center repeated))
-    (define-fringe-bitmap 'diff-hl-bmp-delete [240 224 192 128] nil nil 'top))
+    (define-fringe-bitmap 'diff-hl-bmp-middle [240] nil nil '(center repeated))
+    (define-fringe-bitmap 'diff-hl-bmp-delete [240 240 224 224 192 192 128 128] nil nil 'top))
   (defun diff-hl-type-face-fn (type _pos)
     (intern (format "diff-hl-%s" type)))
   (defun diff-hl-type-at-pos-fn (type _pos)
@@ -952,14 +950,17 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
 (use-package flycheck
   :ensure t
   :commands flycheck-list-errors flycheck-buffer
+  :functions flycheck-redefine-standard-error-levels
   :custom
   (flycheck-indication-mode 'right-fringe)
   (flycheck-display-errors delay 0.25)
   (flycheck-idle-change-delay 1.0)
   :hook
   (first-buffer-hook . global-flycheck-mode)
+  :config
+  (flycheck-redefine-standard-error-levels nil 'my-flycheck-fringe-bitmap-arrow)
   :init
-  (define-fringe-bitmap 'flycheck-fringe-bitmap-double-arrow [16 48 112 240 112 48 16] nil nil 'center))
+  (define-fringe-bitmap 'my-flycheck-fringe-bitmap-arrow [16 48 112 240 112 48 16] nil nil 'center))
 
 ;; (use-package flycheck-inline
 ;;   :ensure t
@@ -1054,7 +1055,6 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
 (use-package lsp-pyright
   :ensure t
   :hook (python-mode-hook . (lambda ()
-                         (debug)
                          (require 'lsp-pyright)
                          (lsp-deferred))))
 
@@ -1190,7 +1190,7 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
 ;; (envrc-global-mode-hook . direnv-init-global-mode-earlier))
 
 ;; singlestore
-(setq-default compile-command "memsql-please make debug --skip-binplace memsql-server") ; set default command for M-x compile
+(setq-default compile-command "memsql-please make debug") ; set default command for M-x compile
 (setq-default gdb-create-source-file-list nil)  ; gdb initialization takes a long time without this
 (setq-default word-wrap t)                      ; wrap long lines at word boundaries for better readability
 
