@@ -4,6 +4,9 @@
 (eval-when-compile
 ;; #+begin_src elisp :tangle
   (require 'use-package))
+
+(add-hook 'before-save-hook #'delete-trailing-whitespace)
+
 ;; #+end_src;; Main typeface
 (set-face-attribute 'default nil :family "Monaspace Neon")
 ;; #+begin_src elisp :tangle :noweb-ref Ensure installed
@@ -15,6 +18,7 @@
   :ensure t
   :init
   (org-mode))
+
 (use-package modus-themes
   :ensure t
   :config
@@ -22,6 +26,7 @@
   (load-theme 'modus-vivendi))
 
 (tool-bar-mode -1)
+(menu-bar-mode -1)
 
 (use-package bind-key
   :ensure t)
@@ -56,9 +61,9 @@
    :config
    (which-key-mode))
 
+
 (use-package corfu
   :ensure t
-  :hook (lsp-completion-mode . my/corfu-setup-lsp) ; use corfu for lsp 
   :custom
   (corfu-cycle t)
   (corfu-preselect 'prompt)
@@ -70,7 +75,7 @@
   (corfu-scroll-margin 4)
   (corfu-echo-mode nil) ; Using corfu-popupinfo
   (lsp-completion-provider :none) ; use corfu intsead for lsp completion
-    :bind
+  :bind
   (:map corfu-map ;; use TAB for cycling, default is `corfu-complete`
 	("TAB" . corfu-next)
 	([tab] . corfu-next)
@@ -85,7 +90,16 @@
     "Use orderless completion style with lsp-capf intsead of the default lsp-passthrough."
     (setf (alist-get 'styles (alist-get 'lsp-capf completion-category-defaults))
 	  '(orderless)))
-
+    ;; https://old.reddit.com/r/emacs/comments/u8szz6/help_me_get_c_tab_completion_working/
+    (with-eval-after-load 'cc-mode
+      (defun c-indent-then-complete ()
+	(interactive)
+	(if (= 0 (c-indent-line-or-region))
+	    (completion-at-point)))
+      (when (equal tab-always-indent 'complete)
+	(dolist (map (list c-mode-map c++-mode-map))
+	  (define-key map (kbd "<tab>") #'c-indent-then-complete))))
+    :hook (lsp-completion-mode . my/corfu-setup-lsp) ;; use corfu for lsp
     )
 
 (use-package corfu-popupinfo
@@ -93,7 +107,7 @@
   :ensure nil
   :custom
   (corfu-popupinfo-delay '(0.2 . 1.0))
-    :init
+  :init
   (corfu-popupinfo-mode))
 
 (use-package kind-icon
@@ -118,6 +132,31 @@
   :hook (marginalia-mode . all-the-icons-completion-marginalia-setup)
   :init
   (all-the-icons-completion-mode))
+
+(use-package tempel
+  :ensure t
+  :hook
+  (conf-mode . tempel-setup-capf)
+  (prog-mode . tempel-setup-capf)
+  (text-mode . tempel-setup-capf)
+  :init
+  (defun tempel-setup-capf ()
+    ;; Add the Tempel Capf to `completion-at-point-functions`
+    (setq-local completion-at-point-functions
+		(cons #'tempel-expand
+		      completion-at-point-functions))))
+
+(use-package lsp-snippet-tempel
+  ;; Installed through nix flake as git repo
+  :after lsp-mode
+  :config
+  (when (featurep 'lsp-mode)
+    (lsp-snippet-tempel-lsp-mode-init))
+  (when (featurep 'eglot)
+    (lsp-snippet-tempel-eglot-init))
+  )
+
+
 
 (use-package vertico
   :ensure t
@@ -231,7 +270,7 @@
   ;; (setq consult-project-function (lambda (_) (projectile-project-root)))
   ;;;; 5. No project support
   ;; (setq consult-project-function nil)
-)
+  )
 
 (use-package orderless
   :ensure t
@@ -268,7 +307,7 @@
   (add-to-list 'completion-at-point-functions #'cape-file)
   :ensure t
   :config
-    ;; https://old.reddit.com/r/emacs/comments/19b8a83/capefile_fails_when_called_as_a_capf_but_works/
+  ;; https://old.reddit.com/r/emacs/comments/19b8a83/capefile_fails_when_called_as_a_capf_but_works/
   (setq cape-file-directory-must-exit nil))
 
 (setq completion-cycle-threshold nil)
@@ -367,33 +406,20 @@
    '("'" . repeat)
    '("<escape>" . ignore)))
 
-   (use-package meow
-   :ensure t
-   :config
-   (meow-setup)
-   (meow-global-mode 1))
+(use-package meow
+  :ensure t
+  :config
+  (meow-setup)
+  (meow-global-mode 1))
 
 (use-package flycheck
   :ensure t
   :init (global-flycheck-mode))
 
-(use-package flycheck-inline
-  :ensure t
-  :after flycheck
-  :init (global-flycheck-inline-mode))
-
-(use-package cpp
-  :ensure nil
-  :after lsp
-  :hook (c++-.mode . lsp-deferred))
-
-(use-package python-black
-  :ensure t
-  :after python
-  :hook (python-mode . python-black-on-save-mode-enable-dwim)
-  (python-mode . (lambda ()
-		   (define-key python-mode-map (kbd "C-c f b") 'python-black-buffer)
-		   (define-key python-mode-map (kbd "C-c f r") 'python-black-region))))
+;; (use-package flycheck-inline
+;;   :ensure t
+;;   :after flycheck
+;;   :init (global-flycheck-inline-mode))
 
 (setq lsp-keymap-prefix "C-c l")
 
@@ -419,52 +445,72 @@
   (lsp-enable-imenu t)
   (read-process-output-max (* 1024 1024)) ;; 1mb
   (gc-cons-threshold (* 10 1024 1024))
-   :hook
-   (lsp-mode . my/setup-lsp-mode)
-   :config
-      (defun lsp-booster--advice-json-parse (old-fn &rest args)
-      "Try to parse bytecode instead of json."
-      (or
-       (when (equal (following-char) ?#)
-         (let ((bytecode (read (current-buffer))))
-           (when (byte-code-function-p bytecode)
-             (funcall bytecode))))
-       (apply old-fn args)))
-      (advice-add (if (progn (require 'json)
-                 (fboundp 'json-parse-buffer))
-                      'json-parse-buffer
-            'json-read)
-                  :around
-                  #'lsp-booster--advice-json-parse)
+  :hook
+  (lsp-mode . my/setup-lsp-mode)
+  :config
+  (defun lsp-booster--advice-json-parse (old-fn &rest args)
+    "Try to parse bytecode instead of json."
+    (or
+     (when (equal (following-char) ?#)
+       (let ((bytecode (read (current-buffer))))
+         (when (byte-code-function-p bytecode)
+           (funcall bytecode))))
+     (apply old-fn args)))
+  (advice-add (if (progn (require 'json)
+			 (fboundp 'json-parse-buffer))
+                  'json-parse-buffer
+		'json-read)
+              :around
+              #'lsp-booster--advice-json-parse)
 
-    (defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
-      "Prepend emacs-lsp-booster command to lsp CMD."
-      (let ((orig-result (funcall old-fn cmd test?)))
-        (if (and (not test?)                             ;; for check lsp-server-present?
-                 (not (file-remote-p default-directory)) ;; see lsp-resolve-final-command, it would add extra shell wrapper
-                 lsp-use-plists
-                 (not (functionp 'json-rpc-connection))  ;; native json-rpc
-                 (executable-find "emacs-lsp-booster"))
-            (progn
-              (message "Using emacs-lsp-booster for %s!" orig-result)
-              (cons "emacs-lsp-booster" orig-result))
-          orig-result)))
-    (advice-add 'lsp-resolve-final-command :around #'lsp-booster--advice-final-command)
-   :commands (lsp lsp-deferred))
+  (defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
+    "Prepend emacs-lsp-booster command to lsp CMD."
+    (let ((orig-result (funcall old-fn cmd test?)))
+      (if (and (not test?)                             ;; for check lsp-server-present?
+               (not (file-remote-p default-directory)) ;; see lsp-resolve-final-command, it would add extra shell wrapper
+               lsp-use-plists
+               (not (functionp 'json-rpc-connection))  ;; native json-rpc
+               (executable-find "emacs-lsp-booster"))
+          (progn
+            (message "Using emacs-lsp-booster for %s!" orig-result)
+            (cons "emacs-lsp-booster" orig-result))
+        orig-result)))
+  (advice-add 'lsp-resolve-final-command :around #'lsp-booster--advice-final-command)
+  :commands (lsp lsp-deferred))
 
-(use-package lsp-ui
-  :ensure t
-)
+;; (use-package lsp-ui
+;;   :ensure t
+;; )
 
 (use-package lsp-pyright
   :ensure t
   :hook (python-mode . (lambda ()
 			 (require 'lsp-pyright)
-			 (lsp))))
+			 (lsp-deferred))))
 
 (use-package nix-mode
   :ensure t
   :mode "\\.nix\\'")
+
+(use-package ccls
+  :ensure t)
+
+(use-package c
+  :ensure nil
+  :hook (c-mode . lsp-deferred))
+
+(use-package cpp
+  :ensure nil
+  :hook (c++-mode . lsp-deferred))
+
+(use-package python-black
+  :ensure t
+  :after python
+  :hook (python-mode . python-black-on-save-mode-enable-dwim)
+  (python-mode . (lambda ()
+		   (define-key python-mode-map (kbd "C-c f b") 'python-black-buffer)
+		   (define-key python-mode-map (kbd "C-c f r") 'python-black-region))))
+
 ;; (use-package tree-sitter
 ;;   :ensure t
 ;;   :hook (tree-sitter-after-on-hook . tree-sitter-hl-mode)

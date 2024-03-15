@@ -79,6 +79,22 @@
         "type": "github"
       }
     },
+    "lsp-snippet": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1705348763,
+        "narHash": "sha256-AKML6VSqKdjouQseOwxmW5OvSramC1gCu/BjwNh8D/8=",
+        "owner": "svaante",
+        "repo": "lsp-snippet",
+        "rev": "89589f7f5fdbb78ed18bcfc9e70a6c719649af0a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "svaante",
+        "repo": "lsp-snippet",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1705697961,
@@ -113,6 +129,7 @@
       "inputs": {
         "emacs-lsp-booster": "emacs-lsp-booster",
         "emacs-overlay": "emacs-overlay",
+        "lsp-snippet": "lsp-snippet",
         "nixpkgs": "nixpkgs"
       }
     },

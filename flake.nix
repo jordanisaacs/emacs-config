@@ -6,10 +6,12 @@
     emacs-overlay.inputs.nixpkgs.follows = "nixpkgs";
     emacs-lsp-booster.url = "github:slotThe/emacs-lsp-booster-flake";
     emacs-lsp-booster.inputs.nixpkgs.follows = "nixpkgs";
+    lsp-snippet.url = "github:svaante/lsp-snippet";
+    lsp-snippet.flake = false;
   };
 
 
-  outputs = { self, nixpkgs, emacs-overlay, emacs-lsp-booster }:
+  outputs = { self, nixpkgs, emacs-overlay, emacs-lsp-booster, lsp-snippet }:
   let
       pkgs = import nixpkgs {
       overlays = [(import emacs-overlay) emacs-lsp-booster.overlays.default];
@@ -28,6 +30,9 @@
           lsp-mode = prev.melpaPackages.lsp-mode.overrideAttrs(old: {
              LSP_USE_PLISTS = true;
           });
+          ccls = prev.melpaPackages.ccls.overrideAttrs(old: {
+            LSP_USE_PLISTS = true;
+          });
         };
         extraEmacsPackages = epkgs: [ (epkgs.treesit-grammars.with-grammars (grammars:
         with grammars; [
@@ -42,7 +47,19 @@
             tree-sitter-org-nvim
             tree-sitter-markdown
             tree-sitter-zig
-        ])) ];
+        ])) (epkgs.trivialBuild rec {
+          pname = "lsp-snippet";
+          version = "main-1-22-24";
+          src = lsp-snippet;
+          preBuild = ''
+             rm lsp-snippet-yasnippet.el
+          '';
+          propagatedUserEnvPkgs = [
+            epkgs.tempel
+          ];
+          buildInputs = propagatedUserEnvPkgs;
+        })
+                                    ];
       });
 
 
@@ -59,10 +76,12 @@
         };
   in
   {
-    packages.x86_64-linux.emacs = pkgs.emacs;
+    packages.x86_64-linux.emacs = emacs-boost;
 
-    packages.x86_64-linux.default = pkgs.mkShell {
-        buildInputs = [ emacs-boost pkgs.ripgrep pkgs.fd pkgs.pyright pkgs.ruff pkgs.black ];
+    packages.x86_64-linux.default = self.packages.x86_64-linux.emacs;
+
+    devShells.x86_64-linux.default = pkgs.mkShell {
+        buildInputs = [ emacs-boost pkgs.ccls pkgs.pyright pkgs.black pkgs.fd pkgs.ripgrep ];
         shellHook = ''
             export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive";
         '';
