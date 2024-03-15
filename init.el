@@ -5,10 +5,6 @@
 
 (use-package bind-key
   :ensure t)
-;; Test
-;; test
-;; test
-
 
 (use-package blackout
   :ensure t)

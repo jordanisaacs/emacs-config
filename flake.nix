@@ -6,6 +6,7 @@
     emacs-overlay.inputs.nixpkgs.follows = "nixpkgs";
     emacs-lsp-booster.url = "github:slotThe/emacs-lsp-booster-flake";
     emacs-lsp-booster.inputs.nixpkgs.follows = "nixpkgs";
+    nixpkgs.url = "nixpkgs/nixpkgs-unstable";
     lsp-snippet.url = "github:svaante/lsp-snippet";
     lsp-snippet.flake = false;
   };
@@ -19,7 +20,7 @@
       };
 
       my-emacs = (pkgs.emacsWithPackagesFromUsePackage {
-        package = pkgs.emacs-pgtk;
+        package = pkgs.emacs-gtk;
         #   pkgs.emacs-pgtk.overrideAttrs (old: {
         #   configureFlags = old.configureFlags ++ ["--with-json=no"];
         # });
