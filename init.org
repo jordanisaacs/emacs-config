@@ -1,3 +1,4 @@
+#
 #+TITLE: Emacs Config
 #+AUTHOR: Jordan Isaacs
 
@@ -335,6 +336,10 @@ UNDONE: test
     (require 'em-term))
   (autoload 'eshell-write-aliases-list "em-alias")
   (autoload 'eshell/alias "em-alias")
+  (autoload 'eshell-find-previous-directory "em-dirs")
+  (autoload 'eshell/cd "em-dirs")
+  (autoload 'ring-elements "ring")
+
   ;; Bash aliases from
   ;; https://emacs.stackexchange.com/questions/74385/is-there-any-way-of-making-eshell-aliases-using-bash-and-zsh-aliases-syntax
   (defun eshell-load-bash-aliases ()
@@ -348,13 +353,39 @@ UNDONE: test
         (while (re-search-forward "alias \\(.+\\)='\\(.+\\)'$" nil t)
           (eshell/alias (match-string 1) (format "%s $*" (match-string 2)))))
       (eshell-write-aliases-list)))
+
+  ;; from https://karthinks.com/software/jumping-directories-in-eshell/
+  (defvar consult-dir-sources)
+  (defvar eshell-last-dir-ring)
+
   (defun init-eshell-set-visual-commands ()
     (setq eshell-visual-commands (append '("nix" "psy") eshell-visual-commands)))
   :hook
   (eshell-mode-hook . init-eshell-set-visual-commands)
   ;; We only want Bash aliases to be loaded when Eshell loads its own aliases,
   ;; rather than every time `eshell-mode' is enabled.
-  (eshell-alias-load-hook . eshell-load-bash-aliases))
+  (eshell-alias-load-hook . eshell-load-bash-aliases)
+  :config
+  (defun eshell/z (&optional regexp)
+    "Navigate to a previously visited directory in eshell, or to
+any directory proferred by `consult-dir'."
+    (let ((eshell-dirs (delete-dups
+                        (mapcar 'abbreviate-file-name
+                                (ring-elements eshell-last-dir-ring)))))
+      (require 'consult-dir nil 'noerror)
+      (cond
+       ((and (not regexp) (featurep 'consult-dir))
+        (let* ((consult-dir--source-eshell `(:name "Eshell"
+                                             :narrow ?e
+                                             :category file
+                                             :face consult-file
+                                             :items ,eshell-dirs))
+               (consult-dir-sources (cons consult-dir--source-eshell
+                                          consult-dir-sources)))
+          (eshell/cd (substring-no-properties
+                      (consult-dir--pick "Switch directory: ")))))
+       (t (eshell/cd (if regexp (eshell-find-previous-directory regexp)
+                            (completing-read "cd: " eshell-dirs))))))))
 
 
 ;; Windows
@@ -644,6 +675,7 @@ UNDONE: test
 ;; Example configuration for Consult
 (use-package consult
   :ensure t
+  :defer 2
   :preface
   (autoload 'consult-xref "consult-xref")
   :functions consult-register-window consult-register-format
@@ -658,6 +690,7 @@ UNDONE: test
          ;; C-x bindings in `ctl-x-map'
          ("C-x M-:" . consult-complex-command)     ;; orig. repeat-complex-command
          ("C-x b" . consult-buffer)                ;; orig. switch-to-buffer
+         ("C-x C-d" . consult-dir)
          ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
          ("C-x 5 b" . consult-buffer-other-frame)  ;; orig. switch-to-buffer-other-frame
          ("C-x t b" . consult-buffer-other-tab)    ;; orig. switch-to-buffer-other-tab
@@ -701,6 +734,8 @@ UNDONE: test
          ("M-s L" . consult-line-multi)            ;; needed by consult-line to detect isearch
          ;; Minibuffer history
          :map minibuffer-local-map
+         ("C-x C-d" . consult-dir)
+         ("C-x C-j" . consult-dir-jump-file)
          ("M-s" . consult-history)                 ;; orig. next-matching-history-element
          ("M-r" . consult-history))                ;; orig. previous-matching-history-element
   ;; The :init configuration is always executed (Not lazy)
@@ -751,6 +786,11 @@ UNDONE: test
   :ensure t
   :custom
   :after (consult flycheck))
+
+(use-package consult-dir
+  :ensure t
+  :functions consult-dir--pick
+  :after consult)
 
 ;; Text Motions
 
@@ -1061,14 +1101,6 @@ UNDONE: test
 (use-package python-pytest
   :ensure t)
 
-;; (use-package python-black
-;;   :ensure t
-;;   :after python
-;;   :hook (python-mode . python-black-on-save-mode-enable-dwim)
-;;   (python-mode . (lambda ()
-;;                 (define-key python-mode-map (kbd "C-c f b") 'python-black-buffer)
-;;                 (define-key python-mode-map (kbd "C-c f r") 'python-black-region))))
-
 ;; Nix
 (use-package nix-mode
   :ensure t
@@ -1097,8 +1129,6 @@ UNDONE: test
   :hook (c++-mode-hook . modern-c++-font-lock-mode))
 
 ;; Go
-
-;; Move to aphaelia
 
 (use-package go-mode
   :ensure t
@@ -1144,15 +1174,21 @@ UNDONE: test
 (use-package apheleia
   :ensure t
   :hook ((go-mode-hook . apheleia-mode)
-         (python-mode-hook . apheleia-mode))
-  :blackout " Fmt")
+         (python-mode-hook . apheleia-mode)
+         (sh-mode-hook . apheleia-mode))
+  :blackout " Fmt"
+  :config
+  (setf (alist-get 'python-mode apheleia-mode-alist) '(ruff)))
 
-;; (use-package devdocs
-;;  :ensure t)
+(use-package devdocs
+  :ensure t
+  :demand t
+  :config
+  (message "loaded devdocs"))
 
 (use-package tldr
   :ensure t
-  :commands (tldr tldr-update-docs))
+  :defer t)
 
 ;; direnv variables
 

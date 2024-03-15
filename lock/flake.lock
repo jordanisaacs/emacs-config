@@ -208,6 +208,22 @@
         "type": "github"
       }
     },
+    "consult-dir": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1692502887,
+        "narHash": "sha256-NtKdGcvZxWVBG2129ivx0NzwsKCJ1hAW2zr7JUYbBKI=",
+        "owner": "karthink",
+        "repo": "consult-dir",
+        "rev": "3f5f4b71ebe819392cb090cda71bd39a93bd830a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "karthink",
+        "repo": "consult-dir",
+        "type": "github"
+      }
+    },
     "consult-flycheck": {
       "flake": false,
       "locked": {
@@ -285,6 +301,22 @@
       "original": {
         "owner": "magnars",
         "repo": "dash.el",
+        "type": "github"
+      }
+    },
+    "devdocs": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1701111945,
+        "narHash": "sha256-LQwpaEEse+lynjPmFXu0kegUIauuQDoVy37KdWeLxxE=",
+        "owner": "astoff",
+        "repo": "devdocs.el",
+        "rev": "f0436bc0e2077683438e838acdfc425337898175",
+        "type": "github"
+      },
+      "original": {
+        "owner": "astoff",
+        "repo": "devdocs.el",
         "type": "github"
       }
     },
@@ -880,11 +912,13 @@
         "cape": "cape",
         "compat": "compat",
         "consult": "consult",
+        "consult-dir": "consult-dir",
         "consult-flycheck": "consult-flycheck",
         "consult-lsp": "consult-lsp",
         "consult-todo": "consult-todo",
         "corfu": "corfu",
         "dash": "dash",
+        "devdocs": "devdocs",
         "diff-hl": "diff-hl",
         "diredfl": "diredfl",
         "editorconfig": "editorconfig",

@@ -80,6 +80,12 @@
       repo = "consult";
       type = "github";
     };
+    consult-dir = {
+      flake = false;
+      owner = "karthink";
+      repo = "consult-dir";
+      type = "github";
+    };
     consult-flycheck = {
       flake = false;
       owner = "minad";
@@ -108,6 +114,12 @@
       flake = false;
       owner = "magnars";
       repo = "dash.el";
+      type = "github";
+    };
+    devdocs = {
+      flake = false;
+      owner = "astoff";
+      repo = "devdocs.el";
       type = "github";
     };
     diff-hl = {
