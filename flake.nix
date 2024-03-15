@@ -19,9 +19,10 @@
       };
 
       my-emacs = (pkgs.emacsWithPackagesFromUsePackage {
-        package = pkgs.emacs-pgtk.overrideAttrs (old: {
-          configureFlags = old.configureFlags ++ ["--with-json=no"];
-        });
+        package = pkgs.emacs-pgtk;
+        #   pkgs.emacs-pgtk.overrideAttrs (old: {
+        #   configureFlags = old.configureFlags ++ ["--with-json=no"];
+        # });
         config = ./init.el;
         defaultInitFile = true;
         alwaysEnsure = false;

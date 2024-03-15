@@ -1,6 +1,3 @@
-;; #+property: header-args :tangle
-;;   (concat (file-name-sans-extension (buffer-file-name)) ".el")
-;;
 (eval-when-compile
   (require 'use-package))
 
@@ -8,8 +5,13 @@
 
 (use-package bind-key
   :ensure t)
+;; Test
+;; test
+;; test
 
-;; font
+
+(use-package blackout
+  :ensure t)
 
 ;; TODO: monaspace neon is missing the o symbol, so when we get fallback font in the
 ;; minibuffer it is slightly the wrong size and causes prompt to move
@@ -63,6 +65,12 @@
   :init
   (global-whitespace-cleanup-mode))
 
+;; Backups
+
+;; TODO: backup on save versioned
+(setq backup-directory-alist '(("." . "~/.emacs.d/backup/per-save")))
+
+;; TODO: autosave
 
 ;; Tabs
 (setq-default indent-tabs-mode nil)
@@ -121,8 +129,9 @@
   (org-mode))
 
 (add-hook 'org-mode-hook
-          (lambda () (add-hook 'after-save-hook #'org-babel-tangle
-                               :append :local)))
+          (lambda ()
+            (add-hook 'after-save-hook #'org-babel-tangle
+                      :append :local)))
 
 ;; Bash aliases from https://emacs.stackexchange.com/questions/74385/is-there-any-way-of-making-eshell-aliases-using-bash-and-zsh-aliases-syntax
 
@@ -136,7 +145,7 @@
     (goto-char (point-min))
     (cl-letf (((symbol-function 'eshell-write-aliases-list) #'ignore))
       (while (re-search-forward "alias \\(.+\\)='\\(.+\\)'$" nil t)
-        (eshell/alias (match-string 1) (match-string 2))))
+        (eshell/alias (match-string 1) (format "%s $*" (match-string 2)))))
     (eshell-write-aliases-list)))
 
 ;; We only want Bash aliases to be loaded when Eshell loads its own aliases,
@@ -165,11 +174,24 @@
 (use-package which-key
    :ensure t
    :config
-   (which-key-mode))
+   (which-key-mode)
+   :blackout)
 
 ;; Git
 
 (use-package git-timemachine
+  :ensure t)
+
+;; Forges
+
+;; (use-package consult-gh
+;;   ;; Installed via flake
+;;   :after consult
+
+;; (use-package forge
+;;  :after magit)
+
+(use-package browse-at-remote
   :ensure t)
 
 ;; Magit
@@ -495,25 +517,52 @@
   :config
   (avy-setup-default))
 
-(defun my/meow-avy-goto-char (&optional expand)
+(defvar meow--last-avy-char)
+
+(defun meow-avy-goto-char (char &optional arg expand)
   "Goto using avy"
-  (interactive)
+  (interactive (list (read-char "goto: " t)
+                     current-prefix-arg))
   (let* ((beg (point))
          (end (save-mark-and-excursion
-                    (call-interactively 'avy-goto-char)
-                    (point))))
+                (avy-goto-char char arg)
+                (point))))
     (thread-first
       (meow--make-selection '(select . avy)
-                            beg
-                            end
-                            expand)
-      (meow--select))))
+                            beg end expand)
+      (meow--select)))
+    (setq meow--last-avy-char char))
 
-(defun my/meow-avy-goto-char-expand ()
+(defun meow-avy-goto-char-expand (char &optional arg)
   "Goto using avy expand"
-  (interactive)
-  (my/meow-avy-goto-char t))
+  (interactive (list (read-char "Expand goto: " t)
+                     current-prefix-arg))
+  (meow-avy-goto-char char arg t))
 
+(defun meow--add-beacons-for-avy ()
+  "Add beacon for avy movement"
+  (let ((ch-str (if (eq meow--last-avy-char 13)
+                    "\n"
+                  (char-to-string meow--last-avy-char))))
+    (save-restriction
+      (meow--narrow-secondary-selection)
+      (let ((orig (point))
+            (case-fold-search t))
+        (save-mark-and-excursion
+          (goto-char (point-max))
+          (while (search-backward ch-str nil t)
+            (unless (= (point) orig)
+              (meow--beacon-add-overlay-at-point (point)))))))
+    (meow--beacon-shrink-selection)))
+
+(defun meow--beacon-update-overlays-custom ()
+    (when (meow--beacon-inside-secondary-selection)
+      (let* ((ex (car (meow--selection-type)))
+             (type (cdr (meow--selection-type))))
+        (cl-case type
+          ((avy) (meow--add-beacons-for-avy))))))
+
+(advice-add 'meow--beacon-update-overlays :after #'meow--beacon-update-overlays-custom)
 
 (defun meow-setup ()
   (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty)
@@ -565,8 +614,8 @@
    '("D" . meow-backward-delete)
    '("e" . meow-next-word)
    '("E" . meow-next-symbol)
-   '("f" . my/meow-avy-goto-char)
-   '("F" . my/meow-avy-goto-char-expand)
+   '("f" . meow-avy-goto-char)
+   '("F" . meow-avy-goto-char-expand)
    '("t" . meow-till)
    '("T" . meow-till-expand)
    '("g" . meow-cancel-selection)
@@ -736,14 +785,12 @@
  :hook (c++-mode . modern-c++-font-lock-mode))
 
 ;; Go
-(defun my/lsp-go-save-hooks ()
-  (add-hook 'before-save-hook #'lsp-format-buffer t t)
-  (add-hook 'before-save-hook #'lsp-organize-imports t t))
+
+;; Move to aphaelia
 
 (use-package go-mode
   :ensure t
   :hook (go-mode . (lambda ()
-                     (my/lsp-go-save-hooks)
                      (lsp-deferred))))
 
 ;; Rust
@@ -751,7 +798,6 @@
   :ensure t
   :custom
   (rustic-lsp-client 'lsp-mode))
-
 
 ;; TODO: treesitter
 
@@ -768,7 +814,23 @@
 (use-package editorconfig
   :ensure t
   :config
-  (editorconfig-mode t))
+  (editorconfig-mode t)
+  :blackout)
+
+;; Formatting
+
+;; Hook LSP and custom functions into apheleia formatting
+;; https://github.com/radian-software/apheleia/issues/153
+;;
+;; (defun my/lsp-go-save-hooks ()
+;;  (add-hook 'before-save-hook #'lsp-format-buffer t t)
+;;  (add-hook 'before-save-hook #'lsp-organize-imports t t))
+
+(use-package apheleia
+  :ensure t
+  :hook ((go-mode . apheleia-mode)
+         (python-mode . apheleia-mode))
+  :blackout " Fmt")
 
 ;; singlestore
 (setq-default compile-command "memsql-please make debug --skip-binplace memsql-server") ; set default command for M-x compile
