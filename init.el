@@ -4,71 +4,108 @@
 (eval-when-compile
   (require 'use-package))
 
+(require 'cl-lib)
+
 (use-package bind-key
   :ensure t)
 
-;; (add-hook 'before-save-hook #'delete-trailing-whitespace)
+;; font
 
-(set-face-attribute 'default nil :family "Monaspace Neon")
+;; TODO: monaspace neon is missing the o symbol, so when we get fallback font in the
+;; minibuffer it is slightly the wrong size and causes prompt to move
+(set-face-attribute 'default nil :family "Monaspace Neon" :height 100 :weight 'normal)
 
-;; memsql
-(setq-default indent-tabs-mode nil)             ; we indent with spaces only, no tabs
-(setq-default compile-command "memsql-build make debug --skip-binplace memsql-server") ; set default command for M-x compile
-(setq-default gdb-create-source-file-list nil)  ; gdb initialization takes a long time without this
-(setq-default word-wrap t)                      ; wrap long lines at word boundaries for better readability
- 
-;; Adjust C++ style to more closely match the style we use in the MemSQL codebase
-(c-add-style "memsql"
-         '("linux"
-           (c-basic-offset . 4)
-               (c-offsets-alist
-                (inline-open . 0)
-                (innamespace . 0)       ; don't indent inside namespaces
-                )
-           ))
-(add-to-list 'c-default-style '(c++-mode . "memsql"))
- 
-(add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode)) ; use c++-mode instead of c-mode for .h files
- 
-;; Default settings for sql-mysql
-;; You can run a mysql/memsql client in Emacs with M-x sql-mysql
- 
-(setq sql-user "root")
-(setq sql-password "")
-(setq sql-server "127.0.0.1")
+(defun set-bigger-spacing ()
+  (setq-local default-text-properties '(line-spacing 0.25)))
+(dolist (hook '(text-mode-hook prog-mode-hook)) (add-hook hook 'set-bigger-spacing))
 
+;; UI
+(tool-bar-mode -1)
+(menu-bar-mode -1)
+(setq inhibit-splash-screen t)
+
+;; Line numbers
+(require 'display-line-numbers)
+(setq display-line-numbers-type 'relative)
+(setq display-line-numbers-current-absolute t)
+(global-display-line-numbers-mode)
+
+;; Icons
+
+(use-package all-the-icons
+  :ensure t)
+
+(use-package all-the-icons-dired
+  :ensure t
+  :after (all-the-icons)
+  :hook (dired-mode . all-the-icons-dired-mode))
+
+(use-package all-the-icons-completion
+  :ensure t
+  :after (marginalia all-the-icons)
+  :hook (marginalia-mode . all-the-icons-completion-marginalia-setup)
+  :init
+  (all-the-icons-completion-mode))
+
+;; Whitespace
+(dolist (hook '(prog-mode-hook
+                text-mode-hook))
+  (add-hook hook (lambda () (setq-local show-trailing-whitespace t))))
+
+(use-package whitespace-cleanup-mode
+  :ensure t
+  :init
+  (global-whitespace-cleanup-mode))
+
+
+;; Tabs
+(setq-default indent-tabs-mode nil)
+
+;; themes
+(use-package modus-themes
+  :ensure t
+  :after hl-todo
+  :config
+  (defun modus-theme-hl-undone ()
+    (modus-themes-with-colors
+      (add-to-list 'hl-todo-keyword-faces (cons "UNDONE" err))))
+  (add-hook 'modus-themes-after-load-theme-hook #'modus-theme-hl-undone)
+  ;; (setq modus-themes-mixed-fonts t)
+  (modus-themes-load-theme 'modus-operandi))
+
+;; Todo highlighting
+(use-package hl-todo
+  :ensure t
+  :init
+  (global-hl-todo-mode))
+
+;; Scrolling
+(setq scroll-margin 10
+      scroll-conservatively 10
+      ;; aggressively doesn't get set in any buffers anyway :(
+      scroll-preserve-screen-position t
+      auto-window-vscroll nil)
+
+;; recent file list
+(recentf-mode 1)
+
+;; Transient mark mode
+;; https://emacsdocs.org/docs/emacs/Mark
+(transient-mark-mode 1)
+
+;; TODO: org & switch init.el to org file
 (use-package org
   :ensure t
   :init
   (org-mode))
 
-(use-package modus-themes
-  :ensure t
-  :config
-  (setq modus-themes-mixed-fonts t)
-  (load-theme 'modus-operandi))
-
-(tool-bar-mode -1)
-(menu-bar-mode -1)
-
-(recentf-mode 1)
-
-(setq scroll-margin 10
-      scroll-conservatively 101
-      ;; aggressively doesn't get set in any buffers anyway :(
-      scroll-preserve-screen-position t
-      auto-window-vscroll nil)
-
-(require 'display-line-numbers)
-
 (add-hook 'org-mode-hook
-	  (lambda () (add-hook 'after-save-hook #'org-babel-tangle
-	       		       :append :local)))
+          (lambda () (add-hook 'after-save-hook #'org-babel-tangle
+                               :append :local)))
 
 ;; Bash aliases from https://emacs.stackexchange.com/questions/74385/is-there-any-way-of-making-eshell-aliases-using-bash-and-zsh-aliases-syntax
 
-(require 'cl-lib)
-
+;; TODO: currently broken need to investigate
 (defun eshell-load-bash-aliases ()
   "Read Bash aliases and add them to the list of eshell aliases."
   ;; Bash needs to be run - temporarily - interactively
@@ -85,13 +122,30 @@
 ;; rather than every time `eshell-mode' is enabled.
 (add-hook 'eshell-alias-load-hook 'eshell-load-bash-aliases)
 
-(use-package vundo
-  :ensure t)
+;; Window navigation
 
 (use-package ace-window
   :ensure t
   :bind ("M-o" . ace-window))
 
+;; Undo
+
+(use-package vundo
+  :ensure t)
+
+;; Key help
+
+(use-package which-key
+   :ensure t
+   :config
+   (which-key-mode))
+
+;; Git
+
+(use-package git-timemachine
+  :ensure t)
+
+;; Magit
 (use-package magit-delta
   :ensure t
   :hook (magit-mode . magit-delta-mode))
@@ -99,31 +153,32 @@
 (use-package magit
   :ensure t)
 
+;; diff highlighting
 (use-package diff-hl
   :ensure t
   :init
-  :config
   (global-diff-hl-mode)
   (diff-hl-margin-mode))
 
-(use-package git-timemachine
+;; Operate on buffer
+
+(use-package wgrep
   :ensure t)
 
-(use-package marginalia
-  :ensure t
-  :bind (:map minibuffer-local-map ("M-A" . marginalia-cycle))
-  :init
-  (marginalia-mode))
+;; builtin
+(use-package wdired)
+
+;; Keymap Actions
 
 (use-package embark
   :ensure t
   :bind (("C-." . embark-act)         ;; pick some comfortable binding
-	 ("C-;" . embark-dwim)        ;; good alternative: M-.
-	 ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings
+         ("C-;" . embark-dwim)        ;; good alternative: M-.
+         ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings
   :init
   (setq prefix-help-command #'embark-prefix-help-command)
   :config
-    ;; Hide the mode line of the Embark live/completions buffers
+  ;; Hide the mode line of the Embark live/completions buffers
   (add-to-list 'display-buffer-alist
                '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
                  nil
@@ -138,16 +193,79 @@
   ;; an auto-updating embark collect buffer
   (embark-collect-mode . consult-preview-at-point-mode))
 
-(use-package wgrep
-  :ensure t)
 
-;; builtin
-(use-package wdired)
+;; Completion style
 
-(use-package which-key
-   :ensure t
-   :config
-   (which-key-mode))
+(use-package orderless
+  :ensure t
+  :custom
+  ;; Tune the global completion stle settings to your liking
+  ;; This affects the minibuffer and non-lsp completion at point
+  (completion-styles '(orderless partial-completion basic)
+                     (completion-category-overrides nil)
+                     (completion-category-defaults nil)))
+
+;; Snippets
+
+(use-package tempel
+  :ensure t
+  :hook
+  (conf-mode . tempel-setup-capf)
+  (prog-mode . tempel-setup-capf)
+  (text-mode . tempel-setup-capf)
+  :init
+  (defun tempel-setup-capf ()
+    ;; Add the Tempel Capf to `completion-at-point-functions`
+    (setq-local completion-at-point-functions
+                (cons #'tempel-expand
+                      completion-at-point-functions))))
+
+(use-package lsp-snippet-tempel
+  ;; Installed through nix flake as git repo
+  :after lsp-mode
+  :config
+  (when (featurep 'lsp-mode)
+    (lsp-snippet-tempel-lsp-mode-init))
+  (when (featurep 'eglot)
+    (lsp-snippet-tempel-eglot-init))
+  )
+
+;; Completion at point functions + capf UI
+
+;; https://kristofferbalintona.me/posts/202203130102/
+(use-package cape
+  :init
+  :custom
+  :bind ("C-c p p" . completion-at-point) ;; capf
+  ("C-c p t" . complete-tag)		  ;; etags
+  ("C-c p d" . cape-dabbrev)		  ;; or dabbrev-completion
+  ("C-c p h" . cape-history)
+  ("C-c p f" . cape-file)
+  ("C-c p k" . cape-keyword)
+  ("C-c p s" . cape-elisp-symbol)
+  ("C-c p e" . cape-elisp-block)
+  ("C-c p a" . cape-abbrev)
+  ("C-c p l" . cape-line)
+  ("C-c p w" . cape-dict)
+  ("C-c p :" . cape-emoji)
+  ("C-c p \\" . cape-tex)
+  ("C-c p _" . cape-tex)
+  ("C-c p ^" . cape-tex)
+  ("C-c p &" . cape-sgml)
+  ("C-c p r" . cape-rfc1345)
+  :init
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
+  (add-to-list 'completion-at-point-functions #'cape-elisp-block)
+  (add-to-list 'completion-at-point-functions #'cape-file)
+  :ensure t
+  :config
+  ;; https://old.reddit.com/r/emacs/comments/19b8a83/capefile_fails_when_called_as_a_capf_but_works/
+  (setq cape-file-directory-must-exit nil))
+
+
+;; stuff for completion in region + corfu
+(setq tab-always-indent 'complete)
+(setq completion-cycle-threshold nil)
 
 (use-package corfu
   :ensure t
@@ -164,12 +282,12 @@
   (lsp-completion-provider :none) ; use corfu intsead for lsp completion
   :bind
   (:map corfu-map ;; use TAB for cycling, default is `corfu-complete`
-	("TAB" . corfu-next)
-	([tab] . corfu-next)
-	("S-TAB" . corfu-previous)
-	([backtab] . corfu-previous)
-	;; configure M-SPC for seprator insertion
-	("M-SPC" . corfu-insert-separator)
+        ("TAB" . corfu-next)
+        ([tab] . corfu-next)
+        ("S-TAB" . corfu-previous)
+        ([backtab] . corfu-previous)
+        ;; configure M-SPC for seprator insertion
+        ("M-SPC" . corfu-insert-separator)
         ("S-<return>" . corfu-insert)
         ("RET" . nil) ;; leave enter alone
         )
@@ -180,16 +298,16 @@
     (defun my/corfu-setup-lsp ()
       "Use orderless completion style with lsp-capf intsead of the default lsp-passthrough."
       (setf (alist-get 'styles (alist-get 'lsp-capf completion-category-defaults))
-	    '(orderless)))
+            '(orderless)))
     ;; https://old.reddit.com/r/emacs/comments/u8szz6/help_me_get_c_tab_completion_working/
     (with-eval-after-load 'cc-mode
       (defun c-indent-then-complete ()
-	(interactive)
-	(if (= 0 (c-indent-line-or-region))
-	    (completion-at-point)))
+        (interactive)
+        (if (= 0 (c-indent-line-or-region))
+            (completion-at-point)))
       (when (equal tab-always-indent 'complete)
-	(dolist (map (list c-mode-map c++-mode-map))
-	  (define-key map (kbd "<tab>") #'c-indent-then-complete))))
+        (dolist (map (list c-mode-map c++-mode-map))
+          (define-key map (kbd "<tab>") #'c-indent-then-complete))))
     :hook (lsp-completion-mode . my/corfu-setup-lsp) ;; use corfu for lsp
     )
 
@@ -214,56 +332,22 @@
   (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter)
   (add-hook 'my/themes-hooks #'(lambda () (interactive) (kind-icon-reset-cache))))
 
-(use-package all-the-icons
-  :ensure t)
+;; minibuffer
 
-(use-package all-the-icons-completion
+(use-package marginalia
   :ensure t
-  :after (marginalia all-the-icons)
-  :hook (marginalia-mode . all-the-icons-completion-marginalia-setup)
+  :bind (:map minibuffer-local-map ("M-A" . marginalia-cycle))
   :init
-  (all-the-icons-completion-mode))
-
-(use-package tempel
-  :ensure t
-  :hook
-  (conf-mode . tempel-setup-capf)
-  (prog-mode . tempel-setup-capf)
-  (text-mode . tempel-setup-capf)
-  :init
-  (defun tempel-setup-capf ()
-    ;; Add the Tempel Capf to `completion-at-point-functions`
-    (setq-local completion-at-point-functions
-		(cons #'tempel-expand
-		      completion-at-point-functions))))
-
-(use-package lsp-snippet-tempel
-  ;; Installed through nix flake as git repo
-  :after lsp-mode
-  :config
-  (when (featurep 'lsp-mode)
-    (lsp-snippet-tempel-lsp-mode-init))
-  (when (featurep 'eglot)
-    (lsp-snippet-tempel-eglot-init))
-  )
+  (marginalia-mode))
 
 (use-package vertico
   :ensure t
   :custom
   (vertico-cycle t)
+  (vertico-reverse-mode t)
+  (vertico-resize t)
   :init
   (vertico-mode))
-
-;; (use-package vertico-multiform
-;;   :after vertico
-;;   :ensure nil
-;;   :custom
-;;   (vertico-multiform-categories
-;;    `((file reverse)
-;;      (t reverse)
-;;      ))
-;;   :init
-;;   (vertico-multiform-mode))
 
 ;; Example configuration for Consult
 (use-package consult
@@ -272,7 +356,7 @@
   :bind (;; C-c bindings in `mode-specific-map'
          ("C-c M-x" . consult-mode-command)
          ("C-c h" . consult-history)
-         ("C-c k" . consult-kmacro) ;; TODO: overrided by meow currentl
+         ("C-c K" . consult-kmacro) ;; C-c k is used by meow
          ("C-c m" . consult-man)
          ("C-c i" . consult-info)
          ([remap Info-search] . consult-info)
@@ -293,6 +377,7 @@
          ;; M-g bindings in `goto-map'
          ("M-g e" . consult-compile-error)
          ("M-g f" . consult-flycheck)               ;; Alternative: consult-flymake
+         ("M-g F" . consult-lsp-diagnostics)
          ("M-g g" . consult-goto-line)             ;; orig. goto-line
          ("M-g M-g" . consult-goto-line)           ;; orig. goto-line
          ("M-g o" . consult-outline)               ;; Alternative: consult-org-heading
@@ -300,6 +385,8 @@
          ("M-g k" . consult-global-mark)
          ("M-g i" . consult-imenu)
          ("M-g I" . consult-imenu-multi)
+         ("M-g s" . consult-lsp-file-symbols)
+         ("M-g S" . consult-lsp-symbols)
          ;; M-s bindings in `search-map'
          ("M-s d" . consult-fd)                  ;; Alternative: consult-find
          ("M-s c" . consult-locate)
@@ -355,58 +442,19 @@
   ;; (setq consult-project-function nil)
   )
 
+(use-package consult-todo
+  :ensure t
+  :after (consult hl-todo))
+
 (use-package consult-lsp
   :ensure t
-  :after consult
-  )
+  :after consult)
 
-(use-package orderless
+(use-package consult-flycheck
   :ensure t
-  :custom
-  ;; Tune the global completion stle settings to your liking
-  ;; This affects the minibuffer and non-lsp completion at point
-  (completion-styles '(orderless partial-completion basic)
-		     (completion-category-overrides nil)
-		     (completion-category-defaults nil)))
+  :after (consult flycheck))
 
-;; https://kristofferbalintona.me/posts/202203130102/
-(use-package cape
-  :init
-  :custom
-  :bind ("C-c p p" . completion-at-point) ;; capf
-  ("C-c p t" . complete-tag)		  ;; etags
-  ("C-c p d" . cape-dabbrev)		  ;; or dabbrev-completion
-  ("C-c p h" . cape-history)
-  ("C-c p f" . cape-file)
-  ("C-c p k" . cape-keyword)
-  ("C-c p s" . cape-elisp-symbol)
-  ("C-c p e" . cape-elisp-block)
-  ("C-c p a" . cape-abbrev)
-  ("C-c p l" . cape-line)
-  ("C-c p w" . cape-dict)
-  ("C-c p :" . cape-emoji)
-  ("C-c p \\" . cape-tex)
-  ("C-c p _" . cape-tex)
-  ("C-c p ^" . cape-tex)
-  ("C-c p &" . cape-sgml)
-  ("C-c p r" . cape-rfc1345)
-  :init
-  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
-  (add-to-list 'completion-at-point-functions #'cape-elisp-block)
-  (add-to-list 'completion-at-point-functions #'cape-file)
-  :ensure t
-  :config
-  ;; https://old.reddit.com/r/emacs/comments/19b8a83/capefile_fails_when_called_as_a_capf_but_works/
-  (setq cape-file-directory-must-exit nil))
-
-(setq completion-cycle-threshold nil)
-(setq display-line-numbers-type 'relative)
-(setq display-line-numbers-current-absolute t)
-
-(global-display-line-numbers-mode)
-(setq tab-always-indent 'complete)
-(setq inhibit-splash-screen t)
-(transient-mark-mode 1)
+;; Text Motions
 
 (use-package avy
   :ensure t
@@ -522,13 +570,15 @@
    '("'" . repeat)
    '("<escape>" . ignore)))
 
-
 (use-package meow
   :ensure t
   :after avy
   :config
   (meow-setup)
   (meow-global-mode 1))
+
+
+;; Diagnostics
 
 (use-package flycheck
   :ensure t
@@ -539,6 +589,9 @@
 ;;   :ensure t
 ;;   :after flycheck
 ;;   :init (global-flycheck-inline-mode))
+
+
+;; LSP
 
 (setq lsp-keymap-prefix "C-c l")
 
@@ -556,30 +609,22 @@
   :commands lsp
   :init
   :custom
+  (lsp-enable-symbol-highlighting t)
+  (lsp-modeline-code-actions-enable t)
+  (lsp-signature-auto-activate  t)
+  (lsp-signature-render-documentation t)
   (lsp-diagnostics-provider :flycheck)
   (lsp-enable-indentation t)
-  ;; (lsp-signature-auto-activate t)
   (lsp-enable-snippet t)
   (lsp-enable-xref t)
-  (lsp-log-io nil)
   (lsp-enable-imenu t)
   (lsp-semantic-tokens-enable nil)
   (read-process-output-max (* 1024 1024)) ;; 1mb
   (gc-cons-threshold (* 10 1024 1024))
+  (lsp-log-io nil)
   :hook
   (lsp-mode . my/setup-lsp-mode)
   :config
-  (setq lsp-clients-clangd-args '(
-				  "--all-scopes-completion"
-				  "--background-index"
-				  "--clang-tidy"
-				  "--completion-style=detailed"
-				  "--function-arg-placeholders"
-				  "--index"
-				  "-j=4"
-				  "--suggest-missing-includes"
-				  "--header-insertion=iwyu"
-				  "--header-insertion-decorators"))
   (defun lsp-booster--advice-json-parse (old-fn &rest args)
     "Try to parse bytecode instead of json."
     (or
@@ -589,9 +634,9 @@
            (funcall bytecode))))
      (apply old-fn args)))
   (advice-add (if (progn (require 'json)
-			 (fboundp 'json-parse-buffer))
+                         (fboundp 'json-parse-buffer))
                   'json-parse-buffer
-		'json-read)
+                'json-read)
               :around
               #'lsp-booster--advice-json-parse)
 
@@ -610,33 +655,33 @@
   (advice-add 'lsp-resolve-final-command :around #'lsp-booster--advice-final-command)
   :commands (lsp lsp-deferred))
 
-;; (use-package lsp-ui
-;;   :ensure t
-;; )
+(use-package lsp-ui
+  :ensure t
+  :custom
+  (lsp-ui-sideline-enable t)
+  (lsp-ui-sideline-show-code-actions nil))
 
+;; Python
 (use-package lsp-pyright
   :ensure t
   :hook (python-mode . (lambda ()
-			 (require 'lsp-pyright)
-			 (lsp-deferred))))
+                         (require 'lsp-pyright)
+                         (lsp-deferred))))
 
+;; (use-package python-black
+;;   :ensure t
+;;   :after python
+;;   :hook (python-mode . python-black-on-save-mode-enable-dwim)
+;;   (python-mode . (lambda ()
+;;                 (define-key python-mode-map (kbd "C-c f b") 'python-black-buffer)
+;;                 (define-key python-mode-map (kbd "C-c f r") 'python-black-region))))
+
+;; Nix
 (use-package nix-mode
   :ensure t
   :mode "\\.nix\\'")
 
-;; (use-package ccls
-;;   :custom
-;;   (setq ccls-sem-highlight-method nil)
-;;   :ensure t
-;;   )
-
-(use-package modern-cpp-font-lock
- :ensure t
- :hook (c++-mode . modern-c++-font-lock-mode))
-
-(use-package lsp-ui
-  :ensure t)
-
+;; C/C++
 (use-package c
   :ensure nil
   :hook (c-mode . lsp-deferred))
@@ -644,8 +689,13 @@
 (use-package cpp
   :ensure nil
   :hook (c++-mode . (lambda ()
-		      (lsp-deferred))))
+                      (lsp-deferred))))
 
+(use-package modern-cpp-font-lock
+ :ensure t
+ :hook (c++-mode . modern-c++-font-lock-mode))
+
+;; Go
 (defun my/lsp-go-save-hooks ()
   (add-hook 'before-save-hook #'lsp-format-buffer t t)
   (add-hook 'before-save-hook #'lsp-organize-imports t t))
@@ -656,26 +706,14 @@
                      (my/lsp-go-save-hooks)
                      (lsp-deferred))))
 
-;; (use-package python-black
-;;   :ensure t
-;;   :after python
-;;   :hook (python-mode . python-black-on-save-mode-enable-dwim)
-;;   (python-mode . (lambda ()
-;; 		   (define-key python-mode-map (kbd "C-c f b") 'python-black-buffer)
-;; 		   (define-key python-mode-map (kbd "C-c f r") 'python-black-region))))
-
-
+;; Rust
 (use-package rustic
   :ensure t
   :custom
   (rustic-lsp-client 'lsp-mode))
-  
 
-;; (use-package flycheck-clang-tidy
-;;   :ensure t
-;;   :after flycheck lsp-mode
-;;   :hook ((flycheck-mode . flycheck-clang-tidy-setup)
-;; 	 (c-mode-common . (lambda () (flycheck-add-next-checker '
+
+;; TODO: treesitter
 
 ;; (use-package tree-sitter
 ;;   :ensure t
@@ -685,8 +723,34 @@
 ;; (use-package tree-sitter-langs
 ;;   :ensure t)
 
+;; Misc. editor
 
 (use-package editorconfig
   :ensure t
   :config
   (editorconfig-mode t))
+
+;; memsql
+(setq-default compile-command "memsql-please make debug --skip-binplace memsql-server") ; set default command for M-x compile
+(setq-default gdb-create-source-file-list nil)  ; gdb initialization takes a long time without this
+(setq-default word-wrap t)                      ; wrap long lines at word boundaries for better readability
+
+;; Adjust C++ style to more closely match the style we use in the MemSQL codebase
+(c-add-style "memsql"
+         '("linux"
+           (c-basic-offset . 4)
+               (c-offsets-alist
+                (inline-open . 0)
+                (innamespace . 0)       ; don't indent inside namespaces
+                )
+           ))
+(add-to-list 'c-default-style '(c++-mode . "memsql"))
+
+(add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode)) ; use c++-mode instead of c-mode for .h files
+
+;; Default settings for sql-mysql
+;; You can run a mysql/memsql client in Emacs with M-x sql-mysql
+
+(setq sql-user "root")
+(setq sql-password "")
+(setq sql-server "127.0.0.1")
