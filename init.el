@@ -130,7 +130,13 @@
                  (window-parameters (mode-line-format . none)))))
 
 (use-package embark-consult
-  :ensure t)
+  :ensure t
+  :after (embark consult)
+  :demand t ; only necessary for hook below
+  :hook
+  ;; if you want to have consult previews as you move around
+  ;; an auto-updating embark collect buffer
+  (embark-collect-mode . consult-preview-at-point-mode))
 
 (use-package wgrep
   :ensure t)
@@ -162,15 +168,19 @@
 	([tab] . corfu-next)
 	("S-TAB" . corfu-previous)
 	([backtab] . corfu-previous)
-	;; configure SPC for seprator insertion
-	("SPC" . corfu-insert-separator))
+	;; configure M-SPC for seprator insertion
+	("M-SPC" . corfu-insert-separator)
+        ("S-<return>" . corfu-insert)
+        ("RET" . nil) ;; leave enter alone
+        )
+
   :init
   (global-corfu-mode)
   :config
     (defun my/corfu-setup-lsp ()
-    "Use orderless completion style with lsp-capf intsead of the default lsp-passthrough."
-    (setf (alist-get 'styles (alist-get 'lsp-capf completion-category-defaults))
-	  '(orderless)))
+      "Use orderless completion style with lsp-capf intsead of the default lsp-passthrough."
+      (setf (alist-get 'styles (alist-get 'lsp-capf completion-category-defaults))
+	    '(orderless)))
     ;; https://old.reddit.com/r/emacs/comments/u8szz6/help_me_get_c_tab_completion_working/
     (with-eval-after-load 'cc-mode
       (defun c-indent-then-complete ()
@@ -241,20 +251,19 @@
   :ensure t
   :custom
   (vertico-cycle t)
-  (vertico-resize t)
   :init
   (vertico-mode))
 
-(use-package vertico-multiform
-  :after vertico
-  :ensure nil
-  :custom
-  (vertico-multiform-categories
-   `((file reverse)
-     (t reverse)
-     ))
-  :init
-  (vertico-multiform-mode))
+;; (use-package vertico-multiform
+;;   :after vertico
+;;   :ensure nil
+;;   :custom
+;;   (vertico-multiform-categories
+;;    `((file reverse)
+;;      (t reverse)
+;;      ))
+;;   :init
+;;   (vertico-multiform-mode))
 
 ;; Example configuration for Consult
 (use-package consult
@@ -396,7 +405,6 @@
 
 (global-display-line-numbers-mode)
 (setq tab-always-indent 'complete)
-(icomplete-mode)
 (setq inhibit-splash-screen t)
 (transient-mark-mode 1)
 
@@ -405,8 +413,29 @@
   :config
   (avy-setup-default))
 
+(defun my/meow-avy-goto-char (&optional expand)
+  "Goto using avy"
+  (interactive)
+  (let* ((beg (point))
+         (end (save-mark-and-excursion
+                    (call-interactively 'avy-goto-char)
+                    (point))))
+    (thread-first
+      (meow--make-selection '(select . avy)
+                            beg
+                            end
+                            expand)
+      (meow--select))))
+
+(defun my/meow-avy-goto-char-expand ()
+  "Goto using avy expand"
+  (interactive)
+  (my/meow-avy-goto-char t))
+
+
 (defun meow-setup ()
   (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty)
+  (setq meow-goto-line-function 'consult-goto-line)
   (meow-motion-overwrite-define-key
    '("j" . meow-next)
    '("k" . meow-prev)
@@ -454,7 +483,10 @@
    '("D" . meow-backward-delete)
    '("e" . meow-next-word)
    '("E" . meow-next-symbol)
-   '("f" . avy-goto-char)
+   '("f" . my/meow-avy-goto-char)
+   '("F" . my/meow-avy-goto-char-expand)
+   '("t" . meow-till)
+   '("T" . meow-till-expand)
    '("g" . meow-cancel-selection)
    '("G" . meow-grab)
    '("h" . meow-left)
@@ -477,7 +509,6 @@
    '("r" . meow-replace)
    '("R" . meow-swap-grab)
    '("s" . meow-kill)
-   '("t" . meow-till)
    '("u" . meow-undo)
    '("U" . meow-undo-in-selection)
    '("v" . meow-visit)
@@ -615,13 +646,23 @@
   :hook (c++-mode . (lambda ()
 		      (lsp-deferred))))
 
-(use-package python-black
+(defun my/lsp-go-save-hooks ()
+  (add-hook 'before-save-hook #'lsp-format-buffer t t)
+  (add-hook 'before-save-hook #'lsp-organize-imports t t))
+
+(use-package go-mode
   :ensure t
-  :after python
-  :hook (python-mode . python-black-on-save-mode-enable-dwim)
-  (python-mode . (lambda ()
-		   (define-key python-mode-map (kbd "C-c f b") 'python-black-buffer)
-		   (define-key python-mode-map (kbd "C-c f r") 'python-black-region))))
+  :hook (go-mode . (lambda ()
+                     (my/lsp-go-save-hooks)
+                     (lsp-deferred))))
+
+;; (use-package python-black
+;;   :ensure t
+;;   :after python
+;;   :hook (python-mode . python-black-on-save-mode-enable-dwim)
+;;   (python-mode . (lambda ()
+;; 		   (define-key python-mode-map (kbd "C-c f b") 'python-black-buffer)
+;; 		   (define-key python-mode-map (kbd "C-c f r") 'python-black-region))))
 
 
 (use-package rustic
@@ -648,4 +689,4 @@
 (use-package editorconfig
   :ensure t
   :config
-  (editorconfig-mode 1))
+  (editorconfig-mode t))
