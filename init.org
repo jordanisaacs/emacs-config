@@ -1,5 +1,4 @@
-#
-#+TITLE: Emacs Config
+#+TITLE: EmacsConfig
 #+AUTHOR: Jordan Isaacs
 
 * early-init.el
@@ -253,7 +252,6 @@ UNDONE: test
 (repeat-mode t)
 
 ;; Tabs
-(setq-default indent-tabs-mode nil)
 
 ;; Todo highlighting
 (use-package hl-todo
@@ -376,16 +374,16 @@ any directory proferred by `consult-dir'."
       (cond
        ((and (not regexp) (featurep 'consult-dir))
         (let* ((consult-dir--source-eshell `(:name "Eshell"
-                                             :narrow ?e
-                                             :category file
-                                             :face consult-file
-                                             :items ,eshell-dirs))
+                                                   :narrow ?e
+                                                   :category file
+                                                   :face consult-file
+                                                   :items ,eshell-dirs))
                (consult-dir-sources (cons consult-dir--source-eshell
                                           consult-dir-sources)))
           (eshell/cd (substring-no-properties
                       (consult-dir--pick "Switch directory: ")))))
        (t (eshell/cd (if regexp (eshell-find-previous-directory regexp)
-                            (completing-read "cd: " eshell-dirs))))))))
+                       (completing-read "cd: " eshell-dirs))))))))
 
 
 ;; Windows
@@ -570,8 +568,8 @@ any directory proferred by `consult-dir'."
 ;; https://kristofferbalintona.me/posts/202203130102/
 (use-package cape
   :bind ("C-c p p" . completion-at-point) ;; capf
-  ("C-c p t" . complete-tag)		  ;; etags
-  ("C-c p d" . cape-dabbrev)		  ;; or dabbrev-completion
+  ("C-c p t" . complete-tag)              ;; etags
+  ("C-c p d" . cape-dabbrev)              ;; or dabbrev-completion
   ("C-c p h" . cape-history)
   ("C-c p f" . cape-file)
   ("C-c p k" . cape-keyword)
@@ -784,7 +782,6 @@ any directory proferred by `consult-dir'."
 
 (use-package consult-flycheck
   :ensure t
-  :custom
   :after (consult flycheck))
 
 (use-package consult-dir
@@ -1095,8 +1092,8 @@ any directory proferred by `consult-dir'."
 (use-package lsp-pyright
   :ensure t
   :hook (python-mode-hook . (lambda ()
-                         (require 'lsp-pyright)
-                         (lsp-deferred))))
+                              (require 'lsp-pyright)
+                              (lsp-deferred))))
 
 (use-package python-pytest
   :ensure t)
@@ -1116,13 +1113,17 @@ any directory proferred by `consult-dir'."
     (interactive)
     (if (= 0 (c-indent-line-or-region))
         (completion-at-point)))
+  (defun c-indent-tabs-mode ()
+    (setq indent-tabs-mode nil))
   :config
   ;; https://old.reddit.com/r/emacs/comments/u8szz6/help_me_get_c_tab_completion_working/
   (when (equal tab-always-indent 'complete)
     (dolist (map (list c-mode-map c++-mode-map))
       (define-key map (kbd "<tab>") #'c-indent-then-complete)))
   :hook ((c-mode-mook . lsp-deferred)
-         (c++-mode-hook . lsp-deferred)))
+         (c-mode-hook . c-indent-tabs-mode)
+         (c++-mode-hook . lsp-deferred)
+         (c++-mode-hook . c-indent-tabs-mode)))
 
 (use-package modern-cpp-font-lock
   :ensure t
@@ -1243,6 +1244,7 @@ any directory proferred by `consult-dir'."
 (add-to-list 'c-default-style '(c++-mode . "memsql"))
 
 (add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode)) ; use c++-mode instead of c-mode for .h files
+(setq-default indent-tabs-mode nil)
 
 ;; Default settings for sql-mysql
 ;; You can run a mysql/memsql client in Emacs with M-x sql-mysql
