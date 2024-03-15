@@ -44,6 +44,12 @@
       repo = "blackout";
       type = "github";
     };
+    breadcrumb = {
+      flake = false;
+      owner = "joaotavora";
+      repo = "breadcrumb";
+      type = "github";
+    };
     browse-at-remote = {
       flake = false;
       owner = "rmuslimov";
@@ -86,16 +92,10 @@
       repo = "consult-dir";
       type = "github";
     };
-    consult-flycheck = {
+    consult-eglot = {
       flake = false;
-      owner = "minad";
-      repo = "consult-flycheck";
-      type = "github";
-    };
-    consult-lsp = {
-      flake = false;
-      owner = "gagbo";
-      repo = "consult-lsp";
+      owner = "mohkale";
+      repo = "consult-eglot";
       type = "github";
     };
     consult-todo = {
@@ -140,6 +140,12 @@
       repo = "editorconfig-emacs";
       type = "github";
     };
+    eglot-booster = {
+      flake = false;
+      owner = "jdtsmith";
+      repo = "eglot-booster";
+      type = "github";
+    };
     embark = {
       flake = false;
       owner = "oantolin";
@@ -164,12 +170,6 @@
       repo = "f.el";
       type = "github";
     };
-    flycheck = {
-      flake = false;
-      owner = "flycheck";
-      repo = "flycheck";
-      type = "github";
-    };
     git-commit = {
       flake = false;
       owner = "magit";
@@ -191,12 +191,6 @@
       flake = false;
       owner = "tarsius";
       repo = "hl-todo";
-      type = "github";
-    };
-    ht = {
-      flake = false;
-      owner = "Wilfred";
-      repo = "ht.el";
       type = "github";
     };
     hydra = {
@@ -223,28 +217,10 @@
       repo = "kind-icon";
       type = "github";
     };
-    lsp-mode = {
-      flake = false;
-      owner = "emacs-lsp";
-      repo = "lsp-mode";
-      type = "github";
-    };
-    lsp-pyright = {
-      flake = false;
-      owner = "emacs-lsp";
-      repo = "lsp-pyright";
-      type = "github";
-    };
     lsp-snippet-tempel = {
       flake = false;
       owner = "svaante";
       repo = "lsp-snippet";
-      type = "github";
-    };
-    lsp-ui = {
-      flake = false;
-      owner = "emacs-lsp";
-      repo = "lsp-ui";
       type = "github";
     };
     lv = {
@@ -323,18 +299,6 @@
       flake = false;
       owner = "jerrypnz";
       repo = "major-mode-hydra.el";
-      type = "github";
-    };
-    projectile = {
-      flake = false;
-      owner = "bbatsov";
-      repo = "projectile";
-      type = "github";
-    };
-    python-pytest = {
-      flake = false;
-      owner = "wbolster";
-      repo = "emacs-python-pytest";
       type = "github";
     };
     rust-mode = {

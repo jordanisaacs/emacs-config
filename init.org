@@ -153,8 +153,6 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
 ;;; -*- lexical-binding: t; -*-
 #+end_src
 
-UNDONE: test
-
 #+begin_src emacs-lisp :tangle init.el
 (eval-and-compile
   (when (getenv "DEBUG") (setq init-file-debug t))
@@ -247,18 +245,68 @@ UNDONE: test
 
 ;; TODO: autosave
 
-;; Repeat mode
+#+end_src
 
-(repeat-mode t)
+** Repeat mode
 
+#+begin_src  emacs-lisp :tangle init.el
+
+(use-package repeat
+  ;; builtin
+  :functions repeat--command-property
+  :preface
+  ;; https://old.reddit.com/r/emacs/comments/1adwnse/repeatmode_is_awesome_share_you_useful_configs/kk9vpif/
+  (defun repeatify (repeat-keymap)
+  "Set the `repeat-map' property on all commands bound in REPEAT-MAP."
+  (named-let process ((keymap (symbol-value repeat-keymap)))
+    (map-keymap
+     (lambda (_key cmd)
+       (cond
+        ((symbolp cmd) (put cmd 'repeat-map repeat-keymap))
+        ((keymapp cmd) (process cmd))))
+     keymap)))
+
+  (defun repeat-help--which-key-popup ()
+    (require 'which-key)
+    (if-let ((cmd (or this-command real-this-command))
+             (keymap (or repeat-map
+                         (repeat--command-property 'repeat-map))))
+        (run-at-time
+         0 nil
+         (lambda ()
+           (which-key--create-buffer-and-show
+            nil (symbol-value keymap))))
+      (which-key--hide-popup)))
+  :config
+  (setq repeat-echo-function #'ignore)
+  :init
+  (advice-add 'repeat-post-hook :after #'repeat-help--which-key-popup)
+  (repeat-mode t))
+
+#+end_src
+
+#+begin_src emacs-lisp :tangle init.el
 ;; Tabs
 
 ;; Todo highlighting
 (use-package hl-todo
   :ensure t
+  :commands (hl-todo-insert hl-todo-occur)
+  :functions hl-todo-next hl-todo-previous
   :custom
   (hl-todo-highlight-punctuation ":")
   (hl-todo-keyword-faces nil)
+  :init
+  (defvar-keymap hl-todo-repeat-map
+    :repeat (:enter (hl-todo-insert) :exit (hl-todo-occur))
+    "n" #'hl-todo-next
+    "p" #'hl-todo-previous
+    "o" #'hl-todo-occur)
+  :config
+  (keymap-set hl-todo-mode-map "C-c t p" #'hl-todo-previous)
+  (keymap-set hl-todo-mode-map "C-c t n" #'hl-todo-next)
+  (keymap-set hl-todo-mode-map "C-c t o" #'hl-todo-occur)
+  (keymap-set hl-todo-mode-map "C-c t i" #'hl-todo-insert)
   :hook
   (prog-mode-hook . hl-todo-mode)
   (text-mode-hook . hl-todo-mode))
@@ -323,6 +371,17 @@ UNDONE: test
   (org-src-preserve-indentation t)
   :init
   (org-mode))
+#+end_src
+
+** Polymode (disabled)
+
+#+begin_src emacs-lisp :tangle no
+(use-package poly-markdown
+  :ensure t
+  :mode ("\\.md\\'" . poly-markdown-mode))
+
+(use-package poly-org
+  :ensure t)
 #+end_src
 
 
@@ -417,11 +476,20 @@ any directory proferred by `consult-dir'."
 (use-package which-key
   :ensure t
   :commands which-key-mode
+  :functions which-key--hide-popup which-key--create-buffer-and-show
   :config
   (which-key-mode)
   :blackout)
+#+end_src
 
-;; Git
+** Git
+
+#+begin_src emacs-lisp :tangle init.el
+
+(use-package smerge-mode
+  ;; builtin
+  :config
+  (repeatify 'smerge-basic-map))
 
 (use-package git-timemachine
   :ensure t)
@@ -485,6 +553,9 @@ any directory proferred by `consult-dir'."
 (if (fboundp 'fringe-mode) (fringe-mode '8))
 (setq-default fringes-outside-margins t)
 
+#+end_src
+
+#+begin_src emacs-lisp :tangle init.el
 ;; Operate on grep buffer
 
 (use-package wgrep
@@ -602,12 +673,12 @@ any directory proferred by `consult-dir'."
 (use-package corfu
   :ensure t
   :commands (corfu-mode global-corfu-mode)
-  :preface
-  (defun my/corfu-setup-lsp ()
-    "Use orderless completion style with lsp-capf
-      instead of the default lsp-passthrough."
-    (setf (alist-get 'styles (alist-get 'lsp-capf completion-category-defaults))
-          '(orderless)))
+  ;; :preface
+  ;; (defun my/corfu-setup-lsp ()
+  ;;   "Use orderless completion style with lsp-capf
+  ;;     instead of the default lsp-passthrough."
+  ;;   (setf (alist-get 'styles (alist-get 'lsp-capf completion-category-defaults))
+  ;;         '(orderless)))
   :custom
   (corfu-cycle t)
   (corfu-preselect 'first)
@@ -633,7 +704,7 @@ any directory proferred by `consult-dir'."
         )
   :hook
   (corfu-mode-hook . corfu-popupinfo-mode)
-  (lsp-completion-mode . my/corfu-setup-lsp) ;; use corfu for lsp
+  ;; (lsp-completion-mode . my/corfu-setup-lsp) ;; use corfu for lsp
   :init
   (global-corfu-mode 1))
 
@@ -702,7 +773,7 @@ any directory proferred by `consult-dir'."
          ("M-y" . consult-yank-pop)                ;; orig. yank-pop
          ;; M-g bindings in `goto-map'
          ("M-g e" . consult-compile-error)
-         ("M-g f" . consult-flycheck)               ;; Alternative: consult-flymake
+         ("M-g f" . consult-flymake)               ;; Alternative: consult-flycheck
          ("M-g F" . consult-lsp-diagnostics)
          ("M-g g" . consult-goto-line)             ;; orig. goto-line
          ("M-g M-g" . consult-goto-line)           ;; orig. goto-line
@@ -776,18 +847,14 @@ any directory proferred by `consult-dir'."
   :ensure t
   :after (consult hl-todo))
 
-(use-package consult-lsp
-  :ensure t
-  :after (consult lsp))
-
-(use-package consult-flycheck
-  :ensure t
-  :after (consult flycheck))
-
 (use-package consult-dir
   :ensure t
   :functions consult-dir--pick
   :after consult)
+
+#+end_src
+
+#+begin_src emacs-lisp :tangle init.el
 
 ;; Text Motions
 
@@ -980,9 +1047,36 @@ any directory proferred by `consult-dir'."
 (meow-setup)
 (advice-add 'meow--beacon-update-overlays :after #'meow--beacon-update-overlays-custom)
 (meow-global-mode 1)
+#+end_src
 
+** Visuals
 
-;; Diagnostics
+#+begin_src emacs-lisp :tangle init.el
+(use-package breadcrumb
+  :ensure t
+  :commands (breadcrumb-mode breadcrumb-local-mode)
+  :init
+  (breadcrumb-mode))
+#+end_src
+
+** Diagnostics
+
+*** Flymake
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package flymake
+  :defer t
+  :hook ((prog-mode-hook text-mode-hook) . flymake-mode)
+  :config
+  (setq flymake-fringe-indicator-position 'right-fringe))
+#+end_src
+
+*** Flycheck (disabled)
+
+#+begin_src emacs-lisp :tangle no
+(use-package consult-flycheck
+  :ensure t
+  :after (consult flycheck))
 
 (use-package flycheck
   :ensure t
@@ -1008,10 +1102,39 @@ any directory proferred by `consult-dir'."
 
 ** LSP
 
+*** eglot
+
 #+begin_src emacs-lisp :tangle init.el
+(use-package eglot-booster
+  :ensure t
+  :after eglot
+  :commands eglot-booster-mode
+  :config (eglot-booster-mode)
+  :init
+  (setq eglot-autoshutdown t)
+  :custom-face
+  (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
+
+(use-package consult-eglot
+  :ensure t
+  :after consult)
+
+(use-package eglot
+  ;; :ensure t
+  :commands (eglot eglot-ensure)
+  :custom
+  (completion-category-defaults nil))
+#+end_src
+
+*** LSP mode (disabled)
+
+#+begin_src emacs-lisp :tangle no
 
 (setq lsp-keymap-prefix "C-c l")
 
+(use-package consult-lsp
+  :ensure t
+  :after (consult lsp))
 
 (use-package lsp-mode
   :ensure t
@@ -1084,25 +1207,29 @@ any directory proferred by `consult-dir'."
   (lsp-ui-sideline-enable t)
   (lsp-ui-sideline-show-code-actions nil))
 
-#+end_src
-
-** Language configs
-
-#+begin_src emacs-lisp :tangle init.el
 (use-package lsp-pyright
   :ensure t
   :hook (python-mode-hook . (lambda ()
                               (require 'lsp-pyright)
                               (lsp-deferred))))
+#+end_src
 
-(use-package python-pytest
-  :ensure t)
+** Language configs
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package python
+  :mode ("\\.py\\'" . python-mode)
+  :hook (python-mode-hook . eglot-ensure))
+
+;; Relies on projectile :(
+;; (use-package python-pytest
+;;   :ensure t)
 
 ;; Nix
 (use-package nix-mode
   :ensure t
   :mode "\\.nix\\'"
-  :hook (nix-mode-hook . lsp-deferred))
+  :hook (nix-mode-hook . eglot-ensure))
 
 ;; C/C++
 (use-package cc-mode
@@ -1120,9 +1247,9 @@ any directory proferred by `consult-dir'."
   (when (equal tab-always-indent 'complete)
     (dolist (map (list c-mode-map c++-mode-map))
       (define-key map (kbd "<tab>") #'c-indent-then-complete)))
-  :hook ((c-mode-mook . lsp-deferred)
+  :hook ((c-mode-mook . eglot-ensure)
          (c-mode-hook . c-indent-tabs-mode)
-         (c++-mode-hook . lsp-deferred)
+         (c++-mode-hook . eglot-ensure)
          (c++-mode-hook . c-indent-tabs-mode)))
 
 (use-package modern-cpp-font-lock
@@ -1133,16 +1260,18 @@ any directory proferred by `consult-dir'."
 
 (use-package go-mode
   :ensure t
-  :hook (go-mode-hook . lsp-deferred))
+  :hook (go-mode-hook . eglot-ensure))
 
 ;; Rust
 (use-package rustic
   :ensure t
+  :init
+  (remove-hook 'rustic-mode-hook 'flycheck-mode)
   :custom
-  (rustic-lsp-client 'lsp-mode))
+  (rustic-lsp-client 'eglot))
 
 (use-package sh-script
-  :hook (sh-mode-hook . lsp-deferred))
+  :hook (sh-mode-hook . eglot-ensure))
 
 ;; TODO: treesitter
 

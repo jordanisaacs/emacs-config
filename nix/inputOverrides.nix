@@ -1,7 +1,7 @@
 {lib, ...}: {
-  magit = _: prev: {
+  magit = _: super: {
     files =
-      prev.files
+      super.files
       // {
         "lisp/Makefile" = "Makefile";
       };
@@ -13,6 +13,13 @@
     };
     files = removeAttrs super.files [
       "lsp-snippet-yasnippet.el"
+    ];
+  };
+
+  rustic = _: super: {
+    packageRequires = builtins.removeAttrs super.packageRequires ["flycheck" "projectile"];
+    files = builtins.removeAttrs super.files [
+      "rustic-flycheck.el"
     ];
   };
 }

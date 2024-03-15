@@ -112,6 +112,22 @@
         "type": "github"
       }
     },
+    "breadcrumb": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1701036981,
+        "narHash": "sha256-toWIJ/rlKNsAxH/LLZRF084nQ5gfCJYWbB+9pJN8YgY=",
+        "owner": "joaotavora",
+        "repo": "breadcrumb",
+        "rev": "dcb6e2e82de2432d8eb75be74c8d6215fc97a2d3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "joaotavora",
+        "repo": "breadcrumb",
+        "type": "github"
+      }
+    },
     "browse-at-remote": {
       "flake": false,
       "locked": {
@@ -224,35 +240,19 @@
         "type": "github"
       }
     },
-    "consult-flycheck": {
+    "consult-eglot": {
       "flake": false,
       "locked": {
-        "lastModified": 1704166235,
-        "narHash": "sha256-Pxx39d4wXoKYCsLvXkv/lHUuCwwECxLHSdlnWKOBM8g=",
-        "owner": "minad",
-        "repo": "consult-flycheck",
-        "rev": "d83f87581af74f7a2739d8b1b90c37da5ae3d310",
+        "lastModified": 1710272141,
+        "narHash": "sha256-QOK+t2h7PHXMYVCjb3b8RB/pJD6qmV+6eEgZ5OHDd28=",
+        "owner": "mohkale",
+        "repo": "consult-eglot",
+        "rev": "a79938939587dcd7d3b369dc260b444c4e62262b",
         "type": "github"
       },
       "original": {
-        "owner": "minad",
-        "repo": "consult-flycheck",
-        "type": "github"
-      }
-    },
-    "consult-lsp": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1675926889,
-        "narHash": "sha256-4BuOE76oM7r2Sspvgwl69gBt3QnFcgBlfLAi1XneakE=",
-        "owner": "gagbo",
-        "repo": "consult-lsp",
-        "rev": "f8db3252c0daa41225ba4ed1c0d178b281cd3e90",
-        "type": "github"
-      },
-      "original": {
-        "owner": "gagbo",
-        "repo": "consult-lsp",
+        "owner": "mohkale",
+        "repo": "consult-eglot",
         "type": "github"
       }
     },
@@ -368,6 +368,22 @@
         "type": "github"
       }
     },
+    "eglot-booster": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1710297328,
+        "narHash": "sha256-KMZi4ARe5t+kxD0Wt74Yi9vkQY7STDyvbqn3WuE2iQE=",
+        "owner": "jdtsmith",
+        "repo": "eglot-booster",
+        "rev": "caee55ee5285659964d0b9fe4101e28de09701ca",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jdtsmith",
+        "repo": "eglot-booster",
+        "type": "github"
+      }
+    },
     "embark": {
       "flake": false,
       "locked": {
@@ -429,22 +445,6 @@
       "original": {
         "owner": "rejeep",
         "repo": "f.el",
-        "type": "github"
-      }
-    },
-    "flycheck": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1708760197,
-        "narHash": "sha256-pEWxWxY+WHbV797iFjSFkEAmtcKAkwuKhkc9TuwAGDI=",
-        "owner": "flycheck",
-        "repo": "flycheck",
-        "rev": "25106e99eda1b3e8d5cccbb4c6850f9461eda655",
-        "type": "github"
-      },
-      "original": {
-        "owner": "flycheck",
-        "repo": "flycheck",
         "type": "github"
       }
     },
@@ -512,22 +512,6 @@
         "type": "github"
       }
     },
-    "ht": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1688363925,
-        "narHash": "sha256-suE9ncN4rTA/9GcfAK6B+m9vnE8pYpfGavCFrXpA0+8=",
-        "owner": "Wilfred",
-        "repo": "ht.el",
-        "rev": "1c49aad1c820c86f7ee35bf9fff8429502f60fef",
-        "type": "github"
-      },
-      "original": {
-        "owner": "Wilfred",
-        "repo": "ht.el",
-        "type": "github"
-      }
-    },
     "hydra": {
       "flake": false,
       "locked": {
@@ -592,38 +576,6 @@
         "type": "github"
       }
     },
-    "lsp-mode": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1708883230,
-        "narHash": "sha256-deN67B80YYWLDeOC47EyOoKsicgCuXFIcyr/CDLjX14=",
-        "owner": "emacs-lsp",
-        "repo": "lsp-mode",
-        "rev": "dbf13a329c022a9cf33f4d9a91aebb21b0f43adf",
-        "type": "github"
-      },
-      "original": {
-        "owner": "emacs-lsp",
-        "repo": "lsp-mode",
-        "type": "github"
-      }
-    },
-    "lsp-pyright": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1696594329,
-        "narHash": "sha256-wbZtl4iCLYb3ek8Ig3PAdfBbovzwgKeIIzs4aYoaYr4=",
-        "owner": "emacs-lsp",
-        "repo": "lsp-pyright",
-        "rev": "2f2631ae242d5770dbe6cb924e44c1ee5671789d",
-        "type": "github"
-      },
-      "original": {
-        "owner": "emacs-lsp",
-        "repo": "lsp-pyright",
-        "type": "github"
-      }
-    },
     "lsp-snippet-tempel": {
       "flake": false,
       "locked": {
@@ -637,22 +589,6 @@
       "original": {
         "owner": "svaante",
         "repo": "lsp-snippet",
-        "type": "github"
-      }
-    },
-    "lsp-ui": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1705999510,
-        "narHash": "sha256-C0Lcud+jXS/fF5KrecKL1bv47zcqpNxvSCJeUSvU3OI=",
-        "owner": "emacs-lsp",
-        "repo": "lsp-ui",
-        "rev": "bc58c6664577d1d79060c6b32b7ad20e70ee19d0",
-        "type": "github"
-      },
-      "original": {
-        "owner": "emacs-lsp",
-        "repo": "lsp-ui",
         "type": "github"
       }
     },
@@ -739,11 +675,11 @@
     "markdown-mode": {
       "flake": false,
       "locked": {
-        "lastModified": 1704616303,
-        "narHash": "sha256-AC6UthVWpRGrxQ5p2QteSp4iYe1STKwQnWcYkvK38a8=",
+        "lastModified": 1710127120,
+        "narHash": "sha256-0tJBkhqiKj9TfIJTyPWxtSZr2sxuv2U+ZvmH0o4Vfk8=",
         "owner": "jrblevin",
         "repo": "markdown-mode",
-        "rev": "e096bb97a91fcd4dc2b46d8b6e093194b03b7364",
+        "rev": "b7f7da9b2dbab9a5e3de7a674495c0b1627b456c",
         "type": "github"
       },
       "original": {
@@ -755,11 +691,11 @@
     "meow": {
       "flake": false,
       "locked": {
-        "lastModified": 1707583444,
-        "narHash": "sha256-GH6Toc3kKyAIBR+1vvx4QnXeuoNlwgKR2atET8njZnc=",
+        "lastModified": 1709167838,
+        "narHash": "sha256-747D9G4IRMNz4VcejY36Z5+h/gAixx8pDEg2hA6sg0k=",
         "owner": "meow-edit",
         "repo": "meow",
-        "rev": "54d4e933039827c158a4f593a94681a64e0d8042",
+        "rev": "0d74ccfb7f1ebf987e34eb0b656ceb991367a987",
         "type": "github"
       },
       "original": {
@@ -865,38 +801,6 @@
         "type": "github"
       }
     },
-    "projectile": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1707735640,
-        "narHash": "sha256-iPbUDDNU5j/ygAxpCU7ZOgKhnG3wdsmnlXJY6vNBwWs=",
-        "owner": "bbatsov",
-        "repo": "projectile",
-        "rev": "0163b335a18af0f077a474d4dc6b36e22b5e3274",
-        "type": "github"
-      },
-      "original": {
-        "owner": "bbatsov",
-        "repo": "projectile",
-        "type": "github"
-      }
-    },
-    "python-pytest": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1699286358,
-        "narHash": "sha256-uVfgrpHxTJUVCvqKR8fEckkobqjsc05PF5DBnwSaGRY=",
-        "owner": "wbolster",
-        "repo": "emacs-python-pytest",
-        "rev": "bdfb3e81eedc6b76ed0c5f77079e7cc8adff7b00",
-        "type": "github"
-      },
-      "original": {
-        "owner": "wbolster",
-        "repo": "emacs-python-pytest",
-        "type": "github"
-      }
-    },
     "root": {
       "inputs": {
         "ace-window": "ace-window",
@@ -906,6 +810,7 @@
         "apheleia": "apheleia",
         "avy": "avy",
         "blackout": "blackout",
+        "breadcrumb": "breadcrumb",
         "browse-at-remote": "browse-at-remote",
         "bufler": "bufler",
         "burly": "burly",
@@ -913,8 +818,7 @@
         "compat": "compat",
         "consult": "consult",
         "consult-dir": "consult-dir",
-        "consult-flycheck": "consult-flycheck",
-        "consult-lsp": "consult-lsp",
+        "consult-eglot": "consult-eglot",
         "consult-todo": "consult-todo",
         "corfu": "corfu",
         "dash": "dash",
@@ -922,24 +826,20 @@
         "diff-hl": "diff-hl",
         "diredfl": "diredfl",
         "editorconfig": "editorconfig",
+        "eglot-booster": "eglot-booster",
         "embark": "embark",
         "embark-consult": "embark-consult",
         "envrc": "envrc",
         "f": "f",
-        "flycheck": "flycheck",
         "git-commit": "git-commit",
         "git-timemachine": "git-timemachine",
         "go-mode": "go-mode",
         "hl-todo": "hl-todo",
-        "ht": "ht",
         "hydra": "hydra",
         "inheritenv": "inheritenv",
         "jinx": "jinx",
         "kind-icon": "kind-icon",
-        "lsp-mode": "lsp-mode",
-        "lsp-pyright": "lsp-pyright",
         "lsp-snippet-tempel": "lsp-snippet-tempel",
-        "lsp-ui": "lsp-ui",
         "lv": "lv",
         "magit": "magit",
         "magit-delta": "magit-delta",
@@ -953,8 +853,6 @@
         "orderless": "orderless",
         "org": "org",
         "pretty-hydra": "pretty-hydra",
-        "projectile": "projectile",
-        "python-pytest": "python-pytest",
         "rust-mode": "rust-mode",
         "rustic": "rustic",
         "s": "s",
@@ -974,11 +872,11 @@
     "rust-mode": {
       "flake": false,
       "locked": {
-        "lastModified": 1708838795,
-        "narHash": "sha256-XIch6J6WQYkLXagNXyaJx6mq4awCasLPIaiSyTfa6+s=",
+        "lastModified": 1710295025,
+        "narHash": "sha256-YD8EieliEhOaQ+4lVpeOZ2WS2X35Fy9Kto4UZg0xTJs=",
         "owner": "rust-lang",
         "repo": "rust-mode",
-        "rev": "ade453f95e95a3fb6ae90204e51571008fd25d48",
+        "rev": "87bf4ea711456c858445ec4c22b3552fd796708d",
         "type": "github"
       },
       "original": {
