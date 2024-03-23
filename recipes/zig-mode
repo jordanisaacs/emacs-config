@@ -1,0 +1,2 @@
+(zig-mode :fetcher github
+            :repo "jordanisaacs/zig-mode")

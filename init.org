@@ -1,4 +1,4 @@
-#+TITLE: EmacsConfig
+s#+TITLE: EmacsConfig
 #+AUTHOR: Jordan Isaacs
 
 * early-init.el
@@ -33,6 +33,14 @@ Lower GC for init
                (setq gc-cons-threshold ,normal-gc-cons-threshold
                      gc-cons-percentage ,normal-gc-cons-percentage
                      file-name-handler-alist ',normal-file-name-handler-alist))))
+#+end_src
+
+Redirect calls to `user-emacs-directory` to `$XDG_DATA_DIR` if not one of our
+specified paths. Since we are using `--init-directory NIX_STORE` which is read only.
+
+#+begin_src emacs-lisp :tangle early-init.el
+(startup-redirect-eln-cache (expand-file-name "eln-cache/" user-emacs-directory))
+(setq user-emacs-directory (concat (getenv "XDG_STATE_HOME") "/emacs"))
 #+end_src
 
 Performance tweaks. Don't load default library and use fundamental-mode to reduce
@@ -189,8 +197,8 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
 
 ;; TODO: monaspace neon is missing the o symbol, so when we get fallback font in the
 ;; minibuffer it is slightly the wrong size and causes prompt to move
-(set-face-attribute 'default nil :family "Monaspace Neon" :height 100 :weight 'normal)
-
+;; use (font-family-list) to see available fonts
+(set-face-attribute 'default nil :family "MonaspiceNe Nerd Font Mono" :height 100 :weight 'normal)
 
 (defun set-bigger-spacing ()
   (setq-local default-text-properties '(line-spacing 0.25)))
@@ -1254,7 +1262,11 @@ any directory proferred by `consult-dir'."
 
 (use-package modern-cpp-font-lock
   :ensure t
+  :after cc-mode
   :hook (c++-mode-hook . modern-c++-font-lock-mode))
+
+(use-package zig-mode
+  :ensure t)
 
 ;; Go
 
@@ -1318,6 +1330,9 @@ any directory proferred by `consult-dir'."
 
 (use-package tldr
   :ensure t
+  :custom
+  ;; tldr unzips to tldr-main/ while tldr.el expects tldr/
+  (tldr-directory-path (expand-file-name "tldr-main/" user-emacs-directory))
   :defer t)
 
 ;; direnv variables

@@ -385,6 +385,12 @@
       repo = "xterm-color";
       type = "github";
     };
+    zig-mode = {
+      flake = false;
+      owner = "jordanisaacs";
+      repo = "zig-mode";
+      type = "github";
+    };
   };
   outputs = { ... }: { };
 }

@@ -866,7 +866,8 @@
         "which-key": "which-key",
         "whitespace-cleanup-mode": "whitespace-cleanup-mode",
         "with-editor": "with-editor",
-        "xterm-color": "xterm-color"
+        "xterm-color": "xterm-color",
+        "zig-mode": "zig-mode"
       }
     },
     "rust-mode": {
@@ -1090,6 +1091,22 @@
       "original": {
         "owner": "atomontage",
         "repo": "xterm-color",
+        "type": "github"
+      }
+    },
+    "zig-mode": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1711157751,
+        "narHash": "sha256-Yi/HQvrjw1zHmUxkKmBC8VEGHZjrIWRNiME0w7sTcWU=",
+        "owner": "jordanisaacs",
+        "repo": "zig-mode",
+        "rev": "5c9885753df0c7fde3cb04e7d1838f18b3577ae2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jordanisaacs",
+        "repo": "zig-mode",
         "type": "github"
       }
     }
