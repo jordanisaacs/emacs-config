@@ -1097,11 +1097,11 @@
     "zig-mode": {
       "flake": false,
       "locked": {
-        "lastModified": 1711157751,
-        "narHash": "sha256-Yi/HQvrjw1zHmUxkKmBC8VEGHZjrIWRNiME0w7sTcWU=",
+        "lastModified": 1711174956,
+        "narHash": "sha256-UXYmWY7iI2O4FvkTCM2uIVqXE3ckEF2lpZ9M4zDU/Rg=",
         "owner": "jordanisaacs",
         "repo": "zig-mode",
-        "rev": "5c9885753df0c7fde3cb04e7d1838f18b3577ae2",
+        "rev": "d8a8593f6a1c5c06d54d5c03a39d025b9d5e9354",
         "type": "github"
       },
       "original": {
