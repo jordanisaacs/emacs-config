@@ -8,6 +8,12 @@
       repo = "ace-window";
       type = "github";
     };
+    activity-watch-mode = {
+      flake = false;
+      owner = "pauldub";
+      repo = "activity-watch-mode";
+      type = "github";
+    };
     all-the-icons = {
       flake = false;
       owner = "domtronn";
@@ -299,6 +305,12 @@
       flake = false;
       owner = "jerrypnz";
       repo = "major-mode-hydra.el";
+      type = "github";
+    };
+    request = {
+      flake = false;
+      owner = "tkf";
+      repo = "emacs-request";
       type = "github";
     };
     rust-mode = {

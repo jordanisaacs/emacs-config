@@ -16,6 +16,22 @@
         "type": "github"
       }
     },
+    "activity-watch-mode": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1710316462,
+        "narHash": "sha256-FZmWuu64D08kysLa/LU8o3W60s6/0FeQbVL923mJd1k=",
+        "owner": "pauldub",
+        "repo": "activity-watch-mode",
+        "rev": "19aed6ca81a3b1e549f47867c924d180d8536791",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pauldub",
+        "repo": "activity-watch-mode",
+        "type": "github"
+      }
+    },
     "all-the-icons": {
       "flake": false,
       "locked": {
@@ -801,9 +817,26 @@
         "type": "github"
       }
     },
+    "request": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1674793058,
+        "narHash": "sha256-WOaAoM44yF0E9o0G3NoN198i7l5fGnBJwNCGtbyWMKs=",
+        "owner": "tkf",
+        "repo": "emacs-request",
+        "rev": "01e338c335c07e4407239619e57361944a82cb8a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "tkf",
+        "repo": "emacs-request",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "ace-window": "ace-window",
+        "activity-watch-mode": "activity-watch-mode",
         "all-the-icons": "all-the-icons",
         "all-the-icons-completion": "all-the-icons-completion",
         "all-the-icons-dired": "all-the-icons-dired",
@@ -853,6 +886,7 @@
         "orderless": "orderless",
         "org": "org",
         "pretty-hydra": "pretty-hydra",
+        "request": "request",
         "rust-mode": "rust-mode",
         "rustic": "rustic",
         "s": "s",

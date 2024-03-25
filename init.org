@@ -1341,7 +1341,6 @@ any directory proferred by `consult-dir'."
 ;; https://github.com/doomemacs/doomemacs/blob/98d753e1036f76551ccaa61f5c810782cda3b48a/modules/tools/direnv/config.el#L27
 (use-package envrc
   :ensure t
-  :commands (envrc-global-mode)
   :preface
   (autoload 'envrc-propagate-environment "envrc")
   (autoload 'envrc-global-mode-enable-in-buffers "envrc")
@@ -1399,4 +1398,13 @@ any directory proferred by `consult-dir'."
 (setq sql-user "root")
 (setq sql-password "")
 (setq sql-server "127.0.0.1")
+#+end_src
+
+** Activity watch
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package activity-watch-mode
+  :ensure t
+  :hook
+  (first-file-hook . global-activity-watch-mode))
 #+end_src
