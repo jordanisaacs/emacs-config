@@ -107,7 +107,6 @@ Lazy load hooks
        ((add-hook hook fn -101)))
       fn)))
 
-
 (defvar first-input-hook ()
   "Transient hooks run before the first user input.")
 
@@ -551,7 +550,8 @@ any directory proferred by `consult-dir'."
   :hook (magit-mode-hook . magit-delta-mode))
 
 (use-package magit
-  :ensure t)
+  :ensure t
+  :defer t)
 
 ;; diff highlighting
 
@@ -1377,9 +1377,7 @@ is useful and good for performance.
 
 (use-package devdocs
   :ensure t
-  :demand t
-  :config
-  (message "loaded devdocs"))
+  :defer t)
 
 (use-package tldr
   :ensure t
