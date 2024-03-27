@@ -228,7 +228,7 @@ with font faces.
 ;; TODO: monaspace neon is missing the o symbol, so when we get fallback font in the
 ;; minibuffer it is slightly the wrong size and causes prompt to move
 ;; use (font-family-list) to see available fonts
-;; (set-face-attribute 'default nil :family "MonaspiceNe Nerd Font Mono" :height 100 :weight 'normal)
+(set-face-attribute 'default nil :family "MonaspiceNe Nerd Font Mono" :height 100 :weight 'normal)
 
 (defun set-bigger-spacing ()
   (setq-local default-text-properties '(line-spacing 0.25)))
