@@ -156,16 +156,48 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
 
 * init.el
 
+** Plumbing
+
+*** Lexical bindings
 
 #+begin_src emacs-lisp :tangle init.el
 ;;; -*- lexical-binding: t; -*-
 #+end_src
 
+*** Cleanup site-startup.el
+
+Nix's site-startup.el adds `$NIX_PROFILES` paths to a variety of variables.
+This is good for some variables, but not good for loading. Those paths are
+mutable -- not reproducible. This fixes some weird shit that was happening
+with font faces.
+
+#+begin_src emacs-lisp :tangle init.el
+(require 'cl-extra)
+(require 'cl-lib)
+
+(defun filter-nix-store (paths)
+  (cl-remove-if-not
+   (lambda (s)
+     (string-prefix-p "/nix/store/" s))
+   paths))
+
+
+(setq native-comp-eln-load-path (filter-nix-store native-comp-eln-load-path))
+(setq load-path (filter-nix-store load-path))
+#+end_src
+
+*** debug
+
+
 #+begin_src emacs-lisp :tangle init.el
 (eval-and-compile
   (when (getenv "DEBUG") (setq init-file-debug t))
   (setq debug-on-error (and (not noninteractive) init-file-debug)))
+#+end_src
 
+*** use-package
+
+#+begin_src emacs-lisp :tangle init.el
 (eval-when-compile
   (require 'use-package))
 
@@ -183,11 +215,10 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
             debug-on-error t))
   (setq use-package-verbose nil
         use-package-expand-minimally t))
+#+end_src
 
 
-(require 'cl-lib)
-(require 'cl-extra)
-
+#+begin_src emacs-lisp :tangle init.el
 (use-package bind-key
   :ensure t)
 
