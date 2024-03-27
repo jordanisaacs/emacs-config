@@ -198,7 +198,7 @@ dependencies it pulls in from all corners of the globe. Let's try to be a
 ;; TODO: monaspace neon is missing the o symbol, so when we get fallback font in the
 ;; minibuffer it is slightly the wrong size and causes prompt to move
 ;; use (font-family-list) to see available fonts
-(set-face-attribute 'default nil :family "MonaspiceNe Nerd Font Mono" :height 100 :weight 'normal)
+;; (set-face-attribute 'default nil :family "MonaspiceNe Nerd Font Mono" :height 100 :weight 'normal)
 
 (defun set-bigger-spacing ()
   (setq-local default-text-properties '(line-spacing 0.25)))
@@ -860,6 +860,28 @@ any directory proferred by `consult-dir'."
   :functions consult-dir--pick
   :after consult)
 
+#+end_src
+
+** Projects
+
+Add a nix-project-finder. Need to make sure it is before the vc project finder.
+breadcrumb-mode calls project-current, and the vc project finder has horrific
+performance in the `/nix/store` directory. Profiler had it at 50%. So the function
+is useful and good for performance.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package project
+  :defer t
+  :preface
+  ;; A subdirectory of /nix/store
+  (defun nix-project-finder (dir)
+    (let ((nix-store-prefix "/nix/store/")
+          (dirs (split-string (expand-file-name dir) "/")))
+      (when (and (> (length dirs) 3)
+                 (string-prefix-p nix-store-prefix dir))
+        (cons 'transient (mapconcat 'identity (seq-take dirs 4) "/")))))
+  :config
+  (add-hook 'project-find-functions 'nix-project-finder))
 #+end_src
 
 #+begin_src emacs-lisp :tangle init.el
