@@ -1,4 +1,4 @@
-s#+TITLE: EmacsConfig
+#+TITLE: EmacsConfig
 #+AUTHOR: Jordan Isaacs
 
 * early-init.el
@@ -319,6 +319,8 @@ with font faces.
   (setq repeat-echo-function #'ignore)
   :init
   (advice-add 'repeat-post-hook :after #'repeat-help--which-key-popup)
+  ;; This means that using alt+x will still let us use repeat mode
+  (setq repeat-check-key nil)
   (repeat-mode t))
 
 #+end_src
@@ -410,6 +412,63 @@ with font faces.
   :init
   (org-mode))
 #+end_src
+
+** Navigation
+
+*** Bookmark+ (disabled)
+
+Enhanced bookmarks [[https://www.emacswiki.org/emacs/BookmarkPlus#h5o-2][EmacsWiki]]. I would like to enable this once I have time
+to set up a =Consult= function for searching bookmark+.
+
+#+begin_src emacs-lisp :tangle no
+(use-package bookmark+
+  :ensure t
+  :defer t)
+#+end_src
+
+*** Gumshoe (disabled)
+
+This is a point tracker using space to retrace my steps.
+Hit [[https://github.com/Overdr0ne/gumshoe/issues/8][issue]] when trying to use it.
+
+#+begin_src emacs-lisp :tangle no
+(use-package gumshoe
+   :ensure t
+   :commands global-gumshoe-mode
+   :init
+   (global-gumshoe-mode +1))
+#+end_src
+
+*** Dogears
+
+Third time is the charm, a point tracker using time.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package dogears
+  :ensure t
+  :bind
+  (:map global-map
+        ("M-g d" . dogears-go)
+        ("M-g M-b" . dogears-back)
+        ("M-g M-f" . dogears-forward)
+        ("M-g M-d" . dogears-list)
+        ("M-g M-D" . dogears-sidebar))
+  :config
+  (defvar-keymap dogears-repeat-map
+    :repeat t
+    "f" #'dogears-forward
+    "b" #'dogears-back))
+#+end_src
+
+*** isearch
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package isearch
+  :config
+  (setq isearch-lazy-count t)
+  (setq isearch-lazy-highlight t))
+#+end_src
+
 
 ** Polymode (disabled)
 
@@ -1275,6 +1334,24 @@ is useful and good for performance.
                               (lsp-deferred))))
 #+end_src
 
+** Debug
+
+*** dape
+
+Debug adapter client
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package dape
+  :ensure t
+  :functions dape-breakpoint-global-mode
+  :hook
+  ((kill-emacs . dape-breakpoint-save)
+   (after-init . dape-breakpoint-load))
+  :config
+  (setq dape-buffer-window-arrangement 'right)
+  (dape-breakpoint-global-mode))
+#+end_src
+
 ** Language configs
 
 #+begin_src emacs-lisp :tangle init.el
@@ -1370,10 +1447,16 @@ is useful and good for performance.
   :ensure t
   :hook ((go-mode-hook . apheleia-mode)
          (python-mode-hook . apheleia-mode)
-         (sh-mode-hook . apheleia-mode))
+         (sh-mode-hook . apheleia-mode)
+         (rust-mode-hook . apheleia-mode)
+         (zig-mode-hook . apheleia-mode)
+         (nix-mode-hook . apheleia-mode))
   :blackout " Fmt"
   :config
-  (setf (alist-get 'python-mode apheleia-mode-alist) '(ruff)))
+  (push '(zigfmt . (zig-zig-bin "fmt" "--stdin")) apheleia-formatters)
+  (setf (alist-get 'python-mode apheleia-mode-alist) '(ruff)
+        (alist-get 'zig-mode apheleia-mode-alist) '(zigfmt)
+        (alist-get 'sh-mode apheleia-mode-alist) '(shfmt)))
 
 (use-package devdocs
   :ensure t

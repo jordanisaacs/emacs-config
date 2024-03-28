@@ -116,6 +116,12 @@
       repo = "corfu";
       type = "github";
     };
+    dape = {
+      flake = false;
+      owner = "svaante";
+      repo = "dape";
+      type = "github";
+    };
     dash = {
       flake = false;
       owner = "magnars";
@@ -138,6 +144,12 @@
       flake = false;
       owner = "purcell";
       repo = "diredfl";
+      type = "github";
+    };
+    dogears = {
+      flake = false;
+      owner = "alphapapa";
+      repo = "dogears.el";
       type = "github";
     };
     editorconfig = {

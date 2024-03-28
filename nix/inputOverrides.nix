@@ -22,4 +22,12 @@
       "rustic-flycheck.el"
     ];
   };
+
+  gumshoe = _: super: {
+    # packageRequires = builtins.removeAttrs super.packageRequires ["flycheck" "projectile"];
+    files = builtins.removeAttrs super.files [
+      "gumshoe-persp.el"
+    ];
+  };
+
 }

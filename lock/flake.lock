@@ -304,6 +304,22 @@
         "type": "github"
       }
     },
+    "dape": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1711459263,
+        "narHash": "sha256-xu6EcJrKtRdQvnzh3neaZv6CqzkAbhDcwtEz4QHnoZo=",
+        "owner": "svaante",
+        "repo": "dape",
+        "rev": "bd62e8fc9d03b3778ffde7d466d06a9ee9206e29",
+        "type": "github"
+      },
+      "original": {
+        "owner": "svaante",
+        "repo": "dape",
+        "type": "github"
+      }
+    },
     "dash": {
       "flake": false,
       "locked": {
@@ -365,6 +381,22 @@
       "original": {
         "owner": "purcell",
         "repo": "diredfl",
+        "type": "github"
+      }
+    },
+    "dogears": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1697500612,
+        "narHash": "sha256-TpDVlIgr8ta+OEr5zFVKE+1qP2kOLZjwnAzgF9cI5Wo=",
+        "owner": "alphapapa",
+        "repo": "dogears.el",
+        "rev": "1136f28ceaed522351369fb97cc098763293a7a6",
+        "type": "github"
+      },
+      "original": {
+        "owner": "alphapapa",
+        "repo": "dogears.el",
         "type": "github"
       }
     },
@@ -854,10 +886,12 @@
         "consult-eglot": "consult-eglot",
         "consult-todo": "consult-todo",
         "corfu": "corfu",
+        "dape": "dape",
         "dash": "dash",
         "devdocs": "devdocs",
         "diff-hl": "diff-hl",
         "diredfl": "diredfl",
+        "dogears": "dogears",
         "editorconfig": "editorconfig",
         "eglot-booster": "eglot-booster",
         "embark": "embark",
