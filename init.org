@@ -405,12 +405,12 @@ with font faces.
 ** Org mode
 
 #+BEGIN_SRC emacs-lisp :tangle init.el
-(use-package org
-  :ensure t
-  :custom
-  (org-src-preserve-indentation t)
-  :init
-  (org-mode))
+  (use-package org
+    :ensure t
+    :init
+    (org-mode)
+    :config
+    (setq org-src-preserve-indentation t))
 #+end_src
 
 ** Navigation
@@ -708,17 +708,16 @@ any directory proferred by `consult-dir'."
 
 (use-package tempel
   :ensure t
-  :functions tempel-expand
+  :commands tempel-expand
   :preface
-  (defun tempel-setup-capf ()
+  (defun my/tempel-setup-capf ()
     ;; Add the Tempel Capf to `completion-at-point-functions`
-    (setq-local completion-at-point-functions
-                (cons #'tempel-expand
-                      completion-at-point-functions)))
-  :hook
-  (conf-mode-hook . tempel-setup-capf)
-  (prog-mode-hook . tempel-setup-capf)
-  (text-mode-hook . tempel-setup-capf))
+    (add-hook 'completion-at-point-functions
+               #'tempel-expand t t))
+  :init
+  (add-hook 'conf-mode-hook 'my/tempel-setup-capf)
+  (add-hook 'prog-mode-hook 'my/tempel-setup-capf)
+  (add-hook 'text-mode-hook 'my/tempel-setup-capf))
 
 (use-package lsp-snippet-tempel
   :ensure t
@@ -736,6 +735,7 @@ any directory proferred by `consult-dir'."
 
 ;; https://kristofferbalintona.me/posts/202203130102/
 (use-package cape
+  :ensure t
   :bind ("C-c p p" . completion-at-point) ;; capf
   ("C-c p t" . complete-tag)              ;; etags
   ("C-c p d" . cape-dabbrev)              ;; or dabbrev-completion
@@ -754,10 +754,10 @@ any directory proferred by `consult-dir'."
   ("C-c p &" . cape-sgml)
   ("C-c p r" . cape-rfc1345)
   :init
-  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
-  (add-to-list 'completion-at-point-functions #'cape-elisp-block)
-  (add-to-list 'completion-at-point-functions #'cape-file)
-  :ensure t
+  (add-hook 'completion-at-point-functions (cape-capf-nonexclusive #'cape-dabbrev) nil nil)
+  (add-hook 'completion-at-point-functions (cape-capf-nonexclusive #'cape-file) nil nil)
+  (add-hook 'completion-at-point-functions (cape-capf-nonexclusive #'cape-elisp-block) nil nil)
+  :commands cape-wrap-buster cape-capf-super cape-capf-nonexclusive
   :defines cape-file-directory-must-exit
   :config
   ;; https://old.reddit.com/r/emacs/comments/19b8a83/capefile_fails_when_called_as_a_capf_but_works/
@@ -1181,9 +1181,9 @@ is useful and good for performance.
 
 ** Diagnostics
 
-*** Flymake
+*** Flymake (disabled)
 
-#+begin_src emacs-lisp :tangle init.el
+#+begin_src emacs-lisp :tangle no
 (use-package flymake
   :defer t
   :hook ((prog-mode-hook text-mode-hook) . flymake-mode)
@@ -1230,8 +1230,6 @@ is useful and good for performance.
   :after eglot
   :commands eglot-booster-mode
   :config (eglot-booster-mode)
-  :init
-  (setq eglot-autoshutdown t)
   :custom-face
   (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
 
@@ -1242,8 +1240,22 @@ is useful and good for performance.
 (use-package eglot
   ;; :ensure t
   :commands (eglot eglot-ensure)
-  :custom
-  (completion-category-defaults nil))
+  :functions eglot-completion-at-point
+  :preface
+  (defun my/eglot-setup-capf ()
+    (setq-local completion-at-point-functions
+                (append (list (cape-capf-nonexclusive
+                               (cape-capf-super
+                                #'eglot-completion-at-point
+                                #'tempel-expand)))
+                        (default-value 'completion-at-point-functions))))
+                ;; (list (cape-capf-nonexclusive
+  :hook (eglot-managed-mode-hook . my/eglot-setup-capf)
+  :init
+  (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
+  :config
+  (setq eglot-autoshutdown t)
+  (setq completion-category-defaults nil))
 #+end_src
 
 *** LSP mode (disabled)

@@ -113,11 +113,11 @@
     "gnu-elpa": {
       "flake": false,
       "locked": {
-        "lastModified": 1710090195,
-        "narHash": "sha256-C6b1mZlW95pbDZ8A3qWKbZK0XeSUW/nexMvVDu2BB8o=",
+        "lastModified": 1712667203,
+        "narHash": "sha256-KJ+G0wosKpmCm3UQ8Ko3R6Qynnu8kwzbmUA9CXcl12s=",
         "ref": "main",
-        "rev": "5027481bb39df93a6136f1ce71722e42d75a50cf",
-        "revCount": 590,
+        "rev": "bd4f5bf7462a377dbca534bf3ec703763cb5c7bd",
+        "revCount": 593,
         "type": "git",
         "url": "https://git.savannah.gnu.org/git/emacs/elpa.git"
       },
@@ -146,11 +146,11 @@
     "melpa": {
       "flake": false,
       "locked": {
-        "lastModified": 1710961513,
-        "narHash": "sha256-/f5Fj1zC0FartwGIhTV03+xm3J7DBC2nksVn77qN7yk=",
+        "lastModified": 1713172032,
+        "narHash": "sha256-NV5/YgBm8tmCJ3GwhIGgJh/0vzFvs0EnOZdQaKx9eb4=",
         "owner": "melpa",
         "repo": "melpa",
-        "rev": "1202a12d3991df7de1bb57c59467f1532be52b37",
+        "rev": "cc0dbece50cc4f6eb35f6f6a80af8ca2774410b5",
         "type": "github"
       },
       "original": {
@@ -211,11 +211,11 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1711106783,
-        "narHash": "sha256-PDwAcHahc6hEimyrgGmFdft75gmLrJOZ0txX7lFqq+I=",
+        "lastModified": 1713128889,
+        "narHash": "sha256-aB90ZqzosyRDpBh+rILIcyP5lao8SKz8Sr2PSWvZrzk=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "a3ed7406349a9335cb4c2a71369b697cecd9d351",
+        "rev": "2748d22b45a99fb2deafa5f11c7531c212b2cefa",
         "type": "github"
       },
       "original": {
@@ -227,11 +227,11 @@
     "nongnu-elpa": {
       "flake": false,
       "locked": {
-        "lastModified": 1710442513,
-        "narHash": "sha256-iJeG9lyjCTwcl/7OTBYI+RG7ztD0u2DY76RR9mzYjvM=",
+        "lastModified": 1712340689,
+        "narHash": "sha256-knhVWWy22nmOs/5NT/Zuq0AHWXRAwRXDSdvwrFIxQOQ=",
         "ref": "main",
-        "rev": "f06fc1286a20c827cbbd53a8c3ed53b2ac41c9d9",
-        "revCount": 307,
+        "rev": "5623e3864f87f49d18bc48b3656dc0c2dea42973",
+        "revCount": 308,
         "type": "git",
         "url": "https://git.savannah.gnu.org/git/emacs/nongnu.git"
       },

@@ -195,11 +195,11 @@
     "cape": {
       "flake": false,
       "locked": {
-        "lastModified": 1708927115,
-        "narHash": "sha256-zz2EHA0n+Qf7z8oNEoCNFOUZcyyX11ruErPLD6AmFDM=",
+        "lastModified": 1712873278,
+        "narHash": "sha256-/LJmqcwrIy7T/Ge1y5+0mJ0+2UwYOiCPIYZMsSK3AKo=",
         "owner": "minad",
         "repo": "cape",
-        "rev": "7353489c38622b1f1698ecfcc8d19ec7bfd71e1b",
+        "rev": "bf22aa6ce0ffca1a1a77b693dddcd05eddc386f0",
         "type": "github"
       },
       "original": {
