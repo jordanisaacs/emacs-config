@@ -325,6 +325,8 @@ with font faces.
 
 #+end_src
 
+** Theming
+
 #+begin_src emacs-lisp :tangle init.el
 ;; Tabs
 
@@ -370,13 +372,26 @@ with font faces.
   (add-hook 'modus-themes-after-load-theme-hook #'modus-themes-modify)
   (modus-themes-load-theme 'modus-operandi))
 
+#+end_src
 
-;; Scrolling
-(setq scroll-margin 10
-      scroll-conservatively 10
-      ;; aggressively doesn't get set in any buffers anyway
-      scroll-preserve-screen-position t
-      auto-window-vscroll nil)
+*** Emacs
+
+#+begin_src emacs-lisp :tangle init.el
+
+(use-package emacs
+  :init
+  (setq text-mode-ispell-word-completion nil)
+  ;; TAB cycle never
+  (setq completion-cycle-threshold nil)
+  ;; tab does indentation + complete
+  (setq tab-always-indent 'complete)
+  ;; Scrolling
+  (setq scroll-margin 10
+        scroll-conservatively 10
+        ;; aggressively doesn't get set in any buffers anyway
+        scroll-preserve-screen-position t
+        auto-window-vscroll nil)
+  )
 
 ;; recent file list
 (recentf-mode 1)
@@ -481,6 +496,7 @@ Third time is the charm, a point tracker using time.
   :ensure t)
 #+end_src
 
+** Eshell
 
 #+begin_src emacs-lisp :tangle init.el
 (use-package eshell
@@ -765,29 +781,28 @@ any directory proferred by `consult-dir'."
 
 
 ;; stuff for completion in region + corfu
-(setq tab-always-indent 'complete)
-(setq completion-cycle-threshold nil)
 
 (use-package corfu
   :ensure t
   :commands (corfu-mode global-corfu-mode)
-  ;; :preface
-  ;; (defun my/corfu-setup-lsp ()
-  ;;   "Use orderless completion style with lsp-capf
-  ;;     instead of the default lsp-passthrough."
-  ;;   (setf (alist-get 'styles (alist-get 'lsp-capf completion-category-defaults))
-  ;;         '(orderless)))
+  :preface
+  (defun corfu-send-shell (&rest _)
+    "Send completion candidate when inside comint/eshell."
+    (cond
+     ((and (derived-mode-p 'eshell-mode) (fboundp 'eshell-send-input))
+      (eshell-send-input))
+     ((and (derived-mode-p 'comint-mode)  (fboundp 'comint-send-input))
+      (comint-send-input))))
   :custom
   (corfu-cycle t)
-  (corfu-preselect 'first)
+  (corfu-preselect 'valid)
   (corfu-quit-no-match 'separator)
-  (corfu-auto nil)
+  (corfu-auto t)
   (corfu-min-width 60)
   (corfu-max-width corfu-min-width)
   (corfu-count 14)
   (corfu-scroll-margin 4)
   (corfu-echo-mode nil) ; Using corfu-popupinfo
-  (lsp-completion-provider :none) ; use corfu intsead for lsp completion
   (corfu-popupinfo-delay '(0.2 . 1.0))
   :bind
   (:map corfu-map ;; use TAB for cycling, default is `corfu-complete`
@@ -802,6 +817,11 @@ any directory proferred by `consult-dir'."
         )
   :hook
   (corfu-mode-hook . corfu-popupinfo-mode)
+  :config
+  (add-hook 'eshell-mode-hook (lambda ()
+                                (setq-local corfu-auto nil)
+                                (corfu-mode)))
+  (advice-add #'corfu-insert :after #'corfu-send-shell)
   ;; (lsp-completion-mode . my/corfu-setup-lsp) ;; use corfu for lsp
   :init
   (global-corfu-mode 1))
@@ -1224,14 +1244,15 @@ is useful and good for performance.
 
 *** eglot
 
+For some reason eglot-booster-mode turns on but not early enough to wrap the server
+startup when doing `:before eglot` so just load it on startup.
+
 #+begin_src emacs-lisp :tangle init.el
 (use-package eglot-booster
   :ensure t
-  :after eglot
-  :commands eglot-booster-mode
-  :config (eglot-booster-mode)
-  :custom-face
-  (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
+  :commands (eglot-booster-mode)
+  :init
+  (eglot-booster-mode))
 
 (use-package consult-eglot
   :ensure t
@@ -1249,13 +1270,17 @@ is useful and good for performance.
                                 #'eglot-completion-at-point
                                 #'tempel-expand)))
                         (default-value 'completion-at-point-functions))))
-                ;; (list (cape-capf-nonexclusive
   :hook (eglot-managed-mode-hook . my/eglot-setup-capf)
   :init
   (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
+  :custom
+  (lsp-completion-provider :none) ; use corfu intsead for lsp completion
   :config
   (setq eglot-autoshutdown t)
-  (setq completion-category-defaults nil))
+  (setq completion-category-defaults nil)
+  :custom-face
+  (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
+
 #+end_src
 
 *** LSP mode (disabled)
@@ -1408,6 +1433,7 @@ Debug adapter client
   :hook (c++-mode-hook . modern-c++-font-lock-mode))
 
 (use-package zig-mode
+  :hook (zig-mode-hook . eglot-ensure)
   :ensure t)
 
 ;; Go
