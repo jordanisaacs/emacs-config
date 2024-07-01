@@ -385,7 +385,8 @@ with font faces.
         ;; aggressively doesn't get set in any buffers anyway
         scroll-preserve-screen-position t
         auto-window-vscroll nil)
-  )
+  :bind
+  ("M-z" . zap-up-to-char))
 
 ;; recent file list
 (recentf-mode 1)
@@ -642,8 +643,7 @@ press `@` to use a keybinding (or do completing-read)
   :hook (magit-mode-hook . magit-delta-mode))
 
 (use-package magit
-  :ensure t
-  :defer t)
+  :ensure t)
 
 ;; diff highlighting
 
