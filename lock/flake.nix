@@ -146,12 +146,6 @@
       repo = "diredfl";
       type = "github";
     };
-    dogears = {
-      flake = false;
-      owner = "alphapapa";
-      repo = "dogears.el";
-      type = "github";
-    };
     editorconfig = {
       flake = false;
       owner = "editorconfig";
@@ -203,6 +197,12 @@
       flake = false;
       owner = "dominikh";
       repo = "go-mode.el";
+      type = "github";
+    };
+    gumshoe = {
+      flake = false;
+      owner = "Overdr0ne";
+      repo = "gumshoe";
       type = "github";
     };
     hl-todo = {
@@ -277,12 +277,6 @@
       repo = "markdown-mode";
       type = "github";
     };
-    meow = {
-      flake = false;
-      owner = "meow-edit";
-      repo = "meow";
-      type = "github";
-    };
     modern-cpp-font-lock = {
       flake = false;
       owner = "ludwigpacifici";
@@ -317,6 +311,12 @@
       flake = false;
       owner = "jerrypnz";
       repo = "major-mode-hydra.el";
+      type = "github";
+    };
+    repeat-help = {
+      flake = false;
+      owner = "karthink";
+      repo = "repeat-help";
       type = "github";
     };
     request = {
@@ -383,12 +383,6 @@
       flake = false;
       owner = "mhayashi1120";
       repo = "Emacs-wgrep";
-      type = "github";
-    };
-    which-key = {
-      flake = false;
-      owner = "justbur";
-      repo = "emacs-which-key";
       type = "github";
     };
     whitespace-cleanup-mode = {

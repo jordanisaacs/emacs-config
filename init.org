@@ -304,25 +304,19 @@ with font faces.
         ((keymapp cmd) (process cmd))))
      keymap)))
 
-  (defun repeat-help--which-key-popup ()
-    (require 'which-key)
-    (if-let ((cmd (or this-command real-this-command))
-             (keymap (or repeat-map
-                         (repeat--command-property 'repeat-map))))
-        (run-at-time
-         0 nil
-         (lambda ()
-           (which-key--create-buffer-and-show
-            nil (symbol-value keymap))))
-      (which-key--hide-popup)))
   :config
   (setq repeat-echo-function #'ignore)
   :init
-  (advice-add 'repeat-post-hook :after #'repeat-help--which-key-popup)
   ;; This means that using alt+x will still let us use repeat mode
   (setq repeat-check-key nil)
   (repeat-mode t))
 
+(use-package repeat-help
+  :ensure t
+  :defer t
+  :init
+  (setq repeat-help-popup-type 'embark)
+  :hook (repeat-mode-hook . repeat-help-mode))
 #+end_src
 
 ** Theming
@@ -441,24 +435,34 @@ to set up a =Consult= function for searching bookmark+.
   :defer t)
 #+end_src
 
-*** Gumshoe (disabled)
+
+*** Backtracking
+
+**** Gumshoe
 
 This is a point tracker using space to retrace my steps.
-Hit [[https://github.com/Overdr0ne/gumshoe/issues/8][issue]] when trying to use it.
 
-#+begin_src emacs-lisp :tangle no
+#+begin_src emacs-lisp :tangle init.el
 (use-package gumshoe
    :ensure t
    :commands global-gumshoe-mode
+   :bind
+   ("M-g M-b" . gumshoe-peruse-in-buffer)
+   ("M-g M-B" . gumshoe-peruse-globally)
+   ("M-g b" . gumshoe-buf-backtrack)
+   ("M-g B" . gumshoe-win-backtrack)
+   (:map global-gumshoe-backtracking-mode-map
+         ("M-r" . global-gumshoe-backtracking-mode-back)
+         ("M-s" . global-gumshoe-backtracking-mode-forward))
    :init
-   (global-gumshoe-mode +1))
+   (global-gumshoe-mode 1))
 #+end_src
 
-*** Dogears
+**** Dogears (disabled)
 
 Third time is the charm, a point tracker using time.
 
-#+begin_src emacs-lisp :tangle init.el
+#+begin_src emacs-lisp :tangle no
 (use-package dogears
   :ensure t
   :bind
@@ -557,9 +561,11 @@ any directory proferred by `consult-dir'."
        (t (eshell/cd (if regexp (eshell-find-previous-directory regexp)
                        (completing-read "cd: " eshell-dirs))))))))
 
+#+end_src
 
-;; Windows
+** Windowing
 
+#+begin_src emacs-lisp :tangle init.el
 ;; undo+redo window changes
 (use-package winner
   :init
@@ -568,6 +574,9 @@ any directory proferred by `consult-dir'."
 ;; avy style winodw navigation + editing
 (use-package ace-window
   :ensure t
+  :init
+  (setq aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l))
+  (setq aw-dispatch-always t)
   :bind ("M-o" . ace-window))
 
 (use-package bufler
@@ -578,16 +587,24 @@ any directory proferred by `consult-dir'."
 
 (use-package burly
   :ensure t)
+#+end_src
 
-;; Undo
+** Undo/redo
 
+*** Vundo
+
+#+begin_src emacs-lisp :tangle init.el
 (use-package vundo
   :ensure t)
+#+end_src
 
-;; Key help
+** Keybinding Help
 
+Using embark prefix instead. Type `C-h` after a prefix instead. Then can
+press `@` to use a keybinding (or do completing-read)
+
+#+begin_src emacs-lisp :tangle no
 (use-package which-key
-  :ensure t
   :commands which-key-mode
   :functions which-key--hide-popup which-key--create-buffer-and-show
   :config
@@ -668,6 +685,8 @@ any directory proferred by `consult-dir'."
 (setq-default fringes-outside-margins t)
 
 #+end_src
+
+** Uncategorized
 
 #+begin_src emacs-lisp :tangle init.el
 ;; Operate on grep buffer
@@ -778,10 +797,13 @@ any directory proferred by `consult-dir'."
   :config
   ;; https://old.reddit.com/r/emacs/comments/19b8a83/capefile_fails_when_called_as_a_capf_but_works/
   (setq cape-file-directory-must-exit nil))
-
+#+end_src
 
 ;; stuff for completion in region + corfu
 
+**** Completion in region
+
+#+begin_src emacs-lisp :tangle init.el
 (use-package corfu
   :ensure t
   :commands (corfu-mode global-corfu-mode)
@@ -840,7 +862,11 @@ any directory proferred by `consult-dir'."
   :config
   (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter)
   (add-hook 'my/themes-hooks #'(lambda () (interactive) (kind-icon-reset-cache))))
+#+end_src
 
+Consult/vertico/marginalia
+
+#+begin_src emacs-lisp :tangle init.el
 ;; minibuffer
 
 (use-package marginalia
@@ -852,12 +878,23 @@ any directory proferred by `consult-dir'."
 
 (use-package vertico
   :ensure t
+  :defines vertico-multiform-categories
+  :init
+  (setq embark-indicators
+        '(embark-minimal-indicator
+          embark-highlight-indicator
+          embark-isearch-highlight-indicator))
+
   :hook
   (after-init-hook . vertico-mode)
   :custom
+  (vertico-multiform-mode t)
   (vertico-cycle t)
   (vertico-reverse-mode t)
-  (vertico-resize t))
+  (vertico-resize t)
+  :config
+  (add-to-list 'vertico-multiform-categories '(embark-keybinding grid))
+  )
 
 ;; Example configuration for Consult
 (use-package consult
@@ -900,8 +937,8 @@ any directory proferred by `consult-dir'."
          ("M-g k" . consult-global-mark)
          ("M-g i" . consult-imenu)
          ("M-g I" . consult-imenu-multi)
-         ("M-g s" . consult-lsp-file-symbols)
-         ("M-g S" . consult-lsp-symbols)
+         ("M-g l" . consult-lsp-file-symbols)
+         ("M-g L" . consult-lsp-symbols)
          ;; M-s bindings in `search-map'
          ("M-s d" . consult-fd)                  ;; Alternative: consult-find
          ("M-s c" . consult-locate)
@@ -994,18 +1031,23 @@ is useful and good for performance.
   (add-hook 'project-find-functions 'nix-project-finder))
 #+end_src
 
+** Motions
+
+
+*** Avy
+
 #+begin_src emacs-lisp :tangle init.el
-
-;; Text Motions
-
 (use-package avy
   :ensure t
-  :preface
-  (autoload 'avy-goto-char "avy")
-  (autoload 'avy-setup-default "avy")
-  :config
-  (avy-setup-default))
+  :bind
+  ("C-:" . avy-goto-char))
+#+end_src
 
+*** View mode (disabled)
+
+View mode for meow
+
+#+begin_src emacs-lisp :tangle no
 ;; In order for the bindings in this prefix to remain active until you
 ;; press ESC (or some other key not bound under the prefix), you must
 ;; have `repeat-mode' enabled.
@@ -1032,8 +1074,11 @@ is useful and good for performance.
   (define-key my-view-rep-map (kbd (car kb)) (cdr kb))
   (put (cdr kb) 'repeat-map my-view-rep-map)
   (autoload (cdr kb) "view" nil 'interactive))
+#+end_src
 
+*** Meow (disabled)
 
+#+begin_src emacs-lisp :tangle no
 (use-package meow
   :ensure t
   :after avy
@@ -1191,6 +1236,8 @@ is useful and good for performance.
 
 ** Visuals
 
+*** Breadcrumbs
+
 #+begin_src emacs-lisp :tangle init.el
 (use-package breadcrumb
   :ensure t
@@ -1201,9 +1248,9 @@ is useful and good for performance.
 
 ** Diagnostics
 
-*** Flymake (disabled)
+*** Flymake
 
-#+begin_src emacs-lisp :tangle no
+#+begin_src emacs-lisp :tangle init.el
 (use-package flymake
   :defer t
   :hook ((prog-mode-hook text-mode-hook) . flymake-mode)
@@ -1280,13 +1327,11 @@ startup when doing `:before eglot` so just load it on startup.
   (setq completion-category-defaults nil)
   :custom-face
   (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
-
 #+end_src
 
 *** LSP mode (disabled)
 
 #+begin_src emacs-lisp :tangle no
-
 (setq lsp-keymap-prefix "C-c l")
 
 (use-package consult-lsp
@@ -1531,9 +1576,9 @@ Debug adapter client
 
   ;; Above hack causes envrc to trigger in its own, internal buffers, causing
   ;; extra direnv errors.
-  (defun direnv--debounce-update (&rest _)
-    "Prevent direnv from running multiple times, consecutively in a buffer."
-    (not (string-prefix-p "*envrc") (buffer-name)))
+  ;; (defun direnv--debounce-update (&rest _)
+  ;;  "Prevent direnv from running multiple times, consecutively in a buffer."
+  ;;  (not (string-prefix-p "*envrc") (buffer-name)))
   :init
   ;; (advice-add #'envrc--update :before-while #'direnv--debounce-update)
   ;; (advice-add #'org-babel-execute-src-block :around #'envrc-propagate-environment)

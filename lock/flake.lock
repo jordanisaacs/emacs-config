@@ -384,22 +384,6 @@
         "type": "github"
       }
     },
-    "dogears": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1697500612,
-        "narHash": "sha256-TpDVlIgr8ta+OEr5zFVKE+1qP2kOLZjwnAzgF9cI5Wo=",
-        "owner": "alphapapa",
-        "repo": "dogears.el",
-        "rev": "1136f28ceaed522351369fb97cc098763293a7a6",
-        "type": "github"
-      },
-      "original": {
-        "owner": "alphapapa",
-        "repo": "dogears.el",
-        "type": "github"
-      }
-    },
     "editorconfig": {
       "flake": false,
       "locked": {
@@ -541,6 +525,22 @@
       "original": {
         "owner": "dominikh",
         "repo": "go-mode.el",
+        "type": "github"
+      }
+    },
+    "gumshoe": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1719610956,
+        "narHash": "sha256-Ywj1AzawzUolCNpgBwp6KNdArLCPQDnwF6Dh+xDhgL4=",
+        "owner": "Overdr0ne",
+        "repo": "gumshoe",
+        "rev": "569ee770d022df9f6d51ff448652788a379c377c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Overdr0ne",
+        "repo": "gumshoe",
         "type": "github"
       }
     },
@@ -736,22 +736,6 @@
         "type": "github"
       }
     },
-    "meow": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1709167838,
-        "narHash": "sha256-747D9G4IRMNz4VcejY36Z5+h/gAixx8pDEg2hA6sg0k=",
-        "owner": "meow-edit",
-        "repo": "meow",
-        "rev": "0d74ccfb7f1ebf987e34eb0b656ceb991367a987",
-        "type": "github"
-      },
-      "original": {
-        "owner": "meow-edit",
-        "repo": "meow",
-        "type": "github"
-      }
-    },
     "modern-cpp-font-lock": {
       "flake": false,
       "locked": {
@@ -849,6 +833,22 @@
         "type": "github"
       }
     },
+    "repeat-help": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1674001469,
+        "narHash": "sha256-dW712mEo9qT5XwKqDFrUs92ihJFH2EIKVJIlj75Y3NI=",
+        "owner": "karthink",
+        "repo": "repeat-help",
+        "rev": "41dea6fba2edd6ac748d0ca7a6da4058290feede",
+        "type": "github"
+      },
+      "original": {
+        "owner": "karthink",
+        "repo": "repeat-help",
+        "type": "github"
+      }
+    },
     "request": {
       "flake": false,
       "locked": {
@@ -891,7 +891,6 @@
         "devdocs": "devdocs",
         "diff-hl": "diff-hl",
         "diredfl": "diredfl",
-        "dogears": "dogears",
         "editorconfig": "editorconfig",
         "eglot-booster": "eglot-booster",
         "embark": "embark",
@@ -901,6 +900,7 @@
         "git-commit": "git-commit",
         "git-timemachine": "git-timemachine",
         "go-mode": "go-mode",
+        "gumshoe": "gumshoe",
         "hl-todo": "hl-todo",
         "hydra": "hydra",
         "inheritenv": "inheritenv",
@@ -913,13 +913,13 @@
         "magit-section": "magit-section",
         "marginalia": "marginalia",
         "markdown-mode": "markdown-mode",
-        "meow": "meow",
         "modern-cpp-font-lock": "modern-cpp-font-lock",
         "modus-themes": "modus-themes",
         "nix-mode": "nix-mode",
         "orderless": "orderless",
         "org": "org",
         "pretty-hydra": "pretty-hydra",
+        "repeat-help": "repeat-help",
         "request": "request",
         "rust-mode": "rust-mode",
         "rustic": "rustic",
@@ -931,7 +931,6 @@
         "vertico": "vertico",
         "vundo": "vundo",
         "wgrep": "wgrep",
-        "which-key": "which-key",
         "whitespace-cleanup-mode": "whitespace-cleanup-mode",
         "with-editor": "with-editor",
         "xterm-color": "xterm-color",
@@ -1069,11 +1068,11 @@
     "vundo": {
       "flake": false,
       "locked": {
-        "lastModified": 1708369753,
-        "narHash": "sha256-1fDDSE98ikYoCBmSI8Gx9iAsA39a//47DKKDY2Xr0sg=",
+        "lastModified": 1714104797,
+        "narHash": "sha256-2CTtDGXB9puk/MK1PId0zJllK2vHSw728Wbft3dfEak=",
         "owner": "casouri",
         "repo": "vundo",
-        "rev": "cf440667b4ece07a74e68dc84f029779f1ddfc24",
+        "rev": "ca590c571546eb1d38c855216db11d28135892f2",
         "type": "github"
       },
       "original": {
@@ -1095,22 +1094,6 @@
       "original": {
         "owner": "mhayashi1120",
         "repo": "Emacs-wgrep",
-        "type": "github"
-      }
-    },
-    "which-key": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1708914113,
-        "narHash": "sha256-CPTg1enRHFL9hg7Wy6gxJxXb52ME/dB5COG/gSztbxE=",
-        "owner": "justbur",
-        "repo": "emacs-which-key",
-        "rev": "bc3c0c619f14f054a878c6e311eaf5ee1d39d471",
-        "type": "github"
-      },
-      "original": {
-        "owner": "justbur",
-        "repo": "emacs-which-key",
         "type": "github"
       }
     },
