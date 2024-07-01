@@ -1306,7 +1306,6 @@ startup when doing `:before eglot` so just load it on startup.
   :after consult)
 
 (use-package eglot
-  ;; :ensure t
   :commands (eglot eglot-ensure)
   :functions eglot-completion-at-point
   :preface
@@ -1317,7 +1316,14 @@ startup when doing `:before eglot` so just load it on startup.
                                 #'eglot-completion-at-point
                                 #'tempel-expand)))
                         (default-value 'completion-at-point-functions))))
-  :hook (eglot-managed-mode-hook . my/eglot-setup-capf)
+  (defun my/eglot-disable-on-type-formatting ()
+    (setq-local eglot-ignored-server-capabilities
+                (cons :documentOnTypeFormattingProvider
+                      eglot-ignored-server-capabilities)))
+  :hook
+  (eglot-managed-mode-hook . my/eglot-setup-capf)
+  (c-mode-hook . my/eglot-disable-on-type-formatting)
+  (c++-mode-hook . my/eglot-disable-on-type-formatting)
   :init
   (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
   :custom
@@ -1325,6 +1331,7 @@ startup when doing `:before eglot` so just load it on startup.
   :config
   (setq eglot-autoshutdown t)
   (setq completion-category-defaults nil)
+  (setq eglot-ignored-server-capabilities '(:documentOnTypeFormattingProvider))
   :custom-face
   (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
 #+end_src
