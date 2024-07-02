@@ -265,15 +265,15 @@
         "elisp-helpers": "elisp-helpers"
       },
       "locked": {
-        "lastModified": 1717490225,
-        "narHash": "sha256-/l8SINd1Fv50CUj7VyKVAYzPpGZQVXpaZjkMuU1iOas=",
-        "owner": "emacs-twist",
+        "lastModified": 1719904026,
+        "narHash": "sha256-64rjnPmgIkH138JJPNupvCTqMcr1Gl0iGyWKlYkky0Y=",
+        "owner": "jordanisaacs",
         "repo": "twist.nix",
-        "rev": "cdaba19db1af13fb8573db7f1f4fe8d3a69c92cb",
+        "rev": "8a9dbc8a126f0299c16946bb2d83c70e7a6877fa",
         "type": "github"
       },
       "original": {
-        "owner": "emacs-twist",
+        "owner": "jordanisaacs",
         "repo": "twist.nix",
         "type": "github"
       }

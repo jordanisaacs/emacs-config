@@ -11,7 +11,7 @@
     lsp-snippet.url = "github:svaante/lsp-snippet";
     lsp-snippet.flake = false;
 
-    twist.url = "github:emacs-twist/twist.nix";
+    twist.url = "github:jordanisaacs/twist.nix";
     org-babel.url = "github:jordanisaacs/org-babel";
 
     gnu-elpa.url =
@@ -57,6 +57,8 @@
                 inputOverrides = import ./nix/inputOverrides.nix {
                   inherit (inputs.nixpkgs) lib;
                 };
+
+                treesitterGrammars = (p: builtins.attrValues p);
               }).overrideScope (_: tprev: {
                 elispPackages = tprev.elispPackages.overrideScope
                   (prev.callPackage ./nix/packageOverrides.nix {
@@ -85,6 +87,8 @@
                     });
                   };
               };
+
+              emacs-package = emacsPackage;
             })
         ];
       };
@@ -94,7 +98,8 @@
           inputs'.nixpkgs.legacyPackages.extend inputs.self.overlays.default;
 
         packages = {
-          inherit (pkgs) emacs-config emacs-env emacs-init emacs-jd;
+          inherit (pkgs)
+            emacs-config emacs-env emacs-init emacs-jd emacs-package;
         };
 
         checks = {
