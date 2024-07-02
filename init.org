@@ -417,9 +417,19 @@ with font faces.
 #+BEGIN_SRC emacs-lisp :tangle init.el
   (use-package org
     :ensure t
+    :functions org-end-of-line org-at-heading-p
+    :preface
+    (defun my/org-prepare-expand-heading ()
+      "Move point to before ellipsis, if after ellipsis."
+      (when (and (not (org-at-heading-p))
+                 (save-excursion
+                   (org-end-of-line)
+                   (org-at-heading-p)))
+        (org-end-of-line)))
     :init
     (org-mode)
     :config
+    (add-hook 'org-tab-first-hook #'my/org-prepare-expand-heading)
     (setq org-src-preserve-indentation t))
 #+end_src
 
@@ -1018,7 +1028,6 @@ is useful and good for performance.
 
 #+begin_src emacs-lisp :tangle init.el
 (use-package project
-  :defer t
   :preface
   ;; A subdirectory of /nix/store
   (defun nix-project-finder (dir)
@@ -1331,7 +1340,6 @@ startup when doing `:before eglot` so just load it on startup.
   :config
   (setq eglot-autoshutdown t)
   (setq completion-category-defaults nil)
-  (setq eglot-ignored-server-capabilities '(:documentOnTypeFormattingProvider))
   :custom-face
   (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
 #+end_src
