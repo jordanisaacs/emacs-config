@@ -736,22 +736,6 @@
         "type": "github"
       }
     },
-    "modern-cpp-font-lock": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1617623725,
-        "narHash": "sha256-AlsbzhKOEU2D28YS3ThIOCaBReZ2UjiyRvWGV4QA6fI=",
-        "owner": "ludwigpacifici",
-        "repo": "modern-cpp-font-lock",
-        "rev": "43c6b68ff58fccdf9deef11674a172e4eaa8455c",
-        "type": "github"
-      },
-      "original": {
-        "owner": "ludwigpacifici",
-        "repo": "modern-cpp-font-lock",
-        "type": "github"
-      }
-    },
     "modus-themes": {
       "flake": false,
       "locked": {
@@ -768,19 +752,19 @@
         "type": "github"
       }
     },
-    "nix-mode": {
+    "nix-ts-mode": {
       "flake": false,
       "locked": {
-        "lastModified": 1682109415,
-        "narHash": "sha256-W/bxCAn4cvzKGbhILxtTiWJ5Wln2w6g4TPgk+ziCXsQ=",
-        "owner": "NixOS",
-        "repo": "nix-mode",
-        "rev": "719feb7868fb567ecfe5578f6119892c771ac5e5",
+        "lastModified": 1718711113,
+        "narHash": "sha256-alKfXVltxLyriufvWWRge9R1cq48CSI44dKAmov7wRE=",
+        "owner": "nix-community",
+        "repo": "nix-ts-mode",
+        "rev": "c7be3506eb118991507e3ad3274d617ca971a07a",
         "type": "github"
       },
       "original": {
-        "owner": "NixOS",
-        "repo": "nix-mode",
+        "owner": "nix-community",
+        "repo": "nix-ts-mode",
         "type": "github"
       }
     },
@@ -913,9 +897,8 @@
         "magit-section": "magit-section",
         "marginalia": "marginalia",
         "markdown-mode": "markdown-mode",
-        "modern-cpp-font-lock": "modern-cpp-font-lock",
         "modus-themes": "modus-themes",
-        "nix-mode": "nix-mode",
+        "nix-ts-mode": "nix-ts-mode",
         "orderless": "orderless",
         "org": "org",
         "pretty-hydra": "pretty-hydra",
@@ -956,15 +939,15 @@
     "rustic": {
       "flake": false,
       "locked": {
-        "lastModified": 1708747207,
-        "narHash": "sha256-PVcUciDvm6l4dS+nqMJr/nScRteOGJW9QDnHZ4+s1Y4=",
-        "owner": "psibi",
+        "lastModified": 1719788981,
+        "narHash": "sha256-5loKwBpuppWRJnEp7zOFrCBww3+qbbYzTY1TtskmXgI=",
+        "owner": "emacs-rustic",
         "repo": "rustic",
-        "rev": "09615eb4a4696b774beff7956c5e228979789c4c",
+        "rev": "f16cb6cfef50a69733f7139312b06d32b191e60a",
         "type": "github"
       },
       "original": {
-        "owner": "psibi",
+        "owner": "emacs-rustic",
         "repo": "rustic",
         "type": "github"
       }

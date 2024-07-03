@@ -1,1 +1,1 @@
-(rustic :fetcher github :repo "psibi/rustic")
+(rustic :fetcher github :repo "emacs-rustic/rustic")

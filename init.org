@@ -766,15 +766,7 @@ press `@` to use a keybinding (or do completing-read)
 
 (use-package lsp-snippet-tempel
   :ensure t
-  ;; Installed through nix flake as git repo
-  :after lsp-mode
-  :functions lsp-snippet-tempel-eglot-init lsp-snippet-tempel-lsp-mode-init
-  :config
-  (when (featurep 'lsp-mode)
-    (lsp-snippet-tempel-lsp-mode-init))
-  (when (featurep 'eglot)
-    (lsp-snippet-tempel-eglot-init))
-  )
+  :commands lsp-snippet-tempel-eglot-init)
 
 ;; Completion at point functions + capf UI
 
@@ -1338,6 +1330,7 @@ startup when doing `:before eglot` so just load it on startup.
   :custom
   (lsp-completion-provider :none) ; use corfu intsead for lsp completion
   :config
+  (lsp-snippet-tempel-eglot-init)
   (setq eglot-autoshutdown t)
   (setq completion-category-defaults nil)
   :custom-face
@@ -1451,78 +1444,114 @@ Debug adapter client
 
 ** Language configs
 
-#+begin_src emacs-lisp :tangle init.el
-(use-package python
-  :mode ("\\.py\\'" . python-mode)
-  :hook (python-mode-hook . eglot-ensure))
+*** Python
 
+#+begin_src emacs-lisp :tangle init.el
+(use-package python-mode
+  :mode ("\\.py\\'" . python-ts-mode)
+  :hook (python-ts-mode-hook . eglot-ensure))
+#+end_src
 ;; Relies on projectile :(
 ;; (use-package python-pytest
 ;;   :ensure t)
 
-;; Nix
-(use-package nix-mode
+*** Nix
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package nix-ts-mode
   :ensure t
   :mode "\\.nix\\'"
-  :hook (nix-mode-hook . eglot-ensure))
+  :hook (nix-ts-mode-hook . eglot-ensure))
+#+end_src
 
-;; C/C++
+*** C/C++
+
+#+begin_src emacs-lisp :tangle init.el
 (use-package cc-mode
-  :ensure nil
   :preface
-  (autoload 'c-indent-line-or-region "cc-cmds")
-  (defun c-indent-then-complete ()
-    (interactive)
-    (if (= 0 (c-indent-line-or-region))
-        (completion-at-point)))
-  (defun c-indent-tabs-mode ()
-    (setq indent-tabs-mode nil))
-  :config
+  (defun my/disable-indent-tabs ()
+    (setq indent-tabs-mode nil)))
   ;; https://old.reddit.com/r/emacs/comments/u8szz6/help_me_get_c_tab_completion_working/
-  (when (equal tab-always-indent 'complete)
-    (dolist (map (list c-mode-map c++-mode-map))
-      (define-key map (kbd "<tab>") #'c-indent-then-complete)))
-  :hook ((c-mode-mook . eglot-ensure)
-         (c-mode-hook . c-indent-tabs-mode)
-         (c++-mode-hook . eglot-ensure)
-         (c++-mode-hook . c-indent-tabs-mode)))
+  ;; (defun my/c-indent-then-complete ()
+  ;;   (interactive)
+  ;;   (autoload 'c-indent-line-or-region "cc-cmds")
+  ;;   (message "indent then complete")
+  ;;   (if (= 0 (c-indent-line-or-region))
+  ;;      (completion-at-point)))
+  ;;(defun my/setup-c-indent-then-complete (map)
+    ;;(when (equal tab-always-indent 'complete)
+      ;;(define-key map (kbd "<tab>") #'my/c-indent-then-complete))))
 
-(use-package modern-cpp-font-lock
-  :ensure t
-  :after cc-mode
-  :hook (c++-mode-hook . modern-c++-font-lock-mode))
+(use-package c++-ts-mode
+  :defines c++-ts-mode-map
+  :init
+  (add-to-list 'major-mode-remap-alist '(c-mode . c-ts-mode))
+  :config
+;;  (my/setup-c-indent-then-complete c++-ts-mode-map)
+  :hook
+  (c++-ts-mode-hook . eglot-ensure)
+  (c++-ts-mode-hook . my/disable-indent-tabs))
 
+(use-package c-ts-mode
+  :defines c-ts-mode-map
+  :init
+  (add-to-list 'major-mode-remap-alist '(c-mode . c-ts-mode))
+  :config
+  ;; (my/setup-c-indent-then-complete c-ts-mode-map)
+  :hook
+  (c-ts-mode-hook . eglot-ensure)
+  (c-ts-mode-hook . my/disable-indent-tabs))
+
+(use-package c-or-c++-ts-mode
+  :init
+  (add-to-list 'major-mode-remap-alist '(c-or-c++-mode . c-or-c++-ts-mode)))
+#+end_src
+
+*** Zig
+
+#+begin_src emacs-lisp :tangle init.el
 (use-package zig-mode
   :hook (zig-mode-hook . eglot-ensure)
   :ensure t)
+#+end_src
 
-;; Go
+*** Golang
 
+Use https://github.com/dominikh/go-mode.el. There is a
+supposed re-write with treesitter coming.
+
+#+begin_src emacs-lisp :tangle init.el
 (use-package go-mode
   :ensure t
   :hook (go-mode-hook . eglot-ensure))
+#+end_src
 
-;; Rust
+*** Rust
+
+Using the emacs-rustic fork.
+
+#+begin_src emacs-lisp :tangle init.el
 (use-package rustic
   :ensure t
   :init
+  (setq rust-mode-treesitter-derive t)
   (remove-hook 'rustic-mode-hook 'flycheck-mode)
   :custom
   (rustic-lsp-client 'eglot))
+#+end_src
 
-(use-package sh-script
-  :hook (sh-mode-hook . eglot-ensure))
+*** Shell mode
 
-;; TODO: treesitter
+#+begin_src emacs-lisp :tangle init.el
+(use-package sh-mode
+  :hook
+  (sh-mode-hook . eglot-ensure)
+  (bash-ts-mode-hook . eglot-ensure))
+#+end_src
 
-;; (use-package tree-sitter
-;;   :ensure t
-;;   :hook (tree-sitter-after-on-hook . tree-sitter-hl-mode)
-;;   :config
-;;   (global-tree-sitter-mode))
-;; (use-package tree-sitter-langs
-;;   :ensure t)
+** General programming
 
+#+begin_src emacs-lisp :tangle init.el
 ;; Misc. editor
 
 (use-package editorconfig
@@ -1543,18 +1572,23 @@ Debug adapter client
 
 (use-package apheleia
   :ensure t
-  :hook ((go-mode-hook . apheleia-mode)
-         (python-mode-hook . apheleia-mode)
+  :hook ((go-ts-mode-hook . apheleia-mode)
+         (python-ts-mode-hook . apheleia-mode)
+         (bash-ts-mode-hook . apheleia-mode)
          (sh-mode-hook . apheleia-mode)
          (rust-mode-hook . apheleia-mode)
          (zig-mode-hook . apheleia-mode)
-         (nix-mode-hook . apheleia-mode))
+         (nix-ts-mode-hook . apheleia-mode))
   :blackout " Fmt"
   :config
   (push '(zigfmt . (zig-zig-bin "fmt" "--stdin")) apheleia-formatters)
-  (setf (alist-get 'python-mode apheleia-mode-alist) '(ruff)
+  (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff)
+        (alist-get 'rust-ts-mode apheleia-mode-alist) '(rustfmt)
         (alist-get 'zig-mode apheleia-mode-alist) '(zigfmt)
-        (alist-get 'sh-mode apheleia-mode-alist) '(shfmt)))
+        (alist-get 'sh-mode apheleia-mode-alist) '(shfmt)
+        (alist-get 'bash-ts-mode apheleia-mode-alist) '(shfmt)
+        (alist-get 'nix-ts-mode apheleia-mode-alist) '(nixfmt))
+  )
 
 (use-package devdocs
   :ensure t
@@ -1607,16 +1641,6 @@ Debug adapter client
 (setq-default word-wrap t)                      ; wrap long lines at word boundaries for better readability
 
 ;; Adjust C++ style to more closely match the style we use in the MemSQL codebase
-(c-add-style "memsql"
-             '("linux"
-               (c-basic-offset . 4)
-               (c-offsets-alist
-                (inline-open . 0)
-                (innamespace . 0)       ; don't indent inside namespaces
-                )
-               ))
-(defvar c-default-style)
-(add-to-list 'c-default-style '(c++-mode . "memsql"))
 
 (add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode)) ; use c++-mode instead of c-mode for .h files
 (setq-default indent-tabs-mode nil)

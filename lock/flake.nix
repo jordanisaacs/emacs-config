@@ -277,22 +277,16 @@
       repo = "markdown-mode";
       type = "github";
     };
-    modern-cpp-font-lock = {
-      flake = false;
-      owner = "ludwigpacifici";
-      repo = "modern-cpp-font-lock";
-      type = "github";
-    };
     modus-themes = {
       flake = false;
       owner = "protesilaos";
       repo = "modus-themes";
       type = "github";
     };
-    nix-mode = {
+    nix-ts-mode = {
       flake = false;
-      owner = "NixOS";
-      repo = "nix-mode";
+      owner = "nix-community";
+      repo = "nix-ts-mode";
       type = "github";
     };
     orderless = {
@@ -333,7 +327,7 @@
     };
     rustic = {
       flake = false;
-      owner = "psibi";
+      owner = "emacs-rustic";
       repo = "rustic";
       type = "github";
     };
