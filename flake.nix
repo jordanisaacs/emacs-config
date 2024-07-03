@@ -11,7 +11,7 @@
     lsp-snippet.url = "github:svaante/lsp-snippet";
     lsp-snippet.flake = false;
 
-    twist.url = "github:jordanisaacs/twist.nix";
+    twist.url = "github:jordanisaacs/twist.nix?ref=site-start";
     org-babel.url = "github:jordanisaacs/org-babel";
 
     gnu-elpa.url =
@@ -58,7 +58,13 @@
                   inherit (inputs.nixpkgs) lib;
                 };
 
-                treesitterGrammars = (p: builtins.attrValues p);
+                extraSiteStartElisp = let
+                  treesitterPackage =
+                    emacsPackage.pkgs.treesit-grammars.with-all-grammars;
+                in ''
+                  (when init-file-user
+                    (add-to-list 'treesit-extra-load-path "${treesitterPackage}/lib"))
+                '';
               }).overrideScope (_: tprev: {
                 elispPackages = tprev.elispPackages.overrideScope
                   (prev.callPackage ./nix/packageOverrides.nix {
