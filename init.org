@@ -1449,11 +1449,15 @@ Debug adapter client
 #+begin_src emacs-lisp :tangle init.el
 (use-package python-mode
   :mode ("\\.py\\'" . python-ts-mode)
-  :hook (python-ts-mode-hook . eglot-ensure))
+  :hook (python-ts-mode-hook . eglot-ensure)
+  :config
+  (require 'python-pytest))
+
+(use-package python-pytest
+  :ensure t
+  :init
+  (setq python-pytest-preferred-project-manager 'project))
 #+end_src
-;; Relies on projectile :(
-;; (use-package python-pytest
-;;   :ensure t)
 
 *** Nix
 
@@ -1471,23 +1475,11 @@ Debug adapter client
   :preface
   (defun my/disable-indent-tabs ()
     (setq indent-tabs-mode nil)))
-  ;; https://old.reddit.com/r/emacs/comments/u8szz6/help_me_get_c_tab_completion_working/
-  ;; (defun my/c-indent-then-complete ()
-  ;;   (interactive)
-  ;;   (autoload 'c-indent-line-or-region "cc-cmds")
-  ;;   (message "indent then complete")
-  ;;   (if (= 0 (c-indent-line-or-region))
-  ;;      (completion-at-point)))
-  ;;(defun my/setup-c-indent-then-complete (map)
-    ;;(when (equal tab-always-indent 'complete)
-      ;;(define-key map (kbd "<tab>") #'my/c-indent-then-complete))))
 
 (use-package c++-ts-mode
   :defines c++-ts-mode-map
   :init
-  (add-to-list 'major-mode-remap-alist '(c-mode . c-ts-mode))
-  :config
-;;  (my/setup-c-indent-then-complete c++-ts-mode-map)
+  (add-to-list 'major-mode-remap-alist '(c++-mode . c++-ts-mode))
   :hook
   (c++-ts-mode-hook . eglot-ensure)
   (c++-ts-mode-hook . my/disable-indent-tabs))
@@ -1496,8 +1488,6 @@ Debug adapter client
   :defines c-ts-mode-map
   :init
   (add-to-list 'major-mode-remap-alist '(c-mode . c-ts-mode))
-  :config
-  ;; (my/setup-c-indent-then-complete c-ts-mode-map)
   :hook
   (c-ts-mode-hook . eglot-ensure)
   (c-ts-mode-hook . my/disable-indent-tabs))

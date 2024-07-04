@@ -817,6 +817,23 @@
         "type": "github"
       }
     },
+    "python-pytest": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1715743165,
+        "narHash": "sha256-FE+SNexjUgAQOEn+AqeWMemM6bId80IZ+8zjlgXpLbM=",
+        "owner": "jeff-phil",
+        "repo": "emacs-python-pytest-PR",
+        "rev": "1203403336b1c0a3d078400263df7de1a3ae5790",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jeff-phil",
+        "ref": "feat/project.el",
+        "repo": "emacs-python-pytest-PR",
+        "type": "github"
+      }
+    },
     "repeat-help": {
       "flake": false,
       "locked": {
@@ -902,6 +919,7 @@
         "orderless": "orderless",
         "org": "org",
         "pretty-hydra": "pretty-hydra",
+        "python-pytest": "python-pytest",
         "repeat-help": "repeat-help",
         "request": "request",
         "rust-mode": "rust-mode",

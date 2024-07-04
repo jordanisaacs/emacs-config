@@ -1,0 +1,3 @@
+(python-pytest :fetcher github
+               :repo "jeff-phil/emacs-python-pytest-PR"
+               :branch "feat/project.el")

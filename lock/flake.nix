@@ -307,6 +307,13 @@
       repo = "major-mode-hydra.el";
       type = "github";
     };
+    python-pytest = {
+      flake = false;
+      owner = "jeff-phil";
+      ref = "feat/project.el";
+      repo = "emacs-python-pytest-PR";
+      type = "github";
+    };
     repeat-help = {
       flake = false;
       owner = "karthink";

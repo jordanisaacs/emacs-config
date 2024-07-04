@@ -117,8 +117,14 @@
 
         devShells = {
           default = pkgs.mkShell {
-            buildInputs =
-              [ pkgs.emacs-jd pkgs.pyright pkgs.nil pkgs.fd pkgs.ripgrep ];
+            buildInputs = [
+              pkgs.emacs-jd
+              pkgs.pyright
+              pkgs.python312Packages.pytest
+              pkgs.nil
+              pkgs.fd
+              pkgs.ripgrep
+            ];
           };
         };
       };
