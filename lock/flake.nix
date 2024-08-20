@@ -80,6 +80,12 @@
       repo = "cape";
       type = "github";
     };
+    cognitive-complexity = {
+      flake = false;
+      owner = "emacs-vs";
+      repo = "cognitive-complexity";
+      type = "github";
+    };
     compat = {
       flake = false;
       owner = "emacs-compat";
@@ -366,6 +372,12 @@
       flake = false;
       owner = "kuanyui";
       repo = "tldr.el";
+      type = "github";
+    };
+    transpose-frame = {
+      flake = false;
+      owner = "emacsorphanage";
+      repo = "transpose-frame";
       type = "github";
     };
     vertico = {

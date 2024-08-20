@@ -208,6 +208,22 @@
         "type": "github"
       }
     },
+    "cognitive-complexity": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1722551784,
+        "narHash": "sha256-lEt8eYGE7d/xfUOxXgr0g5bm5xAShjY9HeBgZ12vjnc=",
+        "owner": "emacs-vs",
+        "repo": "cognitive-complexity",
+        "rev": "8b9451fd88c9a730941ff24bb714e63379e25332",
+        "type": "github"
+      },
+      "original": {
+        "owner": "emacs-vs",
+        "repo": "cognitive-complexity",
+        "type": "github"
+      }
+    },
     "compat": {
       "flake": false,
       "locked": {
@@ -881,6 +897,7 @@
         "bufler": "bufler",
         "burly": "burly",
         "cape": "cape",
+        "cognitive-complexity": "cognitive-complexity",
         "compat": "compat",
         "consult": "consult",
         "consult-dir": "consult-dir",
@@ -929,6 +946,7 @@
         "svg-lib": "svg-lib",
         "tempel": "tempel",
         "tldr": "tldr",
+        "transpose-frame": "transpose-frame",
         "vertico": "vertico",
         "vundo": "vundo",
         "wgrep": "wgrep",
@@ -1047,6 +1065,22 @@
       "original": {
         "owner": "kuanyui",
         "repo": "tldr.el",
+        "type": "github"
+      }
+    },
+    "transpose-frame": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1668027203,
+        "narHash": "sha256-fq+pLV+dqbNMcDkluFzGUjDQeUGj84IQdzif5r/t2YA=",
+        "owner": "emacsorphanage",
+        "repo": "transpose-frame",
+        "rev": "94c87794d53883a2358d13da264ad8dab9a52daa",
+        "type": "github"
+      },
+      "original": {
+        "owner": "emacsorphanage",
+        "repo": "transpose-frame",
         "type": "github"
       }
     },

@@ -1456,6 +1456,18 @@ Debug adapter client
 
 ** Language configs
 
+*** General Editing
+
+**** Cognitive Complexity
+
+Treesitter based calculation of programming complexity.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package cognitive-complexity
+  :ensure t
+  :hook (prog-mode-hook . cognitive-complexity-mode))
+#+end_src
+
 *** Python
 
 #+begin_src emacs-lisp :tangle init.el
