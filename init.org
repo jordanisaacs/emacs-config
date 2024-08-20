@@ -187,7 +187,6 @@ with font faces.
 
 *** debug
 
-
 #+begin_src emacs-lisp :tangle init.el
 (eval-and-compile
   (when (getenv "DEBUG") (setq init-file-debug t))
@@ -214,76 +213,23 @@ with font faces.
             debug-on-error t))
   (setq use-package-verbose nil
         use-package-expand-minimally t))
-#+end_src
 
-
-#+begin_src emacs-lisp :tangle init.el
+;; Needed for :bind
 (use-package bind-key
   :ensure t)
 
+#+end_src
+
+**** Blackout
+
+This adds the ~:blackout~ parameter to use-package. It changes the modeline.
+
+#+begin_src emacs-lisp :tangle init.el
 (use-package blackout
   :ensure t
   :functions blackout)
-
-;; TODO: monaspace neon is missing the o symbol, so when we get fallback font in the
-;; minibuffer it is slightly the wrong size and causes prompt to move
-;; use (font-family-list) to see available fonts
-(set-face-attribute 'default nil :family "MonaspiceNe Nerd Font Mono" :height 100 :weight 'normal)
-
-(defun set-bigger-spacing ()
-  (setq-local default-text-properties '(line-spacing 0.25)))
-(dolist (hook '(text-mode-hook prog-mode-hook)) (add-hook hook 'set-bigger-spacing))
-
-;; UI
-
-;; Line numbers
-(require 'display-line-numbers)
-(setq display-line-numbers-type 'relative)
-(setq display-line-numbers-current-absolute t)
-(global-display-line-numbers-mode)
-
-(put 'narrow-to-region 'disabled nil)
-
-;; fill column
-
-(setq-default fill-column 80)
-(dolist (hook '(prog-mode-hook
-                text-mode-hook))
-  (add-hook hook #'display-fill-column-indicator-mode t))
-
-;; Icons
-
-(use-package all-the-icons
-  :ensure t
-  :commands (all-the-icons-faicon all-the-icons-octicon))
-
-(use-package all-the-icons-dired
-  :ensure t
-  :hook (dired-mode-hook . all-the-icons-dired-mode))
-
-(use-package all-the-icons-completion
-  :ensure t
-  :hook (marginalia-mode-hook . all-the-icons-completion-marginalia-setup))
-
-;; Whitespace
-(dolist (hook '(prog-mode-hook
-                text-mode-hook))
-  (add-hook hook (lambda () (setq-local show-trailing-whitespace t))))
-
-(use-package whitespace-cleanup-mode
-  :ensure t
-  :commands global-whitespace-cleanup-mode
-  :init
-  (global-whitespace-cleanup-mode))
-
-;; Backups
-
-;; TODO: backup on save versioned
-(setq backup-directory-alist '(("." . "~/.emacs.d/backup/per-save")))
-
-;; TODO: autosave
-
 #+end_src
+
 
 ** Repeat mode
 
@@ -368,7 +314,7 @@ with font faces.
 
 #+end_src
 
-*** Emacs
+** Emacs
 
 #+begin_src emacs-lisp :tangle init.el
 
@@ -407,8 +353,15 @@ with font faces.
 ;; Transient mark mode
 ;; https://emacsdocs.org/docs/emacs/Mark
 (transient-mark-mode 1)
+#+END_SRC
 
-;; spell checking
+** Diagnostics
+
+*** Spell Checking
+
+**** Jinx
+
+#+begin_src emacs-lisp :tangle init.el
 (use-package jinx
   :ensure t
   :hook ((prog-mode-hook . jinx-mode)
@@ -417,8 +370,200 @@ with font faces.
   :bind (("M-$" . jinx-correct)
          ("C-M-$" . jinx-languages))
   )
+#+end_src
 
-#+END_SRC
+*** Syntax checkers
+
+**** Flymake
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package flymake
+  :defer t
+  :hook ((prog-mode-hook text-mode-hook) . flymake-mode)
+  :config
+  (setq flymake-fringe-indicator-position 'right-fringe))
+#+end_src
+
+**** Flycheck (disabled)
+
+#+begin_src emacs-lisp :tangle no
+(use-package consult-flycheck
+  :ensure t
+  :after (consult flycheck))
+
+(use-package flycheck
+  :ensure t
+  :commands flycheck-list-errors flycheck-buffer
+  :functions flycheck-redefine-standard-error-levels
+  :custom
+  (flycheck-indication-mode 'right-fringe)
+  (flycheck-display-errors delay 0.25)
+  (flycheck-idle-change-delay 1.0)
+  :hook
+  (first-buffer-hook . global-flycheck-mode)
+  :config
+  (flycheck-redefine-standard-error-levels nil 'my-flycheck-fringe-bitmap-arrow)
+  :init
+  (define-fringe-bitmap 'my-flycheck-fringe-bitmap-arrow [16 48 112 240 112 48 16] nil nil 'center))
+
+;; (use-package flycheck-inline
+;;   :ensure t
+;;   :after flycheck
+;;   :init (global-flycheck-inline-mode))
+
+#+end_src
+
+
+*** Linters
+
+**** Cognitive Complexity
+
+Treesitter based calculation of programming complexity.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package cognitive-complexity
+  :ensure t
+  :hook (prog-mode-hook . cognitive-complexity-mode))
+#+end_src
+
+
+*** LSP
+
+**** eglot
+
+For some reason eglot-booster-mode turns on but not early enough to wrap the server
+startup when doing `:before eglot` so just load it on startup.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package eglot-booster
+  :ensure t
+  :commands (eglot-booster-mode)
+  :init
+  (eglot-booster-mode))
+
+(use-package consult-eglot
+  :ensure t
+  :after consult)
+
+(use-package eglot
+  :commands (eglot eglot-ensure)
+  :functions eglot-completion-at-point
+  :preface
+  (defun my/eglot-setup-capf ()
+    (setq-local completion-at-point-functions
+                (append (list (cape-capf-nonexclusive
+                               (cape-capf-super
+                                #'eglot-completion-at-point
+                                #'tempel-expand)))
+                        (default-value 'completion-at-point-functions))))
+  (defun my/eglot-disable-on-type-formatting ()
+    (setq-local eglot-ignored-server-capabilities
+                (cons :documentOnTypeFormattingProvider
+                      eglot-ignored-server-capabilities)))
+  :hook
+  (eglot-managed-mode-hook . my/eglot-setup-capf)
+  (c-mode-hook . my/eglot-disable-on-type-formatting)
+  (c++-mode-hook . my/eglot-disable-on-type-formatting)
+  :init
+  (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
+  :custom
+  (lsp-completion-provider :none) ; use corfu intsead for lsp completion
+  :config
+  (lsp-snippet-tempel-eglot-init)
+  (setq eglot-autoshutdown t)
+  (setq completion-category-defaults nil)
+  (setq eglot-server-programs (my/replace-key eglot-server-programs 'nix-mode '(nix-mode nix-ts-mode)))
+  :custom-face
+  (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
+#+end_src
+
+**** LSP mode (disabled)
+
+#+begin_src emacs-lisp :tangle no
+(setq lsp-keymap-prefix "C-c l")
+
+(use-package consult-lsp
+  :ensure t
+  :after (consult lsp))
+
+(use-package lsp-mode
+  :ensure t
+  :commands (lsp lsp-deferred)
+  :preface
+  ;; (autoload 'lsp-enable-which-key-integration "lsp-mode")
+  ;; (autoload 'lsp-diagnostics-mode "lsp-diagnostics")
+  ;; (defun my/setup-lsp-mode ()
+  ;;   (message "my/setup-lsp-mode called")
+  ;;   (lsp-enable-which-key-integration)
+  ;;   (lsp-diagnostics-mode t)
+  ;;   ;; (when (lsp-feature? "textDocument/formatting")
+  ;;   ;;  (setq my/format/buffer-function 'lsp-format-buffer))
+  ;;   )
+  (defun lsp-booster--advice-json-parse (old-fn &rest args)
+    "Try to parse bytecode instead of json."
+    (or
+     (when (equal (following-char) ?#)
+       (let ((bytecode (read (current-buffer))))
+         (when (byte-code-function-p bytecode)
+           (funcall bytecode))))
+     (apply old-fn args)))
+
+  (defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
+    "Prepend emacs-lsp-booster command to lsp CMD."
+    (let ((orig-result (funcall old-fn cmd test?)))
+      (if (and (not test?)                             ;; for check lsp-server-present?
+               (not (file-remote-p default-directory)) ;; see lsp-resolve-final-command, it would add extra shell wrapper
+               lsp-use-plists
+               (not (functionp 'json-rpc-connection))  ;; native json-rpc
+               (executable-find "emacs-lsp-booster"))
+          (progn
+            (message "Using emacs-lsp-booster for %s!" orig-result)
+            (cons "emacs-lsp-booster" orig-result))
+        orig-result)))
+
+
+  :custom
+  (lsp-enable-symbol-highlighting t)
+  (lsp-modeline-code-actions-enable t)
+  (lsp-signature-auto-activate  t)
+  (lsp-signature-render-documentation t)
+  (lsp-diagnostics-provider :flycheck)
+  (lsp-enable-indentation nil) ;; disabled indentation
+  (lsp-enable-snippet t)
+  (lsp-enable-xref t)
+  (lsp-enable-imenu t)
+  (lsp-inlay-hint-enable t)
+  (lsp-enable-links t)
+  (lsp-lens-enable t)
+  (lsp-semantic-tokens-enable t)
+  (lsp-enable-semantic-highlighting t)
+  (read-process-output-max (* 1024 1024)) ;; 1mb
+  (gc-cons-threshold (* 10 1024 1024))
+  (lsp-log-io nil)
+  ;; :hook (lsp-mode . my/setup-lsp-mode)
+  :init
+  (advice-add (if (progn (require 'json)
+                         (fboundp 'json-parse-buffer))
+                  'json-parse-buffer
+                'json-read)
+              :around
+              #'lsp-booster--advice-json-parse)
+
+  (advice-add 'lsp-resolve-final-command :around #'lsp-booster--advice-final-command))
+
+(use-package lsp-ui
+  :ensure t
+  :custom
+  (lsp-ui-sideline-enable t)
+  (lsp-ui-sideline-show-code-actions nil))
+
+(use-package lsp-pyright
+  :ensure t
+  :hook (python-mode-hook . (lambda ()
+                              (require 'lsp-pyright)
+                              (lsp-deferred))))
+#+end_src
+
 
 ** Org mode
 
@@ -507,7 +652,6 @@ Third time is the charm, a point tracker using time.
   (setq isearch-lazy-highlight t))
 #+end_src
 
-
 ** Polymode (disabled)
 
 #+begin_src emacs-lisp :tangle no
@@ -519,7 +663,9 @@ Third time is the charm, a point tracker using time.
   :ensure t)
 #+end_src
 
-** Eshell
+** Terminals
+
+*** Eshell
 
 #+begin_src emacs-lisp :tangle init.el
 (use-package eshell
@@ -619,8 +765,10 @@ any directory proferred by `consult-dir'."
 
 ** Keybinding Help
 
-Using embark prefix instead. Type `C-h` after a prefix instead. Then can
-press `@` to use a keybinding (or do completing-read)
+See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
+`@` to use a keybinding (or do completing-read).
+
+*** Which-Key (disabled)
 
 #+begin_src emacs-lisp :tangle no
 (use-package which-key
@@ -634,7 +782,6 @@ press `@` to use a keybinding (or do completing-read)
 ** Git
 
 #+begin_src emacs-lisp :tangle init.el
-
 (use-package smerge-mode
   ;; builtin
   :config
@@ -705,6 +852,67 @@ press `@` to use a keybinding (or do completing-read)
 #+end_src
 
 ** Uncategorized
+
+#+begin_src emacs-lisp :tangle init.el
+;; TODO: monaspace neon is missing the o symbol, so when we get fallback font in the
+;; minibuffer it is slightly the wrong size and causes prompt to move
+;; use (font-family-list) to see available fonts
+(set-face-attribute 'default nil :family "MonaspiceNe Nerd Font Mono" :height 100 :weight 'normal)
+
+(defun set-bigger-spacing ()
+  (setq-local default-text-properties '(line-spacing 0.25)))
+(dolist (hook '(text-mode-hook prog-mode-hook)) (add-hook hook 'set-bigger-spacing))
+
+;; UI
+
+;; Line numbers
+(require 'display-line-numbers)
+(setq display-line-numbers-type 'relative)
+(setq display-line-numbers-current-absolute t)
+(global-display-line-numbers-mode)
+
+(put 'narrow-to-region 'disabled nil)
+
+;; fill column
+
+(setq-default fill-column 80)
+(dolist (hook '(prog-mode-hook
+                text-mode-hook))
+  (add-hook hook #'display-fill-column-indicator-mode t))
+
+;; Icons
+
+(use-package all-the-icons
+  :ensure t
+  :commands (all-the-icons-faicon all-the-icons-octicon))
+
+(use-package all-the-icons-dired
+  :ensure t
+  :hook (dired-mode-hook . all-the-icons-dired-mode))
+
+(use-package all-the-icons-completion
+  :ensure t
+  :hook (marginalia-mode-hook . all-the-icons-completion-marginalia-setup))
+
+;; Whitespace
+(dolist (hook '(prog-mode-hook
+                text-mode-hook))
+  (add-hook hook (lambda () (setq-local show-trailing-whitespace t))))
+
+(use-package whitespace-cleanup-mode
+  :ensure t
+  :commands global-whitespace-cleanup-mode
+  :init
+  (global-whitespace-cleanup-mode))
+
+;; Backups
+
+;; TODO: backup on save versioned
+(setq backup-directory-alist '(("." . "~/.emacs.d/backup/per-save")))
+
+;; TODO: autosave
+
+#+end_src
 
 #+begin_src emacs-lisp :tangle init.el
 ;; Operate on grep buffer
@@ -811,8 +1019,6 @@ press `@` to use a keybinding (or do completing-read)
   ;; https://old.reddit.com/r/emacs/comments/19b8a83/capefile_fails_when_called_as_a_capf_but_works/
   (setq cape-file-directory-must-exit nil))
 #+end_src
-
-;; stuff for completion in region + corfu
 
 **** Completion in region
 
@@ -1020,31 +1226,7 @@ Consult/vertico/marginalia
 
 #+end_src
 
-** Projects
-
-Add a nix-project-finder. Need to make sure it is before the vc project finder.
-breadcrumb-mode calls project-current, and the vc project finder has horrific
-performance in the `/nix/store` directory. Profiler had it at 50%. So the function
-is useful and good for performance.
-
-#+begin_src emacs-lisp :tangle init.el
-(use-package project
-  :preface
-  ;; A subdirectory of /nix/store
-  (defun nix-project-finder (dir)
-    (let ((nix-store-prefix "/nix/store/")
-          (dirs (split-string (expand-file-name dir) "/")))
-      (when (and (> (length dirs) 3)
-                 (string-prefix-p nix-store-prefix dir))
-        (cons 'transient (mapconcat 'identity (seq-take dirs 4) "/")))))
-  :config
-  ;; Load magit first so we get ctrl+x p p m
-  (require 'magit-extras)
-  (add-hook 'project-find-functions 'nix-project-finder))
-#+end_src
-
 ** Motions
-
 
 *** Avy
 
@@ -1053,39 +1235,6 @@ is useful and good for performance.
   :ensure t
   :bind
   ("C-:" . avy-goto-char))
-#+end_src
-
-*** View mode (disabled)
-
-View mode for meow
-
-#+begin_src emacs-lisp :tangle no
-;; In order for the bindings in this prefix to remain active until you
-;; press ESC (or some other key not bound under the prefix), you must
-;; have `repeat-mode' enabled.
-;; https://github.com/meow-edit/meow/discussions/368#discussioncomment-4219587
-(defvar my-view-prefix)
-(define-prefix-command 'my-view-prefix)
-(define-key mode-specific-map (kbd "v") 'my-view-prefix)
-(defvar my-view-rep-map (make-sparse-keymap))
-(dolist (kb '(("@"    . View-back-to-mark)
-              ("%"    . View-goto-percent)
-              ("G"    . View-goto-line-last)
-              ("g"    . View-goto-line)
-              ("F"    . View-revert-buffer-scroll-page-forward)
-              ("k"    . View-scroll-line-backward)
-              ("j"    . View-scroll-line-forward)
-              ("u"    . View-scroll-half-page-backward)
-              ("d"    . View-scroll-half-page-forward)
-              ("z"    . View-scroll-page-forward-set-page-size)
-              ("w"    . View-scroll-page-backward-set-page-size)
-              ("b"    . View-scroll-page-backward)
-              ("f"    . View-scroll-page-forward)
-              ("o"    . View-scroll-to-buffer-end)))
-  (define-key my-view-prefix (kbd (car kb)) (cdr kb))
-  (define-key my-view-rep-map (kbd (car kb)) (cdr kb))
-  (put (cdr kb) 'repeat-map my-view-rep-map)
-  (autoload (cdr kb) "view" nil 'interactive))
 #+end_src
 
 *** Meow (disabled)
@@ -1246,6 +1395,39 @@ View mode for meow
 (meow-global-mode 1)
 #+end_src
 
+**** View mode
+
+View mode for meow
+
+#+begin_src emacs-lisp :tangle no
+;; In order for the bindings in this prefix to remain active until you
+;; press ESC (or some other key not bound under the prefix), you must
+;; have `repeat-mode' enabled.
+;; https://github.com/meow-edit/meow/discussions/368#discussioncomment-4219587
+(defvar my-view-prefix)
+(define-prefix-command 'my-view-prefix)
+(define-key mode-specific-map (kbd "v") 'my-view-prefix)
+(defvar my-view-rep-map (make-sparse-keymap))
+(dolist (kb '(("@"    . View-back-to-mark)
+              ("%"    . View-goto-percent)
+              ("G"    . View-goto-line-last)
+              ("g"    . View-goto-line)
+              ("F"    . View-revert-buffer-scroll-page-forward)
+              ("k"    . View-scroll-line-backward)
+              ("j"    . View-scroll-line-forward)
+              ("u"    . View-scroll-half-page-backward)
+              ("d"    . View-scroll-half-page-forward)
+              ("z"    . View-scroll-page-forward-set-page-size)
+              ("w"    . View-scroll-page-backward-set-page-size)
+              ("b"    . View-scroll-page-backward)
+              ("f"    . View-scroll-page-forward)
+              ("o"    . View-scroll-to-buffer-end)))
+  (define-key my-view-prefix (kbd (car kb)) (cdr kb))
+  (define-key my-view-rep-map (kbd (car kb)) (cdr kb))
+  (put (cdr kb) 'repeat-map my-view-rep-map)
+  (autoload (cdr kb) "view" nil 'interactive))
+#+end_src
+
 ** Visuals
 
 *** Breadcrumbs
@@ -1253,187 +1435,102 @@ View mode for meow
 #+begin_src emacs-lisp :tangle init.el
 (use-package breadcrumb
   :ensure t
-  :commands (breadcrumb-mode breadcrumb-local-mode)
-  :init
-  (breadcrumb-mode))
+  :hook (first-buffer-hook . breadcrumb-mode))
 #+end_src
 
-** Diagnostics
+** Documentation
 
-*** Flymake
+*** Devdocs
+
+Devdocs lets you download documentation.
 
 #+begin_src emacs-lisp :tangle init.el
-(use-package flymake
-  :defer t
-  :hook ((prog-mode-hook text-mode-hook) . flymake-mode)
-  :config
-  (setq flymake-fringe-indicator-position 'right-fringe))
+(use-package devdocs
+  :ensure t)
 #+end_src
 
-*** Flycheck (disabled)
-
-#+begin_src emacs-lisp :tangle no
-(use-package consult-flycheck
-  :ensure t
-  :after (consult flycheck))
-
-(use-package flycheck
-  :ensure t
-  :commands flycheck-list-errors flycheck-buffer
-  :functions flycheck-redefine-standard-error-levels
-  :custom
-  (flycheck-indication-mode 'right-fringe)
-  (flycheck-display-errors delay 0.25)
-  (flycheck-idle-change-delay 1.0)
-  :hook
-  (first-buffer-hook . global-flycheck-mode)
-  :config
-  (flycheck-redefine-standard-error-levels nil 'my-flycheck-fringe-bitmap-arrow)
-  :init
-  (define-fringe-bitmap 'my-flycheck-fringe-bitmap-arrow [16 48 112 240 112 48 16] nil nil 'center))
-
-;; (use-package flycheck-inline
-;;   :ensure t
-;;   :after flycheck
-;;   :init (global-flycheck-inline-mode))
-
-#+end_src
-
-** LSP
-
-*** eglot
-
-For some reason eglot-booster-mode turns on but not early enough to wrap the server
-startup when doing `:before eglot` so just load it on startup.
+*** TLDR
 
 #+begin_src emacs-lisp :tangle init.el
-(use-package eglot-booster
+(use-package tldr
   :ensure t
-  :commands (eglot-booster-mode)
-  :init
-  (eglot-booster-mode))
-
-(use-package consult-eglot
-  :ensure t
-  :after consult)
-
-(use-package eglot
-  :commands (eglot eglot-ensure)
-  :functions eglot-completion-at-point
-  :preface
-  (defun my/eglot-setup-capf ()
-    (setq-local completion-at-point-functions
-                (append (list (cape-capf-nonexclusive
-                               (cape-capf-super
-                                #'eglot-completion-at-point
-                                #'tempel-expand)))
-                        (default-value 'completion-at-point-functions))))
-  (defun my/eglot-disable-on-type-formatting ()
-    (setq-local eglot-ignored-server-capabilities
-                (cons :documentOnTypeFormattingProvider
-                      eglot-ignored-server-capabilities)))
-  :hook
-  (eglot-managed-mode-hook . my/eglot-setup-capf)
-  (c-mode-hook . my/eglot-disable-on-type-formatting)
-  (c++-mode-hook . my/eglot-disable-on-type-formatting)
-  :init
-  (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
   :custom
-  (lsp-completion-provider :none) ; use corfu intsead for lsp completion
-  :config
-  (lsp-snippet-tempel-eglot-init)
-  (setq eglot-autoshutdown t)
-  (setq completion-category-defaults nil)
-  (setq eglot-server-programs (my/replace-key eglot-server-programs 'nix-mode '(nix-mode nix-ts-mode)))
-  :custom-face
-  (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
+  ;; tldr unzips to tldr-main/ while tldr.el expects tldr/
+  (tldr-directory-path (expand-file-name "tldr-main/" user-emacs-directory)))
 #+end_src
 
-*** LSP mode (disabled)
+** Projects
 
-#+begin_src emacs-lisp :tangle no
-(setq lsp-keymap-prefix "C-c l")
+Configurations for project specific setup.
 
-(use-package consult-lsp
-  :ensure t
-  :after (consult lsp))
+*** project.el
 
-(use-package lsp-mode
-  :ensure t
-  :commands (lsp lsp-deferred)
+Add a nix-project-finder. Need to make sure it is before the vc project finder.
+breadcrumb-mode calls project-current, and the vc project finder has horrific
+performance in the `/nix/store` directory. Profiler had it at 50%. So the function
+is useful and good for performance.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package project
   :preface
-  ;; (autoload 'lsp-enable-which-key-integration "lsp-mode")
-  ;; (autoload 'lsp-diagnostics-mode "lsp-diagnostics")
-  ;; (defun my/setup-lsp-mode ()
-  ;;   (message "my/setup-lsp-mode called")
-  ;;   (lsp-enable-which-key-integration)
-  ;;   (lsp-diagnostics-mode t)
-  ;;   ;; (when (lsp-feature? "textDocument/formatting")
-  ;;   ;;  (setq my/format/buffer-function 'lsp-format-buffer))
-  ;;   )
-  (defun lsp-booster--advice-json-parse (old-fn &rest args)
-    "Try to parse bytecode instead of json."
-    (or
-     (when (equal (following-char) ?#)
-       (let ((bytecode (read (current-buffer))))
-         (when (byte-code-function-p bytecode)
-           (funcall bytecode))))
-     (apply old-fn args)))
+  ;; A subdirectory of /nix/store
+  (defun nix-project-finder (dir)
+    (let ((nix-store-prefix "/nix/store/")
+          (dirs (split-string (expand-file-name dir) "/")))
+      (when (and (> (length dirs) 3)
+                 (string-prefix-p nix-store-prefix dir))
+        (cons 'transient (mapconcat 'identity (seq-take dirs 4) "/")))))
+  :config
+  ;; Load magit first so we get ctrl+x p p m
+  (require 'magit-extras)
+  (add-hook 'project-find-functions 'nix-project-finder))
+#+end_src
 
-  (defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
-    "Prepend emacs-lsp-booster command to lsp CMD."
-    (let ((orig-result (funcall old-fn cmd test?)))
-      (if (and (not test?)                             ;; for check lsp-server-present?
-               (not (file-remote-p default-directory)) ;; see lsp-resolve-final-command, it would add extra shell wrapper
-               lsp-use-plists
-               (not (functionp 'json-rpc-connection))  ;; native json-rpc
-               (executable-find "emacs-lsp-booster"))
-          (progn
-            (message "Using emacs-lsp-booster for %s!" orig-result)
-            (cons "emacs-lsp-booster" orig-result))
-        orig-result)))
+*** Direnv
 
+#+begin_src emacs-lisp :tangle init.el
+;; hacks are from doom:
+;; https://github.com/doomemacs/doomemacs/blob/98d753e1036f76551ccaa61f5c810782cda3b48a/modules/tools/direnv/config.el#L27
+(use-package envrc
+  :ensure t
+  :preface
+  (autoload 'envrc-propagate-environment "envrc")
+  (autoload 'envrc-global-mode-enable-in-buffers "envrc")
+  (autoload 'envrc--update "envrc")
+  ;; Normally, envrc updates on 'after-change-major-mode-hook'. This is too
+  ;; late; a mode's hooks might depend on environmental state that direnv sets
+  ;; up (e.g. starting an LSP server that expects project-specific
+  ;; envvars). Moved to `change-major-mode-after-body-hook' which runs before
+  ;; those hooks, but not the body
+  (defun direnv-init-global-mode-earlier ()
+    (let ((fn #'envrc-global-mode-enable-in-buffers))
+      (if (not envrc-global-mode)
+          (remove-hook 'change-major-mode-after-body-hook fn)
+        (remove-hook 'change-major-mode-after-body-hook fn)
+        (add-hook 'change-major-mode-after-body-hook fn 100))))
 
-  :custom
-  (lsp-enable-symbol-highlighting t)
-  (lsp-modeline-code-actions-enable t)
-  (lsp-signature-auto-activate  t)
-  (lsp-signature-render-documentation t)
-  (lsp-diagnostics-provider :flycheck)
-  (lsp-enable-indentation nil) ;; disabled indentation
-  (lsp-enable-snippet t)
-  (lsp-enable-xref t)
-  (lsp-enable-imenu t)
-  (lsp-inlay-hint-enable t)
-  (lsp-enable-links t)
-  (lsp-lens-enable t)
-  (lsp-semantic-tokens-enable t)
-  (lsp-enable-semantic-highlighting t)
-  (read-process-output-max (* 1024 1024)) ;; 1mb
-  (gc-cons-threshold (* 10 1024 1024))
-  (lsp-log-io nil)
-  ;; :hook (lsp-mode . my/setup-lsp-mode)
+  ;; Above hack causes envrc to trigger in its own, internal buffers, causing
+  ;; extra direnv errors.
+  ;; (defun direnv--debounce-update (&rest _)
+  ;;  "Prevent direnv from running multiple times, consecutively in a buffer."
+  ;;  (not (string-prefix-p "*envrc") (buffer-name)))
   :init
-  (advice-add (if (progn (require 'json)
-                         (fboundp 'json-parse-buffer))
-                  'json-parse-buffer
-                'json-read)
-              :around
-              #'lsp-booster--advice-json-parse)
+  ;; (advice-add #'envrc--update :before-while #'direnv--debounce-update)
+  ;; (advice-add #'org-babel-execute-src-block :around #'envrc-propagate-environment)
+  :hook
+  (first-file-hook . envrc-global-mode))
+;; (envrc-global-mode-hook . direnv-init-global-mode-earlier))
+#+end_src
 
-  (advice-add 'lsp-resolve-final-command :around #'lsp-booster--advice-final-command))
+*** Editor Config
 
-(use-package lsp-ui
+Integrate with editorconfig standard
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package editorconfig
   :ensure t
-  :custom
-  (lsp-ui-sideline-enable t)
-  (lsp-ui-sideline-show-code-actions nil))
-
-(use-package lsp-pyright
-  :ensure t
-  :hook (python-mode-hook . (lambda ()
-                              (require 'lsp-pyright)
-                              (lsp-deferred))))
+  :hook (first-buffer-hook . editorconfig-mode)
+  :blackout)
 #+end_src
 
 ** Debug
@@ -1456,24 +1553,14 @@ Debug adapter client
 
 ** Language configs
 
-*** General Editing
-
-**** Cognitive Complexity
-
-Treesitter based calculation of programming complexity.
-
-#+begin_src emacs-lisp :tangle init.el
-(use-package cognitive-complexity
-  :ensure t
-  :hook (prog-mode-hook . cognitive-complexity-mode))
-#+end_src
-
 *** Python
 
 #+begin_src emacs-lisp :tangle init.el
-(use-package python-mode
+(use-package python
   :mode ("\\.py\\'" . python-ts-mode)
   :hook (python-ts-mode-hook . eglot-ensure)
+  :bind (:map python-ts-mode-map
+	      ("C-c l t" . python-pytest-dispatch))
   :config
   (require 'python-pytest))
 
@@ -1567,17 +1654,6 @@ Using the emacs-rustic fork.
 ** General programming
 
 #+begin_src emacs-lisp :tangle init.el
-;; Misc. editor
-
-(use-package editorconfig
-  :ensure t
-  :commands editorconfig-mode
-  :init
-  (editorconfig-mode t)
-  :blackout)
-
-;; Formatting
-
 ;; Hook LSP and custom functions into apheleia formatting
 ;; https://github.com/radian-software/apheleia/issues/153
 ;;
@@ -1604,51 +1680,6 @@ Using the emacs-rustic fork.
         (alist-get 'bash-ts-mode apheleia-mode-alist) '(shfmt)
         (alist-get 'nix-ts-mode apheleia-mode-alist) '(nixfmt))
   )
-
-(use-package devdocs
-  :ensure t
-  :defer t)
-
-(use-package tldr
-  :ensure t
-  :custom
-  ;; tldr unzips to tldr-main/ while tldr.el expects tldr/
-  (tldr-directory-path (expand-file-name "tldr-main/" user-emacs-directory))
-  :defer t)
-
-;; direnv variables
-
-;; hacks are from doom:
-;; https://github.com/doomemacs/doomemacs/blob/98d753e1036f76551ccaa61f5c810782cda3b48a/modules/tools/direnv/config.el#L27
-(use-package envrc
-  :ensure t
-  :preface
-  (autoload 'envrc-propagate-environment "envrc")
-  (autoload 'envrc-global-mode-enable-in-buffers "envrc")
-  (autoload 'envrc--update "envrc")
-  ;; Normally, envrc updates on 'after-change-major-mode-hook'. This is too
-  ;; late; a mode's hooks might depend on environmental state that direnv sets
-  ;; up (e.g. starting an LSP server that expects project-specific
-  ;; envvars). Moved to `change-major-mode-after-body-hook' which runs before
-  ;; those hooks, but not the body
-  (defun direnv-init-global-mode-earlier ()
-    (let ((fn #'envrc-global-mode-enable-in-buffers))
-      (if (not envrc-global-mode)
-          (remove-hook 'change-major-mode-after-body-hook fn)
-        (remove-hook 'change-major-mode-after-body-hook fn)
-        (add-hook 'change-major-mode-after-body-hook fn 100))))
-
-  ;; Above hack causes envrc to trigger in its own, internal buffers, causing
-  ;; extra direnv errors.
-  ;; (defun direnv--debounce-update (&rest _)
-  ;;  "Prevent direnv from running multiple times, consecutively in a buffer."
-  ;;  (not (string-prefix-p "*envrc") (buffer-name)))
-  :init
-  ;; (advice-add #'envrc--update :before-while #'direnv--debounce-update)
-  ;; (advice-add #'org-babel-execute-src-block :around #'envrc-propagate-environment)
-  :hook
-  (first-file-hook . envrc-global-mode))
-;; (envrc-global-mode-hook . direnv-init-global-mode-earlier))
 
 ;; singlestore
 (setq-default compile-command "memsql-please make debug") ; set default command for M-x compile
