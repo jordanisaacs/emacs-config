@@ -373,12 +373,20 @@ with font faces.
 #+begin_src emacs-lisp :tangle init.el
 
 (use-package emacs
+  :preface
+  (defun my/replace-key (alist old-key new-key)
+       "Replace OLD-KEY with NEW-KEY in ALIST."
+       (let ((pair (assq old-key alist)))
+         (when pair
+           (setcar pair new-key)))
+       alist)
   :init
   (setq text-mode-ispell-word-completion nil)
   ;; TAB cycle never
   (setq completion-cycle-threshold nil)
   ;; tab does indentation + complete
   (setq tab-always-indent 'complete)
+  (setq indent-tabs-mode nil)
   ;; Scrolling
   (setq scroll-margin 10
         scroll-conservatively 10
@@ -463,8 +471,8 @@ This is a point tracker using space to retrace my steps.
    ("M-g b" . gumshoe-buf-backtrack)
    ("M-g B" . gumshoe-win-backtrack)
    (:map global-gumshoe-backtracking-mode-map
-         ("M-r" . global-gumshoe-backtracking-mode-back)
-         ("M-s" . global-gumshoe-backtracking-mode-forward))
+         ("M-{" . global-gumshoe-backtracking-mode-back)
+         ("M-}" . global-gumshoe-backtracking-mode-forward))
    :init
    (global-gumshoe-mode 1))
 #+end_src
@@ -723,6 +731,9 @@ press `@` to use a keybinding (or do completing-read)
          ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings
   :functions embark-prefix-help-command
   :init
+  ;; Unset help-for-help on C-h C-h so we can instead use prefix help.
+  ;; Can still access help-for-help with C-h ?
+  (global-unset-key (kbd "C-h C-h"))
   (setq prefix-help-command #'embark-prefix-help-command)
   :config
   ;; Hide the mode line of the Embark live/completions buffers
@@ -931,7 +942,6 @@ Consult/vertico/marginalia
          ;; M-g bindings in `goto-map'
          ("M-g e" . consult-compile-error)
          ("M-g f" . consult-flymake)               ;; Alternative: consult-flycheck
-         ("M-g F" . consult-lsp-diagnostics)
          ("M-g g" . consult-goto-line)             ;; orig. goto-line
          ("M-g M-g" . consult-goto-line)           ;; orig. goto-line
          ("M-g o" . consult-outline)               ;; Alternative: consult-org-heading
@@ -939,8 +949,7 @@ Consult/vertico/marginalia
          ("M-g k" . consult-global-mark)
          ("M-g i" . consult-imenu)
          ("M-g I" . consult-imenu-multi)
-         ("M-g l" . consult-lsp-file-symbols)
-         ("M-g L" . consult-lsp-symbols)
+         ("M-g l" . consult-eglot-symbols)
          ;; M-s bindings in `search-map'
          ("M-s d" . consult-fd)                  ;; Alternative: consult-find
          ("M-s c" . consult-locate)
@@ -1029,6 +1038,8 @@ is useful and good for performance.
                  (string-prefix-p nix-store-prefix dir))
         (cons 'transient (mapconcat 'identity (seq-take dirs 4) "/")))))
   :config
+  ;; Load magit first so we get ctrl+x p p m
+  (require 'magit-extras)
   (add-hook 'project-find-functions 'nix-project-finder))
 #+end_src
 
@@ -1333,6 +1344,7 @@ startup when doing `:before eglot` so just load it on startup.
   (lsp-snippet-tempel-eglot-init)
   (setq eglot-autoshutdown t)
   (setq completion-category-defaults nil)
+  (setq eglot-server-programs (my/replace-key eglot-server-programs 'nix-mode '(nix-mode nix-ts-mode)))
   :custom-face
   (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
 #+end_src
@@ -1523,6 +1535,7 @@ Using the emacs-rustic fork.
 #+begin_src emacs-lisp :tangle init.el
 (use-package rustic
   :ensure t
+  :after (rust-mode)
   :init
   (setq rust-mode-treesitter-derive t)
   (remove-hook 'rustic-mode-hook 'flycheck-mode)
@@ -1547,7 +1560,7 @@ Using the emacs-rustic fork.
 (use-package editorconfig
   :ensure t
   :commands editorconfig-mode
-  :config
+  :init
   (editorconfig-mode t)
   :blackout)
 
@@ -1633,7 +1646,6 @@ Using the emacs-rustic fork.
 ;; Adjust C++ style to more closely match the style we use in the MemSQL codebase
 
 (add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode)) ; use c++-mode instead of c-mode for .h files
-(setq-default indent-tabs-mode nil)
 
 ;; Default settings for sql-mysql
 ;; You can run a mysql/memsql client in Emacs with M-x sql-mysql
