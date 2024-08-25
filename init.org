@@ -423,6 +423,7 @@ Treesitter based calculation of programming complexity.
 #+begin_src emacs-lisp :tangle init.el
 (use-package cognitive-complexity
   :ensure t
+  :blackout
   :hook (prog-mode-hook . cognitive-complexity-mode))
 #+end_src
 
@@ -1632,11 +1633,15 @@ supposed re-write with treesitter coming.
 Using the emacs-rustic fork.
 
 #+begin_src emacs-lisp :tangle init.el
+(use-package rust-mode
+  :ensure t
+  :init
+  (setq rust-mode-treesitter-derive t))
+
 (use-package rustic
   :ensure t
   :after (rust-mode)
   :init
-  (setq rust-mode-treesitter-derive t)
   (remove-hook 'rustic-mode-hook 'flycheck-mode)
   :custom
   (rustic-lsp-client 'eglot))
