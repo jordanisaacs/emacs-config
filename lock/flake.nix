@@ -415,11 +415,10 @@
       repo = "xterm-color";
       type = "github";
     };
-    zig-mode = {
+    zig-ts-mode = {
       flake = false;
-      owner = "jordanisaacs";
-      repo = "zig-mode";
-      type = "github";
+      type = "git";
+      url = "https://codeberg.org/meow_king/zig-ts-mode.git";
     };
   };
   outputs = { ... }: { };

@@ -1639,8 +1639,8 @@ Debug adapter client
 *** Zig
 
 #+begin_src emacs-lisp :tangle init.el
-(use-package zig-mode
-  :hook (zig-mode-hook . eglot-ensure)
+(use-package zig-ts-mode
+  :hook (zig-ts-mode-hook . eglot-ensure)
   :ensure t)
 #+end_src
 
@@ -1700,14 +1700,14 @@ Using the emacs-rustic fork.
          (bash-ts-mode-hook . apheleia-mode)
          (sh-mode-hook . apheleia-mode)
          (rust-mode-hook . apheleia-mode)
-         (zig-mode-hook . apheleia-mode)
+         (zig-ts-mode-hook . apheleia-mode)
          (nix-ts-mode-hook . apheleia-mode))
   :blackout " Fmt"
   :config
   (push '(zigfmt . (zig-zig-bin "fmt" "--stdin")) apheleia-formatters)
   (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff)
         (alist-get 'rust-ts-mode apheleia-mode-alist) '(rustfmt)
-        (alist-get 'zig-mode apheleia-mode-alist) '(zigfmt)
+        (alist-get 'zig-ts-mode apheleia-mode-alist) '(zigfmt)
         (alist-get 'sh-mode apheleia-mode-alist) '(shfmt)
         (alist-get 'bash-ts-mode apheleia-mode-alist) '(shfmt)
         (alist-get 'nix-ts-mode apheleia-mode-alist) '(nixfmt))
