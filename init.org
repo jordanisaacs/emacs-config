@@ -266,14 +266,27 @@ This adds the ~:blackout~ parameter to use-package. It changes the modeline.
 
 ** Theming
 
-#+begin_src emacs-lisp :tangle init.el
-;; Tabs
+*** Generic change hook
 
-;; Todo highlighting
+From [[https://www.gnu.org/software/emacs//manual/html_node/modus-themes/A-theme_002dagnostic-hook-for-theme-loading.html][modus themes manual]]
+
+#+begin_src emacs-lisp :tangle init.el
+(defvar my/after-enable-theme-hook nil
+   "Normal hook run after enabling a theme.")
+
+(defun my/run-after-enable-theme-hook (&rest _args)
+   "Run `after-enable-theme-hook'."
+   (run-hooks 'after-enable-theme-hook))
+
+(advice-add 'enable-theme :after #'my/run-after-enable-theme-hook)
+#+end_src
+
+*** hl-todo highlighting
+
+#+begin_src emacs-lisp :tangle init.el
 (use-package hl-todo
   :ensure t
-  :commands (hl-todo-insert hl-todo-occur)
-  :functions hl-todo-next hl-todo-previous
+  :commands (hl-todo-insert hl-todo-occur hl-todo-next hl-todo-previous)
   :custom
   (hl-todo-highlight-punctuation ":")
   (hl-todo-keyword-faces nil)
@@ -291,23 +304,24 @@ This adds the ~:blackout~ parameter to use-package. It changes the modeline.
   :hook
   (prog-mode-hook . hl-todo-mode)
   (text-mode-hook . hl-todo-mode))
+#+end_src
 
-;; TODO: test
+*** Modus themes
+
+#+begin_src emacs-lisp :tangle init.el
 (use-package modus-themes
   :ensure t
   :after hl-todo
   :commands modus-themes-load-theme
+  :functions modus-themes--retrieve-palette-value modus-themes--current-theme-palette
   :preface
-  (autoload 'modus-themes--retrieve-palette-value "modus-themes")
-  (autoload 'modus-themes--current-theme-palette "modus-themes")
-  (defun my/modus-themes-modify ()
+  (defun my/hl-todo-modus-undone ()
     (modus-themes-with-colors
-      (face-spec-set 'diff-hl-change `((t :foreground ,bg-changed-fringe)))
-      (face-spec-set 'diff-hl-delete `((t :foreground ,bg-removed-fringe)))
-      (face-spec-set 'diff-hl-insert `((t :foreground ,bg-added-fringe)))
       (add-to-list 'hl-todo-keyword-faces (cons "UNDONE" err))))
+  :hook
+  (hl-todo-mode-hook . my/hl-todo-modus-undone)
+  (modus-themes-after-load-theme-hook . my/hl-todo-modus-undone)
   :init
-  (add-hook 'modus-themes-after-load-theme-hook #'my/modus-themes-modify)
   (modus-themes-load-theme 'modus-operandi))
 #+end_src
 
@@ -828,20 +842,20 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
   :custom
   (vc-git-diff-switches '("--histogram"))
   :preface
-  (defun diff-hl-define-thin-bitmaps (&rest _)
+  (defun my/diff-hl-define-thin-bitmaps (&rest _)
     (define-fringe-bitmap 'diff-hl-bmp-middle [240] nil nil '(center repeated))
     (define-fringe-bitmap 'diff-hl-bmp-delete [240 240 224 224 192 192 128 128] nil nil 'top))
-  (defun diff-hl-type-face-fn (type _pos)
+  (defun my/diff-hl-type-face-fn (type _pos)
     (intern (format "diff-hl-%s" type)))
-  (defun diff-hl-type-at-pos-fn (type _pos)
+  (defun my/diff-hl-type-at-pos-fn (type _pos)
     (if (eq type 'delete)
         'diff-hl-bmp-delete
       'diff-hl-bmp-middle))
-  (defun diff-hl-fix-faces ()
-    (mapc
-     (lambda (&rest args)
-       (apply #'set-face-background (append args '(nil))))
-     '(diff-hl-insert diff-hl-delete diff-hl-change)))
+  (defun my/diff-hl-fix-modus ()
+    (modus-themes-with-colors
+      (face-spec-set 'diff-hl-change `((t :foreground ,bg-changed-fringe :background nil)))
+      (face-spec-set 'diff-hl-delete `((t :foreground ,bg-removed-fringe :background nil)))
+      (face-spec-set 'diff-hl-insert `((t :foreground ,bg-added-fringe :background nil)))))
   :hook
   (find-file-hook . diff-hl-mode)
   (vc-dir-mode-hook . diff-hl-dir-mode)
@@ -849,11 +863,12 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
   (magit-post-refresh-hook . diff-hl-magit-post-refresh)
   (magit-pre-refresh-hook . diff-hl-magit-pre-refresh)
   (diff-hl-mode-hook . diff-hl-flydiff-mode)
-  (diff-hl-mode-hook . diff-hl-fix-faces)
+  (diff-hl-mode-hook . my/diff-hl-fix-modus)
+  (modus-themes-after-load-theme-hook . my/diff-hl-fix-modus)
   :init
-  (advice-add 'diff-hl-define-bitmaps :override #'diff-hl-define-thin-bitmaps)
-  (advice-add 'diff-hl-fringe-bmp-from-pos :override #'diff-hl-type-at-pos-fn)
-  (advice-add 'diff-hl-fringe-bmp-from-type :override #'diff-hl-type-at-pos-fn)
+  (advice-add 'diff-hl-define-bitmaps :override #'my/diff-hl-define-thin-bitmaps)
+  (advice-add 'diff-hl-fringe-bmp-from-pos :override #'my/diff-hl-type-at-pos-fn)
+  (advice-add 'diff-hl-fringe-bmp-from-type :override #'my/diff-hl-type-at-pos-fn)
   :config
   (repeatify 'diff-hl-command-map))
 
