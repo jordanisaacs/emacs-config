@@ -2,17 +2,17 @@
   description = "A very basic flake";
 
   inputs = {
+    nixpkgs.url = "nixpkgs/nixpkgs-unstable";
     emacs-unstable.url = "github:nix-community/emacs-overlay";
 
     emacs-lsp-booster.url = "github:slotThe/emacs-lsp-booster-flake";
     emacs-lsp-booster.inputs.nixpkgs.follows = "nixpkgs";
 
-    nixpkgs.url = "nixpkgs/nixpkgs-unstable";
-    lsp-snippet.url = "github:svaante/lsp-snippet";
-    lsp-snippet.flake = false;
+    systems.url = "github:nix-systems/default";
 
-    twist.url = "github:jordanisaacs/twist.nix?ref=site-start";
-    org-babel.url = "github:jordanisaacs/org-babel";
+    twist.url = "github:emacs-twist/twist.nix";
+    org-babel.url = "github:emacs-twist/org-babel";
+    twist-overrides.url = "github:emacs-twist/overrides";
 
     gnu-elpa.url =
       "git+https://git.savannah.gnu.org/git/emacs/elpa.git?ref=main";
@@ -26,107 +26,106 @@
     nongnu-elpa.flake = false;
   };
 
-  outputs = inputs@{ flake-parts, ... }:
+  outputs = inputs@{ self, nixpkgs, flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [ "x86_64-linux" ];
+      systems = import inputs.systems;
 
-      flake = {
-        overlays.default = inputs.nixpkgs.lib.composeManyExtensions [
-          inputs.emacs-unstable.overlays.emacs
-          inputs.emacs-lsp-booster.overlays.default
+      perSystem = { config, pkgs, lib, system, ... }:
+        let
+          overlays = [
+            inputs.emacs-unstable.overlays.emacs
+            inputs.emacs-lsp-booster.overlays.default
+          ];
 
-          inputs.twist.overlays.default
-          inputs.org-babel.overlays.default
+          emacsInit = pkgs.writeText "init.el"
+            (inputs.org-babel.lib.tangleOrgBabel { tangleArg = "init.el"; }
+              (builtins.readFile ./init.org));
 
-          (final: prev:
-            let emacsPackage = final.emacs-pgtk;
-            in {
-              emacs-init = final.tangleOrgBabelFile "init.el" ./init.org {
-                tangleArg = "init.el";
+          emacsPackage = pkgs.emacs-pgtk;
+
+          twistArgs = {
+            inherit pkgs emacsPackage;
+
+            nativeCompileAheadDefault = true;
+            lockDir = ./lock;
+            initFiles = [ emacsInit ];
+            initParser =
+              inputs.twist.lib.parseUsePackages { inherit (inputs.nixpkgs) lib; } { };
+
+            registries = (import ./nix/registries.nix {
+              inherit inputs;
+              emacsSrc = emacsPackage.src;
+            });
+
+            inputOverrides =
+              import ./nix/inputOverrides.nix { inherit (inputs.nixpkgs) lib; };
+
+            extraSiteStartElisp = let
+              treesitterPackage =
+                emacsPackage.pkgs.treesit-grammars.with-all-grammars;
+            in ''
+              (when init-file-user
+                (add-to-list 'treesit-extra-load-path "${treesitterPackage}/lib"))
+            '';
+          };
+
+          emacsEnv = (inputs.twist.lib.makeEnv twistArgs).overrideScope
+            (lib.composeExtensions inputs.twist-overrides.overlays.twistScope
+              (_: tsuper: {
+                elispPackages = tsuper.elispPackages.overrideScope
+                  (import ./nix/packageOverrides.nix { inherit pkgs; });
+              }));
+
+          emacsConfig = pkgs.callPackage inputs.self {
+            trivialBuild = pkgs.callPackage
+              "${inputs.nixpkgs}/pkgs/applications/editors/emacs/build-support/trivial.nix" {
+                emacs = emacsEnv.overrideScope (_: tprev: {
+                  inherit (tprev.emacs) meta nativeComp withNativeCompilation;
+                });
               };
+	    emacsFuncs = "${inputs.nixpkgs}/pkgs/applications/editors/emacs/build-support/emacs-funcs.sh";
+          };
 
-              emacs-env = (final.emacsTwist {
-                inherit emacsPackage;
-                initFiles = [ final.emacs-init ];
-                lockDir = ./lock;
-                registries = import ./nix/registries.nix {
-                  inherit inputs;
-                  emacsSrc = emacsPackage.src;
-                };
+          emacs-jd = pkgs.symlinkJoin {
+            name = "emacs-jd";
+            paths = [ emacsEnv ];
+            buildInputs = [ pkgs.makeWrapper ];
+            postBuild = ''
+              wrapProgram $out/bin/emacs \
+                --prefix PATH : "${pkgs.emacs-lsp-booster}/bin" \
+                --set LSP_USE_PLISTS true \
+                --add-flags --init-directory="${emacsConfig}"
+            '';
+          };
+        in {
+          _module.args.pkgs =
+            import inputs.nixpkgs { inherit system overlays; };
 
-                inputOverrides = import ./nix/inputOverrides.nix {
-                  inherit (inputs.nixpkgs) lib;
-                };
+          packages = {
+            inherit emacsConfig emacs-jd emacsEnv emacsInit emacsPackage;
+          };
 
-                extraSiteStartElisp = let
-                  treesitterPackage =
-                    emacsPackage.pkgs.treesit-grammars.with-all-grammars;
-                in ''
-                  (when init-file-user
-                    (add-to-list 'treesit-extra-load-path "${treesitterPackage}/lib"))
-                '';
-              }).overrideScope (_: tprev: {
-                elispPackages = tprev.elispPackages.overrideScope
-                  (prev.callPackage ./nix/packageOverrides.nix {
-                    inherit (tprev) emacs;
-                  });
-              });
+          checks = {
+            # Check if the elisp packages are successfully built.
+            build-config = emacsConfig;
+            build-env =
+              emacsEnv.overrideScope (_: _: { executablePackages = [ ]; });
+          };
 
-              emacs-jd = prev.symlinkJoin {
-                name = "emacs-jd";
-                paths = [ final.emacs-env ];
-                buildInputs = [ prev.makeWrapper ];
-                postBuild = ''
-                  wrapProgram $out/bin/emacs \
-                    --prefix PATH : "${prev.emacs-lsp-booster}/bin" \
-                    --set LSP_USE_PLISTS true \
-                    --add-flags --init-directory="${final.emacs-config}"
-                '';
-              };
+          apps = emacsEnv.makeApps { lockDirName = "lock"; };
 
-              emacs-config = prev.callPackage inputs.self {
-                trivialBuild = final.callPackage
-                  "${inputs.nixpkgs}/pkgs/build-support/emacs/trivial.nix" {
-                    emacs = final.emacs-env.overrideScope (_: tprev: {
-                      inherit (tprev.emacs)
-                        meta nativeComp withNativeCompilation;
-                    });
-                  };
-              };
-
-              emacs-package = emacsPackage;
-            })
-        ];
-      };
-
-      perSystem = { config, pkgs, inputs', ... }: {
-        _module.args.pkgs =
-          inputs'.nixpkgs.legacyPackages.extend inputs.self.overlays.default;
-
-        packages = {
-          inherit (pkgs)
-            emacs-config emacs-env emacs-init emacs-jd emacs-package;
-        };
-
-        checks = {
-          build-config = config.packages.emacs-config;
-          build-env = config.packages.emacs-env;
-        };
-
-        apps = pkgs.emacs-env.makeApps { lockDirName = "lock"; };
-
-        devShells = {
-          default = pkgs.mkShell {
-            buildInputs = [
-              pkgs.emacs-jd
-              pkgs.pyright
-              pkgs.python312Packages.pytest
-              pkgs.nil
-              pkgs.fd
-              pkgs.ripgrep
-            ];
+          devShells = {
+            default = pkgs.mkShell {
+              buildInputs = [
+                emacs-jd
+                pkgs.pyright
+                pkgs.python312Packages.pytest
+                pkgs.nil
+                pkgs.fd
+                pkgs.ripgrep
+              ];
+            };
           };
         };
-      };
     };
 }

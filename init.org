@@ -41,7 +41,7 @@ specified paths. Since we are using `--init-directory NIX_STORE` which is read o
 #+begin_src emacs-lisp :tangle early-init.el
 (startup-redirect-eln-cache (expand-file-name "eln-cache/" user-emacs-directory))
 (setq user-emacs-directory (concat (getenv "XDG_STATE_HOME") "/emacs"))
-(setq custom-file (concat user-emacs-directory "custom.el"))
+(setq custom-file (concat user-emacs-directory "/custom.el"))
 #+end_src
 
 Performance tweaks. Don't load default library and use fundamental-mode to reduce
@@ -181,7 +181,6 @@ with font faces.
      (string-prefix-p "/nix/store/" s))
    paths))
 
-
 (setq native-comp-eln-load-path (filter-nix-store native-comp-eln-load-path))
 (setq load-path (filter-nix-store load-path))
 #+end_src
@@ -303,10 +302,9 @@ This adds the ~:blackout~ parameter to use-package. It changes the modeline.
   (autoload 'modus-themes--current-theme-palette "modus-themes")
   (defun my/modus-themes-modify ()
     (modus-themes-with-colors
-      (custom-set-faces
-       `(diff-hl-change ((,c :foreground ,bg-changed-fringe)))
-       `(diff-hl-delete ((,c :foreground ,bg-removed-fringe)))
-       `(diff-hl-insert ((,c :foreground ,bg-added-fringe))))
+      (face-spec-set 'diff-hl-change `((t :foreground ,bg-changed-fringe)))
+      (face-spec-set 'diff-hl-delete `((t :foreground ,bg-removed-fringe)))
+      (face-spec-set 'diff-hl-insert `((t :foreground ,bg-added-fringe)))
       (add-to-list 'hl-todo-keyword-faces (cons "UNDONE" err))))
   :init
   (add-hook 'modus-themes-after-load-theme-hook #'my/modus-themes-modify)
@@ -1495,7 +1493,7 @@ is useful and good for performance.
         (cons 'transient (mapconcat 'identity (seq-take dirs 4) "/")))))
   (defun my/project-is-git ()
     "Check if current project is git-based."
-    (when-let ((project (project-current)))
+    (when-let* ((project (project-current)))
       (and (eq 'vc (car project))
            (eq 'Git (cadr project)))))
   (defun my/run-project-git-hook ()
@@ -1609,25 +1607,18 @@ Debug adapter client
   (defun my/disable-indent-tabs ()
     (setq indent-tabs-mode nil)))
 
-(use-package c++-ts-mode
-  :defines c++-ts-mode-map
+(use-package c-ts-mode
+  :defines c-ts-mode-map c++-ts-mode-map
   :init
+  (add-to-list 'major-mode-remap-alist '(c-mode . c-ts-mode))
   (add-to-list 'major-mode-remap-alist '(c++-mode . c++-ts-mode))
+    (add-to-list 'major-mode-remap-alist '(c-or-c++-mode . c-or-c++-ts-mode))
   :hook
+  (c-ts-mode-hook . eglot-ensure)
+  (c-ts-mode-hook . my/disable-indent-tabs)
   (c++-ts-mode-hook . eglot-ensure)
   (c++-ts-mode-hook . my/disable-indent-tabs))
 
-(use-package c-ts-mode
-  :defines c-ts-mode-map
-  :init
-  (add-to-list 'major-mode-remap-alist '(c-mode . c-ts-mode))
-  :hook
-  (c-ts-mode-hook . eglot-ensure)
-  (c-ts-mode-hook . my/disable-indent-tabs))
-
-(use-package c-or-c++-ts-mode
-  :init
-  (add-to-list 'major-mode-remap-alist '(c-or-c++-mode . c-or-c++-ts-mode)))
 #+end_src
 
 *** Zig
@@ -1671,7 +1662,7 @@ Using the emacs-rustic fork.
 *** Shell mode
 
 #+begin_src emacs-lisp :tangle init.el
-(use-package sh-mode
+(use-package sh-script
   :hook
   (sh-mode-hook . eglot-ensure)
   (bash-ts-mode-hook . eglot-ensure))

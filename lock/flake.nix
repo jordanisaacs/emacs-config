@@ -1,6 +1,5 @@
 {
-  description =
-    "THIS IS AN AUTO-GENERATED FILE. PLEASE DON'T EDIT IT MANUALLY.";
+  description = "THIS IS AN AUTO-GENERATED FILE. PLEASE DON'T EDIT IT MANUALLY.";
   inputs = {
     ace-window = {
       flake = false;
@@ -188,12 +187,6 @@
       repo = "f.el";
       type = "github";
     };
-    git-commit = {
-      flake = false;
-      owner = "magit";
-      repo = "magit";
-      type = "github";
-    };
     git-timemachine = {
       flake = false;
       type = "git";
@@ -239,6 +232,12 @@
       flake = false;
       owner = "jdtsmith";
       repo = "kind-icon";
+      type = "github";
+    };
+    lsp-snippet = {
+      flake = false;
+      owner = "svaante";
+      repo = "lsp-snippet";
       type = "github";
     };
     lsp-snippet-tempel = {
