@@ -41,6 +41,7 @@ specified paths. Since we are using `--init-directory NIX_STORE` which is read o
 #+begin_src emacs-lisp :tangle early-init.el
 (startup-redirect-eln-cache (expand-file-name "eln-cache/" user-emacs-directory))
 (setq user-emacs-directory (concat (getenv "XDG_STATE_HOME") "/emacs"))
+(setq custom-file (concat user-emacs-directory "custom.el"))
 #+end_src
 
 Performance tweaks. Don't load default library and use fundamental-mode to reduce
@@ -234,35 +235,34 @@ This adds the ~:blackout~ parameter to use-package. It changes the modeline.
 ** Repeat mode
 
 #+begin_src  emacs-lisp :tangle init.el
-
 (use-package repeat
   ;; builtin
-  :functions repeat--command-property
+  :demand t
   :preface
   ;; https://old.reddit.com/r/emacs/comments/1adwnse/repeatmode_is_awesome_share_you_useful_configs/kk9vpif/
   (defun repeatify (repeat-keymap)
-  "Set the `repeat-map' property on all commands bound in REPEAT-MAP."
-  (named-let process ((keymap (symbol-value repeat-keymap)))
-    (map-keymap
-     (lambda (_key cmd)
-       (cond
-        ((symbolp cmd) (put cmd 'repeat-map repeat-keymap))
-        ((keymapp cmd) (process cmd))))
-     keymap)))
-
+    "Set the `repeat-map' property on all commands bound in REPEAT-MAP."
+    (named-let process ((keymap (symbol-value repeat-keymap)))
+      (map-keymap
+       (lambda (_key cmd)
+	 (cond
+          ((symbolp cmd) (put cmd 'repeat-map repeat-keymap))
+          ((keymapp cmd) (process cmd))))
+       keymap)))
   :config
-  (setq repeat-echo-function #'ignore)
-  :init
-  ;; This means that using alt+x will still let us use repeat mode
-  (setq repeat-check-key nil)
   (repeat-mode t))
 
 (use-package repeat-help
   :ensure t
-  :defer t
+  :after repeat
+  :commands repeat-help-mode
+  :demand t
   :init
+  (setq repeat-help-key "C-h")
   (setq repeat-help-popup-type 'embark)
-  :hook (repeat-mode-hook . repeat-help-mode))
+  (advice-add 'repeat-help--embark-indicate :before (lambda (&rest _) (require 'embark)))
+  :config
+  (repeat-help-mode t))
 #+end_src
 
 ** Theming
@@ -301,7 +301,7 @@ This adds the ~:blackout~ parameter to use-package. It changes the modeline.
   :preface
   (autoload 'modus-themes--retrieve-palette-value "modus-themes")
   (autoload 'modus-themes--current-theme-palette "modus-themes")
-  (defun modus-themes-modify ()
+  (defun my/modus-themes-modify ()
     (modus-themes-with-colors
       (custom-set-faces
        `(diff-hl-change ((,c :foreground ,bg-changed-fringe)))
@@ -309,23 +309,26 @@ This adds the ~:blackout~ parameter to use-package. It changes the modeline.
        `(diff-hl-insert ((,c :foreground ,bg-added-fringe))))
       (add-to-list 'hl-todo-keyword-faces (cons "UNDONE" err))))
   :init
-  (add-hook 'modus-themes-after-load-theme-hook #'modus-themes-modify)
+  (add-hook 'modus-themes-after-load-theme-hook #'my/modus-themes-modify)
   (modus-themes-load-theme 'modus-operandi))
-
 #+end_src
 
 ** Emacs
 
 #+begin_src emacs-lisp :tangle init.el
-
 (use-package emacs
   :preface
   (defun my/replace-key (alist old-key new-key)
-       "Replace OLD-KEY with NEW-KEY in ALIST."
-       (let ((pair (assq old-key alist)))
-         (when pair
-           (setcar pair new-key)))
-       alist)
+    "Replace OLD-KEY with NEW-KEY in ALIST."
+    (let ((pair (assq old-key alist)))
+      (when pair
+        (setcar pair new-key)))
+    alist)
+  (defun my/minor-mode-line-limit (minor-mode line-limit)
+    "Disable minor-mode if file exceeds line-limit"
+    (if (> (count-lines (point-min) (point-max)) line-limit)
+      (funcall minor-mode -1)
+      (funcall minor-mode)))
   :init
   (setq text-mode-ispell-word-completion nil)
   ;; TAB cycle never
@@ -424,7 +427,11 @@ Treesitter based calculation of programming complexity.
 (use-package cognitive-complexity
   :ensure t
   :blackout
-  :hook (prog-mode-hook . cognitive-complexity-mode))
+  :preface
+  (defun enable-cc-line-limit ()
+    (my/minor-mode-line-limit 'cognitive-complexity-mode 5000))
+  :hook
+  (prog-mode-hook . enable-cc-line-limit))
 #+end_src
 
 
@@ -845,7 +852,9 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
   :init
   (advice-add 'diff-hl-define-bitmaps :override #'diff-hl-define-thin-bitmaps)
   (advice-add 'diff-hl-fringe-bmp-from-pos :override #'diff-hl-type-at-pos-fn)
-  (advice-add 'diff-hl-fringe-bmp-from-type :override #'diff-hl-type-at-pos-fn))
+  (advice-add 'diff-hl-fringe-bmp-from-type :override #'diff-hl-type-at-pos-fn)
+  :config
+  (repeatify 'diff-hl-command-map))
 
 (if (fboundp 'fringe-mode) (fringe-mode '8))
 (setq-default fringes-outside-margins t)
@@ -938,7 +947,7 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
   :bind (("C-." . embark-act)         ;; pick some comfortable binding
          ("C-;" . embark-dwim)        ;; good alternative: M-.
          ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings
-  :functions embark-prefix-help-command
+  :commands embark-prefix-help-command
   :init
   ;; Unset help-for-help on C-h C-h so we can instead use prefix help.
   ;; Can still access help-for-help with C-h ?
