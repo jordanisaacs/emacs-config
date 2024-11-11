@@ -816,7 +816,10 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
   :hook (magit-mode-hook . magit-delta-mode))
 
 (use-package magit
-  :ensure t)
+  :ensure t
+  :commands magit-wip-mode
+  :hook
+  (my/project-git-hook . (lambda () (magit-wip-mode t))))
 
 ;; diff highlighting
 
@@ -1484,16 +1487,25 @@ is useful and good for performance.
 (use-package project
   :preface
   ;; A subdirectory of /nix/store
-  (defun nix-project-finder (dir)
+  (defun my/nix-project-finder (dir)
     (let ((nix-store-prefix "/nix/store/")
           (dirs (split-string (expand-file-name dir) "/")))
       (when (and (> (length dirs) 3)
                  (string-prefix-p nix-store-prefix dir))
         (cons 'transient (mapconcat 'identity (seq-take dirs 4) "/")))))
+  (defun my/project-is-git ()
+    "Check if current project is git-based."
+    (when-let ((project (project-current)))
+      (and (eq 'vc (car project))
+           (eq 'Git (cadr project)))))
+  (defun my/run-project-git-hook ()
+    (when (my/project-is-git)
+      (run-hooks 'my/project-git-hook)))
   :config
   ;; Load magit first so we get ctrl+x p p m
   (require 'magit-extras)
-  (add-hook 'project-find-functions 'nix-project-finder))
+  (add-hook 'project-find-functions 'my/nix-project-finder)
+  (add-hook 'find-file-hook 'my/run-project-git-hook))
 #+end_src
 
 *** Direnv
