@@ -330,16 +330,24 @@ From [[https://www.gnu.org/software/emacs//manual/html_node/modus-themes/A-theme
 #+begin_src emacs-lisp :tangle init.el
 (use-package emacs
   :preface
+  (defun my/replace-keys (alist replacements)
+    "Replace multiple keys in ALIST according to REPLACEMENTS.
+REPLACEMENTS should be a list of (old-key . new-key) pairs.
+Returns the modified ALIST."
+    (dolist (replacement replacements alist)
+      (my/replace-key alist (car replacement) (cdr replacement))))
+
   (defun my/replace-key (alist old-key new-key)
     "Replace OLD-KEY with NEW-KEY in ALIST."
     (let ((pair (assq old-key alist)))
       (when pair
         (setcar pair new-key)))
     alist)
+
   (defun my/minor-mode-line-limit (minor-mode line-limit)
     "Disable minor-mode if file exceeds line-limit"
     (if (> (count-lines (point-min) (point-max)) line-limit)
-      (funcall minor-mode -1)
+	(funcall minor-mode -1)
       (funcall minor-mode)))
   :init
   (setq text-mode-ispell-word-completion nil)
@@ -492,7 +500,10 @@ startup when doing `:before eglot` so just load it on startup.
   (lsp-snippet-tempel-eglot-init)
   (setq eglot-autoshutdown t)
   (setq completion-category-defaults nil)
-  (setq eglot-server-programs (my/replace-key eglot-server-programs 'nix-mode '(nix-mode nix-ts-mode)))
+  (setq eglot-server-programs
+	(my/replace-keys eglot-server-programs
+			 '((nix-mode . (nix-mode nix-ts-mode))
+			   (zig-mode . (zig-mode zig-ts-mode)))))
   :custom-face
   (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
 #+end_src
@@ -1640,8 +1651,9 @@ Debug adapter client
 
 #+begin_src emacs-lisp :tangle init.el
 (use-package zig-ts-mode
-  :hook (zig-ts-mode-hook . eglot-ensure)
-  :ensure t)
+  :ensure t
+  :mode "\\.zig\\'"
+  :hook (zig-ts-mode-hook . eglot-ensure))
 #+end_src
 
 *** Golang
