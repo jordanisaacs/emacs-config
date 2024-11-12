@@ -853,9 +853,9 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
       'diff-hl-bmp-middle))
   (defun my/diff-hl-fix-modus ()
     (modus-themes-with-colors
-      (face-spec-set 'diff-hl-change `((t :foreground ,bg-changed-fringe :background nil)))
-      (face-spec-set 'diff-hl-delete `((t :foreground ,bg-removed-fringe :background nil)))
-      (face-spec-set 'diff-hl-insert `((t :foreground ,bg-added-fringe :background nil)))))
+      (face-spec-set 'diff-hl-change `((t :foreground ,bg-changed-fringe :background unspecified)))
+      (face-spec-set 'diff-hl-delete `((t :foreground ,bg-removed-fringe :background unspecified)))
+      (face-spec-set 'diff-hl-insert `((t :foreground ,bg-added-fringe :background unspecified)))))
   :hook
   (find-file-hook . diff-hl-mode)
   (vc-dir-mode-hook . diff-hl-dir-mode)
