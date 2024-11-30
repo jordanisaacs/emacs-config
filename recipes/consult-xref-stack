@@ -1,0 +1,1 @@
+(consult-xref-stack :fetcher github :repo "brett-lempereur/consult-xref-stack")

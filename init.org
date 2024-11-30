@@ -693,6 +693,16 @@ Third time is the charm, a point tracker using time.
   (setq isearch-lazy-highlight t))
 #+end_src
 
+*** xref
+
+Adds xref stack support for consult.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package consult-xref-stack
+  :ensure t
+  :after consult)
+#+end_src
+
 ** Polymode (disabled)
 
 #+begin_src emacs-lisp :tangle no
@@ -1199,6 +1209,8 @@ Consult/vertico/marginalia
          ("M-g i" . consult-imenu)
          ("M-g I" . consult-imenu-multi)
          ("M-g l" . consult-eglot-symbols)
+	 ("M-g ," . consult-xref-stack-backward)
+	 ("M-g M-," . consult-xref-stack-forward)
          ;; M-s bindings in `search-map'
          ("M-s d" . consult-fd)                  ;; Alternative: consult-find
          ("M-s c" . consult-locate)

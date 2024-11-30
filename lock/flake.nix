@@ -115,6 +115,12 @@
       repo = "consult-todo";
       type = "github";
     };
+    consult-xref-stack = {
+      flake = false;
+      owner = "brett-lempereur";
+      repo = "consult-xref-stack";
+      type = "github";
+    };
     corfu = {
       flake = false;
       owner = "minad";

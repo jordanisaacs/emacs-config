@@ -304,6 +304,22 @@
         "type": "github"
       }
     },
+    "consult-xref-stack": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1732577615,
+        "narHash": "sha256-TUACrdK/AxwFn7/HFuaHGkq0hscVtPIXy4TDf0rLYqo=",
+        "owner": "brett-lempereur",
+        "repo": "consult-xref-stack",
+        "rev": "aa9bbf7a3ff43353b7c10595b3d13887b213466b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "brett-lempereur",
+        "repo": "consult-xref-stack",
+        "type": "github"
+      }
+    },
     "corfu": {
       "flake": false,
       "locked": {
@@ -903,6 +919,7 @@
         "consult-dir": "consult-dir",
         "consult-eglot": "consult-eglot",
         "consult-todo": "consult-todo",
+        "consult-xref-stack": "consult-xref-stack",
         "corfu": "corfu",
         "dape": "dape",
         "dash": "dash",
