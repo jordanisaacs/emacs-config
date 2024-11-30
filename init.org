@@ -1586,38 +1586,38 @@ is useful and good for performance.
 
 *** Direnv
 
+Use basic envrc, but investigate hacks from [[https://github.com/doomemacs/doomemacs/blob/98d753e1036f76551ccaa61f5c810782cda3b48a/modules/tools/direnv/config.el#L27][doom]].
+
+Magit WIP mode sets the ~GIT_INDEX_FILE~ environment variable (using the
+~magit-with-temp-index~ macro). If WIP mode is the first to create the magit
+process buffer, the buffer is created with the environment variable set, and
+thus results in a cache miss to direnv. Because we know what is being set,
+remove the environment variable for `envrc--update` so we don't get a cache miss
+and an unnecessary direnv reload.
+
 #+begin_src emacs-lisp :tangle init.el
-;; hacks are from doom:
-;; https://github.com/doomemacs/doomemacs/blob/98d753e1036f76551ccaa61f5c810782cda3b48a/modules/tools/direnv/config.el#L27
 (use-package envrc
   :ensure t
-  :preface
-  (autoload 'envrc-propagate-environment "envrc")
-  (autoload 'envrc-global-mode-enable-in-buffers "envrc")
-  (autoload 'envrc--update "envrc")
-  ;; Normally, envrc updates on 'after-change-major-mode-hook'. This is too
-  ;; late; a mode's hooks might depend on environmental state that direnv sets
-  ;; up (e.g. starting an LSP server that expects project-specific
-  ;; envvars). Moved to `change-major-mode-after-body-hook' which runs before
-  ;; those hooks, but not the body
-  (defun direnv-init-global-mode-earlier ()
-    (let ((fn #'envrc-global-mode-enable-in-buffers))
-      (if (not envrc-global-mode)
-          (remove-hook 'change-major-mode-after-body-hook fn)
-        (remove-hook 'change-major-mode-after-body-hook fn)
-        (add-hook 'change-major-mode-after-body-hook fn 100))))
-
-  ;; Above hack causes envrc to trigger in its own, internal buffers, causing
-  ;; extra direnv errors.
-  ;; (defun direnv--debounce-update (&rest _)
-  ;;  "Prevent direnv from running multiple times, consecutively in a buffer."
-  ;;  (not (string-prefix-p "*envrc") (buffer-name)))
-  :init
-  ;; (advice-add #'envrc--update :before-while #'direnv--debounce-update)
-  ;; (advice-add #'org-babel-execute-src-block :around #'envrc-propagate-environment)
+  :functions envrc--find-env-dir
   :hook
-  (first-file-hook . envrc-global-mode))
-;; (envrc-global-mode-hook . direnv-init-global-mode-earlier))
+  (after-init-hook . envrc-global-mode)
+  :preface
+  (defun my/envrc-remove-magit-env (orig-fun &rest args)
+    (let ((old-process-env (default-value 'process-environment)))
+      (setq-default process-environment
+	    (let ((first-env (car old-process-env)))
+	      (if (and first-env
+		       (string-match "^GIT_INDEX_FILE=\\(.*\\)" first-env)
+		       (let ((magit-dir (expand-file-name ".git/index.magit" (envrc--find-env-dir)))
+			     (git-index-file (match-string 1 first-env)))
+			 (string-prefix-p magit-dir git-index-file)))
+		  (cdr old-process-env)
+		old-process-env)))
+      (unwind-protect
+	  (apply orig-fun args)
+	(setq-default process-environment old-process-env))))
+  :init
+  (advice-add 'envrc--update :around #'my/envrc-remove-magit-env))
 #+end_src
 
 *** Editor Config
