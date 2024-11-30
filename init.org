@@ -35,13 +35,15 @@ Lower GC for init
                      file-name-handler-alist ',normal-file-name-handler-alist))))
 #+end_src
 
-Redirect calls to `user-emacs-directory` to `$XDG_DATA_DIR` if not one of our
-specified paths. Since we are using `--init-directory NIX_STORE` which is read only.
+Redirect calls to `user-emacs-directory` to ~$XDG_DATA_DIR~ if not one of our
+specified paths. Since we are using ~--init-directory NIX_STORE~ which is read only.
+
+Make sure to also set the custom-file to a place outside the ~NIX_STORE~.
 
 #+begin_src emacs-lisp :tangle early-init.el
 (startup-redirect-eln-cache (expand-file-name "eln-cache/" user-emacs-directory))
 (setq user-emacs-directory (concat (getenv "XDG_STATE_HOME") "/emacs"))
-(setq custom-file (concat user-emacs-directory "/custom.el"))
+(setq custom-file (locate-user-emacs-file "/custom.el"))
 #+end_src
 
 Performance tweaks. Don't load default library and use fundamental-mode to reduce
@@ -191,6 +193,14 @@ with font faces.
 (eval-and-compile
   (when (getenv "DEBUG") (setq init-file-debug t))
   (setq debug-on-error (and (not noninteractive) init-file-debug)))
+#+end_src
+
+*** custom.el
+
+Make sure to load our custom-file
+
+#+begin_src emacs-lisp :tangle init.el
+(load custom-file :no-error-if-file-is-missing)
 #+end_src
 
 *** use-package
