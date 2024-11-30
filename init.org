@@ -1273,6 +1273,18 @@ Consult/vertico/marginalia
 
 #+end_src
 
+** Editing
+
+*** Delete Select
+
+Builtin package for deleting selection when typing.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package delsel
+  :ensure nil
+  :hook (after-init-hook . delete-selection-mode))
+#+end_src
+
 ** Motions
 
 *** Avy
