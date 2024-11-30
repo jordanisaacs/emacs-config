@@ -850,9 +850,13 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
 
 (use-package magit
   :ensure t
+  :functions magit-wip-commit-initial-backup
   :commands magit-wip-mode
   :hook
-  (my/project-git-hook . (lambda () (magit-wip-mode t))))
+  (my/project-git-hook . (lambda () (magit-wip-mode t)))
+  (before-save-hook . (lambda ()
+			(when (my/project-is-git)
+			  (magit-wip-commit-initial-backup)))))
 
 ;; diff highlighting
 
@@ -951,14 +955,6 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
   :commands global-whitespace-cleanup-mode
   :init
   (global-whitespace-cleanup-mode))
-
-;; Backups
-
-;; TODO: backup on save versioned
-(setq backup-directory-alist '(("." . "~/.emacs.d/backup/per-save")))
-
-;; TODO: autosave
-
 #+end_src
 
 #+begin_src emacs-lisp :tangle init.el
@@ -1275,14 +1271,36 @@ Consult/vertico/marginalia
 
 ** Editing
 
-*** Delete Select
+*** Delete Select (disabled)
 
 Builtin package for deleting selection when typing.
 
-#+begin_src emacs-lisp :tangle init.el
+#+begin_src emacs-lisp
 (use-package delsel
   :ensure nil
   :hook (after-init-hook . delete-selection-mode))
+#+end_src
+
+*** Backup
+
+#+begin_src emacs-lisp :tangle init.el
+(let ((backup-dir (expand-file-name "backups/" user-emacs-directory)))
+  (make-directory backup-dir t)
+  (setq backup-directory-alist `(("." . ,backup-dir))))
+(setq backup-by-copying t)
+(setq delete-old-versions t)
+(setq kept-new-versions 6)
+(setq kept-old-versions 2)
+(setq version-control t)
+(setq vc-make-backup-files t)
+#+end_src
+
+*** Autosave
+
+#+begin_src emacs-lisp :tangle init.el
+(let ((auto-save-dir (expand-file-name "autosaves/" user-emacs-directory)))
+  (make-directory auto-save-dir t)
+  (setq auto-save-file-name-transforms `((".*" ,auto-save-dir))))
 #+end_src
 
 ** Motions
