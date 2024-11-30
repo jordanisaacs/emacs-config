@@ -784,6 +784,54 @@
         "type": "github"
       }
     },
+    "nerd-icons": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1730907208,
+        "narHash": "sha256-D3NXQE8yu+sDcpXTDndoqcaTnJlvLmVs3kvWfjflaJo=",
+        "owner": "rainstormstudio",
+        "repo": "nerd-icons.el",
+        "rev": "a6ee08f1619bcde1a69b2defcfe8970c983640c1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "rainstormstudio",
+        "repo": "nerd-icons.el",
+        "type": "github"
+      }
+    },
+    "nerd-icons-completion": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1722427995,
+        "narHash": "sha256-VSPgyT1c/KSjcWjqt1C+BOvNHzgM92SYCxuNnVj3cw4=",
+        "owner": "rainstormstudio",
+        "repo": "nerd-icons-completion",
+        "rev": "426a1d7c29a04ae8e6ae9b55b0559f11a1e8b420",
+        "type": "github"
+      },
+      "original": {
+        "owner": "rainstormstudio",
+        "repo": "nerd-icons-completion",
+        "type": "github"
+      }
+    },
+    "nerd-icons-dired": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1728785575,
+        "narHash": "sha256-yoiwuf90qhwzSGQgaXZb+Zo+cTxjeEIt6NoZKQb8mMc=",
+        "owner": "rainstormstudio",
+        "repo": "nerd-icons-dired",
+        "rev": "c0b0cda2b92f831d0f764a7e8c0c6728d6a27774",
+        "type": "github"
+      },
+      "original": {
+        "owner": "rainstormstudio",
+        "repo": "nerd-icons-dired",
+        "type": "github"
+      }
+    },
     "nix-ts-mode": {
       "flake": false,
       "locked": {
@@ -948,6 +996,9 @@
         "marginalia": "marginalia",
         "markdown-mode": "markdown-mode",
         "modus-themes": "modus-themes",
+        "nerd-icons": "nerd-icons",
+        "nerd-icons-completion": "nerd-icons-completion",
+        "nerd-icons-dired": "nerd-icons-dired",
         "nix-ts-mode": "nix-ts-mode",
         "orderless": "orderless",
         "org": "org",

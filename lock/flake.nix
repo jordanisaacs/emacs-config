@@ -294,6 +294,24 @@
       repo = "modus-themes";
       type = "github";
     };
+    nerd-icons = {
+      flake = false;
+      owner = "rainstormstudio";
+      repo = "nerd-icons.el";
+      type = "github";
+    };
+    nerd-icons-completion = {
+      flake = false;
+      owner = "rainstormstudio";
+      repo = "nerd-icons-completion";
+      type = "github";
+    };
+    nerd-icons-dired = {
+      flake = false;
+      owner = "rainstormstudio";
+      repo = "nerd-icons-dired";
+      type = "github";
+    };
     nix-ts-mode = {
       flake = false;
       owner = "nix-community";

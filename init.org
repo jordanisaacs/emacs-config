@@ -918,11 +918,6 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
 ;; TODO: monaspace neon is missing the o symbol, so when we get fallback font in the
 ;; minibuffer it is slightly the wrong size and causes prompt to move
 ;; use (font-family-list) to see available fonts
-(set-face-attribute 'default nil :family "MonaspiceNe Nerd Font Mono" :height 100 :weight 'normal)
-
-(defun set-bigger-spacing ()
-  (setq-local default-text-properties '(line-spacing 0.25)))
-(dolist (hook '(text-mode-hook prog-mode-hook)) (add-hook hook 'set-bigger-spacing))
 
 ;; UI
 
@@ -942,18 +937,6 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
   (add-hook hook #'display-fill-column-indicator-mode t))
 
 ;; Icons
-
-(use-package all-the-icons
-  :ensure t
-  :commands (all-the-icons-faicon all-the-icons-octicon))
-
-(use-package all-the-icons-dired
-  :ensure t
-  :hook (dired-mode-hook . all-the-icons-dired-mode))
-
-(use-package all-the-icons-completion
-  :ensure t
-  :hook (marginalia-mode-hook . all-the-icons-completion-marginalia-setup))
 
 ;; Whitespace
 (dolist (hook '(prog-mode-hook
@@ -1144,7 +1127,7 @@ Consult/vertico/marginalia
 (use-package marginalia
   :ensure t
   :bind (:map minibuffer-local-map ("M-A" . marginalia-cycle))
-  :functions marginalia-mode
+  :commands marginalia-mode
   :init
   (marginalia-mode))
 
@@ -1519,6 +1502,20 @@ View mode for meow
 
 ** Visuals
 
+*** Fonts
+
+#+begin_src emacs-lisp :tangle init.el
+(let ((mono-spaced-font "Berkeley Mono")
+      (proportionately-spaced-font "Berkeley Mono Variable"))
+  (set-face-attribute 'default nil :family mono-spaced-font :height 100  :weight 'normal)
+  (set-face-attribute 'fixed-pitch nil :family mono-spaced-font :height 1.0 :weight 'normal)
+  (set-face-attribute 'variable-pitch nil :family proportionately-spaced-font :height 1.0 :weight 'normal))
+
+(defun set-bigger-spacing ()
+  (setq-local default-text-properties '(line-spacing 0.25)))
+(dolist (hook '(text-mode-hook prog-mode-hook)) (add-hook hook 'set-bigger-spacing))
+#+end_src
+
 *** Breadcrumbs
 
 #+begin_src emacs-lisp :tangle init.el
@@ -1526,6 +1523,49 @@ View mode for meow
   :ensure t
   :hook (first-buffer-hook . breadcrumb-mode))
 #+end_src
+
+*** Icons
+
+**** Nerd Icons
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package nerd-icons
+  :ensure t
+  :require t
+  :custom
+  (nerd-icons-font-family "Symbols Nerd Font Mono"))
+
+(use-package nerd-icons-dired
+  :ensure t
+  :hook
+  (dired-mode-hook . nerd-icons-dired-mode))
+
+(use-package nerd-icons-completion
+  :ensure t
+  :commands nerd-icons-completion-mode
+  :hook
+  (marginalia-mode-hook . nerd-icons-completion-marginalia-setup)
+  :init
+  (with-eval-after-load 'marginalia
+    (nerd-icons-completion-mode)))
+#+end_src
+
+**** all-the-icons (disabled)
+
+#+begin_src emacs-lisp
+(use-package all-the-icons
+  :ensure t
+  :commands (all-the-icons-faicon all-the-icons-octicon))
+
+(use-package all-the-icons-dired
+  :ensure t
+  :hook (dired-mode-hook . all-the-icons-dired-mode))
+
+(use-package all-the-icons-completion
+  :ensure t
+  :hook (marginalia-mode-hook . all-the-icons-completion-marginalia-setup))
+#+end_src
+
 
 ** Documentation
 
