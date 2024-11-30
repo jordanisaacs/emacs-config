@@ -500,8 +500,6 @@ startup when doing `:before eglot` so just load it on startup.
                       eglot-ignored-server-capabilities)))
   :hook
   (eglot-managed-mode-hook . my/eglot-setup-capf)
-  (c-mode-hook . my/eglot-disable-on-type-formatting)
-  (c++-mode-hook . my/eglot-disable-on-type-formatting)
   :init
   (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
   :custom
@@ -1720,23 +1718,19 @@ Debug adapter client
 *** C/C++
 
 #+begin_src emacs-lisp :tangle init.el
-(use-package cc-mode
-  :preface
-  (defun my/disable-indent-tabs ()
-    (setq indent-tabs-mode nil)))
-
 (use-package c-ts-mode
   :defines c-ts-mode-map c++-ts-mode-map
   :init
   (add-to-list 'major-mode-remap-alist '(c-mode . c-ts-mode))
   (add-to-list 'major-mode-remap-alist '(c++-mode . c++-ts-mode))
-    (add-to-list 'major-mode-remap-alist '(c-or-c++-mode . c-or-c++-ts-mode))
+  (add-to-list 'major-mode-remap-alist '(c-or-c++-mode . c-or-c++-ts-mode))
   :hook
   (c-ts-mode-hook . eglot-ensure)
   (c-ts-mode-hook . my/disable-indent-tabs)
+  (c-ts-mode-hook . my/eglot-disable-on-type-formatting)
   (c++-ts-mode-hook . eglot-ensure)
-  (c++-ts-mode-hook . my/disable-indent-tabs))
-
+  (c++-ts-mode-hook . my/disable-indent-tabs)
+  (c++-ts-mode-hook . my/eglot-disable-on-type-formatting))
 #+end_src
 
 *** Zig
@@ -1788,6 +1782,29 @@ Using the emacs-rustic fork.
 #+end_src
 
 ** General programming
+
+*** Code folding
+
+Code folding using treesitter.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package treesit-fold
+  :ensure t
+  :hook (first-buffer-hook . global-treesit-fold-mode))
+#+end_src
+
+*** Compilation mode
+
+Disabling line length fixes the annoying ~[...]~ in the compilation prompt.
+
+#+begin_src emacs-lisp :tangle init.el
+(setq compilation-scroll-output t)
+(setq compilation-auto-jump-to-first-error t)
+(setq compilation-max-output-line-length nil)
+(setq compilation-ask-about-save t)
+#+end_src
+
+*** Uncategorized
 
 #+begin_src emacs-lisp :tangle init.el
 ;; Hook LSP and custom functions into apheleia formatting

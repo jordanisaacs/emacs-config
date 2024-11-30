@@ -402,6 +402,12 @@
       repo = "transpose-frame";
       type = "github";
     };
+    treesit-fold = {
+      flake = false;
+      owner = "emacs-tree-sitter";
+      repo = "treesit-fold";
+      type = "github";
+    };
     vertico = {
       flake = false;
       owner = "minad";

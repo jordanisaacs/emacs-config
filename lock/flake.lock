@@ -1014,6 +1014,7 @@
         "tempel": "tempel",
         "tldr": "tldr",
         "transpose-frame": "transpose-frame",
+        "treesit-fold": "treesit-fold",
         "vertico": "vertico",
         "vundo": "vundo",
         "wgrep": "wgrep",
@@ -1148,6 +1149,22 @@
       "original": {
         "owner": "emacsorphanage",
         "repo": "transpose-frame",
+        "type": "github"
+      }
+    },
+    "treesit-fold": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1732240566,
+        "narHash": "sha256-LBYt7EBoB6/Erin95IVQSBJHm5+rUm44fKgs5fPjKUo=",
+        "owner": "emacs-tree-sitter",
+        "repo": "treesit-fold",
+        "rev": "2b8ac9e7db92bca7f79579b9dc8aff33d6ed2ff7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "emacs-tree-sitter",
+        "repo": "treesit-fold",
         "type": "github"
       }
     },
