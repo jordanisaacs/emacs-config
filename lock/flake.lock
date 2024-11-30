@@ -852,17 +852,16 @@
     "python-pytest": {
       "flake": false,
       "locked": {
-        "lastModified": 1715743165,
-        "narHash": "sha256-FE+SNexjUgAQOEn+AqeWMemM6bId80IZ+8zjlgXpLbM=",
-        "owner": "jeff-phil",
-        "repo": "emacs-python-pytest-PR",
-        "rev": "1203403336b1c0a3d078400263df7de1a3ae5790",
+        "lastModified": 1730831466,
+        "narHash": "sha256-c8tbMnQ8Q7sPBSaFb9ZcIy7IhSdkPXIXG5PeQzNSy7Q=",
+        "owner": "wbolster",
+        "repo": "emacs-python-pytest",
+        "rev": "25d9801562a789ea5debceb1992bd528ebb4f689",
         "type": "github"
       },
       "original": {
-        "owner": "jeff-phil",
-        "ref": "feat/project.el",
-        "repo": "emacs-python-pytest-PR",
+        "owner": "wbolster",
+        "repo": "emacs-python-pytest",
         "type": "github"
       }
     },

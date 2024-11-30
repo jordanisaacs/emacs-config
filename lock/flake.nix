@@ -320,9 +320,8 @@
     };
     python-pytest = {
       flake = false;
-      owner = "jeff-phil";
-      ref = "feat/project.el";
-      repo = "emacs-python-pytest-PR";
+      owner = "wbolster";
+      repo = "emacs-python-pytest";
       type = "github";
     };
     repeat-help = {
