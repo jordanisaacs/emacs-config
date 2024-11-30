@@ -622,7 +622,8 @@ startup when doing `:before eglot` so just load it on startup.
     (org-mode)
     :config
     (add-hook 'org-tab-first-hook #'my/org-prepare-expand-heading)
-    (setq org-src-preserve-indentation t))
+    (setq org-src-preserve-indentation t)
+    (setq org-imenu-depth 4))
 #+end_src
 
 ** Navigation
