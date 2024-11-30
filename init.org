@@ -516,94 +516,6 @@ startup when doing `:before eglot` so just load it on startup.
   (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
 #+end_src
 
-**** LSP mode (disabled)
-
-#+begin_src emacs-lisp :tangle no
-(setq lsp-keymap-prefix "C-c l")
-
-(use-package consult-lsp
-  :ensure t
-  :after (consult lsp))
-
-(use-package lsp-mode
-  :ensure t
-  :commands (lsp lsp-deferred)
-  :preface
-  ;; (autoload 'lsp-enable-which-key-integration "lsp-mode")
-  ;; (autoload 'lsp-diagnostics-mode "lsp-diagnostics")
-  ;; (defun my/setup-lsp-mode ()
-  ;;   (message "my/setup-lsp-mode called")
-  ;;   (lsp-enable-which-key-integration)
-  ;;   (lsp-diagnostics-mode t)
-  ;;   ;; (when (lsp-feature? "textDocument/formatting")
-  ;;   ;;  (setq my/format/buffer-function 'lsp-format-buffer))
-  ;;   )
-  (defun lsp-booster--advice-json-parse (old-fn &rest args)
-    "Try to parse bytecode instead of json."
-    (or
-     (when (equal (following-char) ?#)
-       (let ((bytecode (read (current-buffer))))
-         (when (byte-code-function-p bytecode)
-           (funcall bytecode))))
-     (apply old-fn args)))
-
-  (defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
-    "Prepend emacs-lsp-booster command to lsp CMD."
-    (let ((orig-result (funcall old-fn cmd test?)))
-      (if (and (not test?)                             ;; for check lsp-server-present?
-               (not (file-remote-p default-directory)) ;; see lsp-resolve-final-command, it would add extra shell wrapper
-               lsp-use-plists
-               (not (functionp 'json-rpc-connection))  ;; native json-rpc
-               (executable-find "emacs-lsp-booster"))
-          (progn
-            (message "Using emacs-lsp-booster for %s!" orig-result)
-            (cons "emacs-lsp-booster" orig-result))
-        orig-result)))
-
-
-  :custom
-  (lsp-enable-symbol-highlighting t)
-  (lsp-modeline-code-actions-enable t)
-  (lsp-signature-auto-activate  t)
-  (lsp-signature-render-documentation t)
-  (lsp-diagnostics-provider :flycheck)
-  (lsp-enable-indentation nil) ;; disabled indentation
-  (lsp-enable-snippet t)
-  (lsp-enable-xref t)
-  (lsp-enable-imenu t)
-  (lsp-inlay-hint-enable t)
-  (lsp-enable-links t)
-  (lsp-lens-enable t)
-  (lsp-semantic-tokens-enable t)
-  (lsp-enable-semantic-highlighting t)
-  (read-process-output-max (* 1024 1024)) ;; 1mb
-  (gc-cons-threshold (* 10 1024 1024))
-  (lsp-log-io nil)
-  ;; :hook (lsp-mode . my/setup-lsp-mode)
-  :init
-  (advice-add (if (progn (require 'json)
-                         (fboundp 'json-parse-buffer))
-                  'json-parse-buffer
-                'json-read)
-              :around
-              #'lsp-booster--advice-json-parse)
-
-  (advice-add 'lsp-resolve-final-command :around #'lsp-booster--advice-final-command))
-
-(use-package lsp-ui
-  :ensure t
-  :custom
-  (lsp-ui-sideline-enable t)
-  (lsp-ui-sideline-show-code-actions nil))
-
-(use-package lsp-pyright
-  :ensure t
-  :hook (python-mode-hook . (lambda ()
-                              (require 'lsp-pyright)
-                              (lsp-deferred))))
-#+end_src
-
-
 ** Org mode
 
 #+BEGIN_SRC emacs-lisp :tangle init.el
@@ -1098,7 +1010,6 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
                                 (setq-local corfu-auto nil)
                                 (corfu-mode)))
   (advice-add #'corfu-insert :after #'corfu-send-shell)
-  ;; (lsp-completion-mode . my/corfu-setup-lsp) ;; use corfu for lsp
   :init
   (global-corfu-mode 1))
 
