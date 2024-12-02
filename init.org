@@ -1511,7 +1511,14 @@ Code folding using treesitter.
 #+begin_src emacs-lisp :tangle init.el
 (use-package treesit-fold
   :ensure t
-  :hook (first-buffer-hook . global-treesit-fold-mode))
+  :hook (first-buffer-hook . global-treesit-fold-mode)
+  :bind (:map treesit-fold-mode-map
+	      ("C-c f t" . treesit-fold-toggle)
+	      ("C-c f o" . treesit-fold-open)
+	      ("C-c f c" . treesit-fold-close)
+	      ("C-c f O" . treesit-fold-open-all)
+	      ("C-c f C" . treesit-fold-close-all)
+	      ("C-c f r" . treesit-fold-open-recursively)))
 #+end_src
 
 *** Compilation mode
