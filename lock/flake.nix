@@ -91,10 +91,34 @@
       repo = "compat";
       type = "github";
     };
+    compile-multi = {
+      flake = false;
+      owner = "mohkale";
+      repo = "compile-multi";
+      type = "github";
+    };
+    compile-multi-embark = {
+      flake = false;
+      owner = "mohkale";
+      repo = "compile-multi";
+      type = "github";
+    };
+    compile-multi-nerd-icons = {
+      flake = false;
+      owner = "mohkale";
+      repo = "compile-multi";
+      type = "github";
+    };
     consult = {
       flake = false;
       owner = "minad";
       repo = "consult";
+      type = "github";
+    };
+    consult-compile-multi = {
+      flake = false;
+      owner = "mohkale";
+      repo = "compile-multi";
       type = "github";
     };
     consult-dir = {

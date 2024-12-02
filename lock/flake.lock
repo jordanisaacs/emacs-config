@@ -240,6 +240,54 @@
         "type": "github"
       }
     },
+    "compile-multi": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1727115247,
+        "narHash": "sha256-0Em299S73h8GT2bGjbwkUht6CzDQxniFsDgxYWCh3lc=",
+        "owner": "mohkale",
+        "repo": "compile-multi",
+        "rev": "94b2f267d1e424cf523643a3c9841c83f0a86368",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mohkale",
+        "repo": "compile-multi",
+        "type": "github"
+      }
+    },
+    "compile-multi-embark": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1727115247,
+        "narHash": "sha256-0Em299S73h8GT2bGjbwkUht6CzDQxniFsDgxYWCh3lc=",
+        "owner": "mohkale",
+        "repo": "compile-multi",
+        "rev": "94b2f267d1e424cf523643a3c9841c83f0a86368",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mohkale",
+        "repo": "compile-multi",
+        "type": "github"
+      }
+    },
+    "compile-multi-nerd-icons": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1727115247,
+        "narHash": "sha256-0Em299S73h8GT2bGjbwkUht6CzDQxniFsDgxYWCh3lc=",
+        "owner": "mohkale",
+        "repo": "compile-multi",
+        "rev": "94b2f267d1e424cf523643a3c9841c83f0a86368",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mohkale",
+        "repo": "compile-multi",
+        "type": "github"
+      }
+    },
     "consult": {
       "flake": false,
       "locked": {
@@ -253,6 +301,22 @@
       "original": {
         "owner": "minad",
         "repo": "consult",
+        "type": "github"
+      }
+    },
+    "consult-compile-multi": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1727115247,
+        "narHash": "sha256-0Em299S73h8GT2bGjbwkUht6CzDQxniFsDgxYWCh3lc=",
+        "owner": "mohkale",
+        "repo": "compile-multi",
+        "rev": "94b2f267d1e424cf523643a3c9841c83f0a86368",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mohkale",
+        "repo": "compile-multi",
         "type": "github"
       }
     },
@@ -962,7 +1026,11 @@
         "cape": "cape",
         "cognitive-complexity": "cognitive-complexity",
         "compat": "compat",
+        "compile-multi": "compile-multi",
+        "compile-multi-embark": "compile-multi-embark",
+        "compile-multi-nerd-icons": "compile-multi-nerd-icons",
         "consult": "consult",
+        "consult-compile-multi": "consult-compile-multi",
         "consult-dir": "consult-dir",
         "consult-eglot": "consult-eglot",
         "consult-todo": "consult-todo",

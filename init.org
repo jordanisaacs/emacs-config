@@ -359,6 +359,14 @@ Returns the modified ALIST."
     (if (> (count-lines (point-min) (point-max)) line-limit)
 	(funcall minor-mode -1)
       (funcall minor-mode)))
+
+  (defmacro my/after-all-packages (packages &rest body)
+    "Run BODY after all PACKAGES are loaded."
+    (declare (indent 1))
+    (if (null packages)
+	`(progn ,@body)
+      `(with-eval-after-load ,(car packages)
+	 (my/after-all-packages ,(cdr packages) ,@body))))
   :init
   (setq text-mode-ispell-word-completion nil)
   ;; TAB cycle never
@@ -1250,7 +1258,7 @@ Builtin package for deleting selection when typing.
 #+begin_src emacs-lisp :tangle init.el
 (use-package nerd-icons
   :ensure t
-  :require t
+  :demand t
   :custom
   (nerd-icons-font-family "Symbols Nerd Font Mono"))
 
@@ -1408,6 +1416,117 @@ Debug adapter client
   (dape-breakpoint-global-mode))
 #+end_src
 
+** General programming
+
+*** Code folding
+
+Code folding using treesitter.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package treesit-fold
+  :ensure t
+  :hook (first-buffer-hook . global-treesit-fold-mode)
+  :bind (:map treesit-fold-mode-map
+	      ("C-c f t" . treesit-fold-toggle)
+	      ("C-c f o" . treesit-fold-open)
+	      ("C-c f c" . treesit-fold-close)
+	      ("C-c f O" . treesit-fold-open-all)
+	      ("C-c f C" . treesit-fold-close-all)
+	      ("C-c f r" . treesit-fold-open-recursively)))
+#+end_src
+
+*** Compilation
+
+**** General Configuration
+
+Disabling line length fixes the annoying ~[...]~ in the compilation prompt.
+
+#+begin_src emacs-lisp :tangle init.el
+(setq compilation-scroll-output t)
+(setq compilation-auto-jump-to-first-error t)
+(setq compilation-max-output-line-length nil)
+(setq compilation-ask-about-save t)
+#+end_src
+
+
+**** compile-multi
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package compile-multi
+  :ensure t
+  :defines compile-multi-config
+  :commands compile-multi)
+
+(use-package compile-multi-nerd-icons
+  :ensure t
+  :init
+  (with-eval-after-load 'compile-multi
+    (require 'compile-multi-nerd-icons)))
+
+(use-package consult-compile-multi
+  :ensure t
+  :commands consult-compile-multi-mode
+  :init
+  (with-eval-after-load 'compile-multi
+    (consult-compile-multi-mode)))
+
+(use-package compile-multi-embark
+  :ensure t
+  :commands compile-multi-embark-mode
+  :init
+  (my/after-all-packages ('compile-multi 'embark)
+    (compile-multi-embark-mode)))
+#+end_src
+
+*** Uncategorized
+
+#+begin_src emacs-lisp :tangle init.el
+;; Hook LSP and custom functions into apheleia formatting
+;; https://github.com/radian-software/apheleia/issues/153
+;;
+;; (defun my/lsp-go-save-hooks ()
+;;  (add-hook 'before-save-hook #'lsp-format-buffer t t)
+;;  (add-hook 'before-save-hook #'lsp-organize-imports t t))
+
+(use-package apheleia
+  :ensure t
+  :hook ((go-ts-mode-hook . apheleia-mode)
+         (python-ts-mode-hook . apheleia-mode)
+         (bash-ts-mode-hook . apheleia-mode)
+         (sh-mode-hook . apheleia-mode)
+         (rust-mode-hook . apheleia-mode)
+         (zig-ts-mode-hook . apheleia-mode)
+         (nix-ts-mode-hook . apheleia-mode))
+  :blackout " Fmt"
+  :config
+  (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff)
+        (alist-get 'rust-ts-mode apheleia-mode-alist) '(rustfmt)
+        (alist-get 'sh-mode apheleia-mode-alist) '(shfmt)
+        (alist-get 'bash-ts-mode apheleia-mode-alist) '(shfmt)
+        (alist-get 'nix-ts-mode apheleia-mode-alist) '(nixfmt))
+  )
+
+;; singlestore
+(setq-default compile-command "memsql-please make debug") ; set default command for M-x compile
+(setq-default gdb-create-source-file-list nil)  ; gdb initialization takes a long time without this
+(setq-default word-wrap t)                      ; wrap long lines at word boundaries for better readability
+
+;; Adjust C++ style to more closely match the style we use in the MemSQL codebase
+
+(add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode)) ; use c++-mode instead of c-mode for .h files
+
+;; Default settings for sql-mysql
+;; You can run a mysql/memsql client in Emacs with M-x sql-mysql
+
+(defvar sql-user)
+(defvar sql-password)
+(defvar sql-server)
+(setq sql-user "root")
+(setq sql-password "")
+(setq sql-server "127.0.0.1")
+#+end_src
+
+
 ** Language configs
 
 *** Python
@@ -1415,14 +1534,18 @@ Debug adapter client
 #+begin_src emacs-lisp :tangle init.el
 (use-package python
   :mode ("\\.py\\'" . python-ts-mode)
-  :hook (python-ts-mode-hook . eglot-ensure)
   :bind (:map python-ts-mode-map
 	      ("C-c l t" . python-pytest-dispatch))
+  :hook (python-ts-mode-hook . eglot-ensure)
   :config
-  (require 'python-pytest))
+  (my/after-all-packages ('compile-multi)
+    (push `(python-ts-mode
+            ("python:pylint" "python3" "-m" "pylint" (buffer-file-name)))
+	  compile-multi-config)))
 
 (use-package python-pytest
   :ensure t
+  :commands python-pytest-dispatch
   :init
   (setq python-pytest-preferred-project-manager 'project))
 #+end_src
@@ -1502,83 +1625,6 @@ Using the emacs-rustic fork.
   (bash-ts-mode-hook . eglot-ensure))
 #+end_src
 
-** General programming
-
-*** Code folding
-
-Code folding using treesitter.
-
-#+begin_src emacs-lisp :tangle init.el
-(use-package treesit-fold
-  :ensure t
-  :hook (first-buffer-hook . global-treesit-fold-mode)
-  :bind (:map treesit-fold-mode-map
-	      ("C-c f t" . treesit-fold-toggle)
-	      ("C-c f o" . treesit-fold-open)
-	      ("C-c f c" . treesit-fold-close)
-	      ("C-c f O" . treesit-fold-open-all)
-	      ("C-c f C" . treesit-fold-close-all)
-	      ("C-c f r" . treesit-fold-open-recursively)))
-#+end_src
-
-*** Compilation mode
-
-Disabling line length fixes the annoying ~[...]~ in the compilation prompt.
-
-#+begin_src emacs-lisp :tangle init.el
-(setq compilation-scroll-output t)
-(setq compilation-auto-jump-to-first-error t)
-(setq compilation-max-output-line-length nil)
-(setq compilation-ask-about-save t)
-#+end_src
-
-*** Uncategorized
-
-#+begin_src emacs-lisp :tangle init.el
-;; Hook LSP and custom functions into apheleia formatting
-;; https://github.com/radian-software/apheleia/issues/153
-;;
-;; (defun my/lsp-go-save-hooks ()
-;;  (add-hook 'before-save-hook #'lsp-format-buffer t t)
-;;  (add-hook 'before-save-hook #'lsp-organize-imports t t))
-
-(use-package apheleia
-  :ensure t
-  :hook ((go-ts-mode-hook . apheleia-mode)
-         (python-ts-mode-hook . apheleia-mode)
-         (bash-ts-mode-hook . apheleia-mode)
-         (sh-mode-hook . apheleia-mode)
-         (rust-mode-hook . apheleia-mode)
-         (zig-ts-mode-hook . apheleia-mode)
-         (nix-ts-mode-hook . apheleia-mode))
-  :blackout " Fmt"
-  :config
-  (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff)
-        (alist-get 'rust-ts-mode apheleia-mode-alist) '(rustfmt)
-        (alist-get 'sh-mode apheleia-mode-alist) '(shfmt)
-        (alist-get 'bash-ts-mode apheleia-mode-alist) '(shfmt)
-        (alist-get 'nix-ts-mode apheleia-mode-alist) '(nixfmt))
-  )
-
-;; singlestore
-(setq-default compile-command "memsql-please make debug") ; set default command for M-x compile
-(setq-default gdb-create-source-file-list nil)  ; gdb initialization takes a long time without this
-(setq-default word-wrap t)                      ; wrap long lines at word boundaries for better readability
-
-;; Adjust C++ style to more closely match the style we use in the MemSQL codebase
-
-(add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode)) ; use c++-mode instead of c-mode for .h files
-
-;; Default settings for sql-mysql
-;; You can run a mysql/memsql client in Emacs with M-x sql-mysql
-
-(defvar sql-user)
-(defvar sql-password)
-(defvar sql-server)
-(setq sql-user "root")
-(setq sql-password "")
-(setq sql-server "127.0.0.1")
-#+end_src
 
 ** Activity watch
 
