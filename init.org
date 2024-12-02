@@ -1224,14 +1224,14 @@ Builtin package for deleting selection when typing.
 *** Fonts
 
 #+begin_src emacs-lisp :tangle init.el
-(let ((mono-spaced-font "Berkeley Mono")
-      (proportionately-spaced-font "Berkeley Mono Variable"))
+(let ((mono-spaced-font "Berkeley Mono Variable")
+      (proportionately-spaced-font "DejaVu Sans"))
   (set-face-attribute 'default nil :family mono-spaced-font :height 100  :weight 'normal)
   (set-face-attribute 'fixed-pitch nil :family mono-spaced-font :height 1.0 :weight 'normal)
   (set-face-attribute 'variable-pitch nil :family proportionately-spaced-font :height 1.0 :weight 'normal))
 
 (defun set-bigger-spacing ()
-  (setq-local default-text-properties '(line-spacing 0.25)))
+  (setq-local default-text-properties '(line-spacing 0.05)))
 (dolist (hook '(text-mode-hook prog-mode-hook)) (add-hook hook 'set-bigger-spacing))
 #+end_src
 
