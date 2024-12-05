@@ -1570,10 +1570,8 @@ Disabling line length fixes the annoying ~[...]~ in the compilation prompt.
   (add-to-list 'major-mode-remap-alist '(c-or-c++-mode . c-or-c++-ts-mode))
   :hook
   (c-ts-mode-hook . eglot-ensure)
-  (c-ts-mode-hook . my/disable-indent-tabs)
   (c-ts-mode-hook . my/eglot-disable-on-type-formatting)
   (c++-ts-mode-hook . eglot-ensure)
-  (c++-ts-mode-hook . my/disable-indent-tabs)
   (c++-ts-mode-hook . my/eglot-disable-on-type-formatting))
 #+end_src
 
