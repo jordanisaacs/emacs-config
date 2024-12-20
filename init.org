@@ -1204,9 +1204,27 @@ Builtin package for deleting selection when typing.
 *** Autosave
 
 #+begin_src emacs-lisp :tangle init.el
-(let ((auto-save-dir (expand-file-name "autosaves/" user-emacs-directory)))
+(let ((auto-save-dir (expand-file-name "auto-save/" user-emacs-directory))
+      (auto-save-list-dir (expand-file-name "auto-save-list/" user-emacs-directory)))
   (make-directory auto-save-dir t)
-  (setq auto-save-file-name-transforms `((".*" ,auto-save-dir))))
+  (make-directory auto-save-list-dir t)
+  (setq auto-save-file-name-transforms `((".*" ,auto-save-dir t)))
+  (setq auto-save-list-file-prefix (expand-file-name ".saves-" auto-save-list-dir)))
+#+end_src
+
+*** File locks
+
+This is a little risky but worth it for no littering. From the variable description:
+
+Note that changing this could break lock file functionality, e.g.:
+if different users access the same file, using different lock file settings;
+if accessing files on a shared file system from different hosts,
+using a transform that puts the lock files on a local file system.
+
+#+begin_src emacs-lisp :tangle init.el
+(let ((lock-dir (expand-file-name "file-locks/" user-emacs-directory)))
+  (make-directory lock-dir t)
+  (setq lock-file-name-transforms `((".*" ,lock-dir t))))
 #+end_src
 
 ** Motions
