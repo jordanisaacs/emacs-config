@@ -512,6 +512,38 @@
         "type": "github"
       }
     },
+    "eglot-inactive-regions": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1734411168,
+        "narHash": "sha256-U8EYJ0M+uLCp4Qr05+iXtukImpbiKZ90GAEpo2+Vt8g=",
+        "owner": "fargiolas",
+        "repo": "eglot-inactive-regions",
+        "rev": "5ac127713db77c390cd9ffe7237c9c8d90d6b0af",
+        "type": "github"
+      },
+      "original": {
+        "owner": "fargiolas",
+        "repo": "eglot-inactive-regions",
+        "type": "github"
+      }
+    },
+    "eglot-supplements": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1734606510,
+        "narHash": "sha256-JcQFY3ILGISEdE1wa9uHNF4o9F/Y1XO3SuHiIiZnsR8=",
+        "ref": "refs/heads/main",
+        "rev": "dbc8b12561ad60b674237aa65a23b1bb7251b1f0",
+        "revCount": 118,
+        "type": "git",
+        "url": "https://codeberg.org/harald/eglot-supplements.git"
+      },
+      "original": {
+        "type": "git",
+        "url": "https://codeberg.org/harald/eglot-supplements.git"
+      }
+    },
     "embark": {
       "flake": false,
       "locked": {
@@ -1043,6 +1075,8 @@
         "diredfl": "diredfl",
         "editorconfig": "editorconfig",
         "eglot-booster": "eglot-booster",
+        "eglot-inactive-regions": "eglot-inactive-regions",
+        "eglot-supplements": "eglot-supplements",
         "embark": "embark",
         "embark-consult": "embark-consult",
         "envrc": "envrc",

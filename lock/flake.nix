@@ -193,6 +193,17 @@
       repo = "eglot-booster";
       type = "github";
     };
+    eglot-inactive-regions = {
+      flake = false;
+      owner = "fargiolas";
+      repo = "eglot-inactive-regions";
+      type = "github";
+    };
+    eglot-supplements = {
+      flake = false;
+      type = "git";
+      url = "https://codeberg.org/harald/eglot-supplements.git";
+    };
     embark = {
       flake = false;
       owner = "oantolin";

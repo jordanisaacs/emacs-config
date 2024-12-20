@@ -525,6 +525,19 @@ startup when doing `:before eglot` so just load it on startup.
   :custom-face
   (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
 
+(use-package eglot-supplements
+  :ensure t
+  :init
+  (with-eval-after-load 'eglot
+    (require 'eglot-cthier)))
+
+(use-package eglot-inactive-regions
+  :ensure t
+  :commands eglot-inactive-regions-mode
+  :init
+  (with-eval-after-load 'eglot
+    (eglot-inactive-regions-mode t)))
+
 (use-package eglot-booster
   :ensure t
   :commands (eglot-booster-mode)

@@ -185,11 +185,11 @@
     "nongnu-elpa": {
       "flake": false,
       "locked": {
-        "lastModified": 1729285674,
-        "narHash": "sha256-7MXOvX2bjwBrjQ0prUm3WBOk12F3ffKNTm5THV9a4gA=",
+        "lastModified": 1734252480,
+        "narHash": "sha256-stEaQ8u3lCYtHINO4rEGrqNReQWtWLjk7gLmsd01Cl8=",
         "ref": "main",
-        "rev": "4b8b3633c7e29412c89f1c9d6ad7a951772be758",
-        "revCount": 333,
+        "rev": "21d496592222284f3d624227fa41633e472e6a1c",
+        "revCount": 340,
         "type": "git",
         "url": "https://git.savannah.gnu.org/git/emacs/nongnu.git"
       },

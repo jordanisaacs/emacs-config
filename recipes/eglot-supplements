@@ -1,0 +1,1 @@
+(eglot-supplements :fetcher codeberg :repo "harald/eglot-supplements")
