@@ -203,6 +203,30 @@ Make sure to load our custom-file
 (load custom-file :no-error-if-file-is-missing)
 #+end_src
 
+*** Performance
+
+Disable second pass over ~auto-mode-alist~.
+
+#+begin_src emacs-lisp :tangle init.el
+(setq auto-mode-case-fold nil)
+#+end_src
+
+Skip bidirectional text functionality for faster display.
+
+#+begin_src emacs-lisp :tangle init.el
+(setq bidi-inhibit-bpa t)
+(setq-default bidi-display-reordering 'left-to-right
+	      bidi-paragraph-direction 'left-to-right)
+#+end_src
+
+Defer processing of font faces while typing. Still keep precise scrolling though.
+Deferred jit is important because typing on a large 50k+ c++ file with treesitter lags due to fontification.
+
+#+begin_src emacs-lisp :tangle init.el
+(setq fast-but-imprecise-scrolling nil)
+(setq jit-lock-defer-time 0)
+#+end_src
+
 *** use-package
 
 **** Release
