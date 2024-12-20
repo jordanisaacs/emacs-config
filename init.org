@@ -1343,6 +1343,17 @@ using a transform that puts the lock files on a local file system.
   :hook (marginalia-mode-hook . all-the-icons-completion-marginalia-setup))
 #+end_src
 
+*** Mathjax
+
+This package is also a subdependency of devdocs. So might as well set it up for eww.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package mathjax
+  :ensure t
+  :hook
+  (eww-mode-hook . mathjax-shr-setup))
+#+end_src
+
 **** Kind Icons
 
 Used for completion
