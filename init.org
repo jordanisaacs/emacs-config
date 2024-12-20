@@ -1352,9 +1352,9 @@ is useful and good for performance.
   (defun my/run-project-git-hook ()
     (when (my/project-is-git)
       (run-hooks 'my/project-git-hook)))
+  :init
+  (advice-add 'project-switch-project :before (lambda (&rest _) (require 'magit-extras)))
   :config
-  ;; Load magit first so we get ctrl+x p p m
-  (require 'magit-extras)
   (add-hook 'project-find-functions 'my/nix-project-finder)
   (add-hook 'find-file-hook 'my/run-project-git-hook))
 #+end_src
