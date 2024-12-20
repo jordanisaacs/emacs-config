@@ -329,13 +329,13 @@ From [[https://www.gnu.org/software/emacs//manual/html_node/modus-themes/A-theme
 #+begin_src emacs-lisp :tangle init.el
 (use-package modus-themes
   :ensure t
-  :after hl-todo
   :commands modus-themes-load-theme
   :functions modus-themes--retrieve-palette-value modus-themes--current-theme-palette
   :preface
   (defun my/hl-todo-modus-undone ()
-    (modus-themes-with-colors
-      (add-to-list 'hl-todo-keyword-faces (cons "UNDONE" err))))
+    (when (featurep 'hl-todo)
+      (modus-themes-with-colors
+	(add-to-list 'hl-todo-keyword-faces (cons "UNDONE" err)))))
   :hook
   (hl-todo-mode-hook . my/hl-todo-modus-undone)
   (modus-themes-after-load-theme-hook . my/hl-todo-modus-undone)
