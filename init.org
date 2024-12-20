@@ -42,7 +42,7 @@ Make sure to also set the custom-file to a place outside the ~NIX_STORE~.
 
 #+begin_src emacs-lisp :tangle early-init.el
 (startup-redirect-eln-cache (expand-file-name "eln-cache/" user-emacs-directory))
-(setq user-emacs-directory (concat (getenv "XDG_STATE_HOME") "/emacs"))
+(setq user-emacs-directory (expand-file-name "emacs/" (getenv "XDG_STATE_HOME")))
 (setq custom-file (locate-user-emacs-file "custom.el"))
 #+end_src
 
