@@ -536,23 +536,22 @@ startup when doing `:before eglot` so just load it on startup.
 ** Org mode
 
 #+BEGIN_SRC emacs-lisp :tangle init.el
-  (use-package org
-    :ensure t
-    :functions org-end-of-line org-at-heading-p
-    :preface
-    (defun my/org-prepare-expand-heading ()
-      "Move point to before ellipsis, if after ellipsis."
-      (when (and (not (org-at-heading-p))
-                 (save-excursion
-                   (org-end-of-line)
-                   (org-at-heading-p)))
-        (org-end-of-line)))
-    :init
-    (org-mode)
-    :config
-    (add-hook 'org-tab-first-hook #'my/org-prepare-expand-heading)
-    (setq org-src-preserve-indentation t)
-    (setq org-imenu-depth 4))
+(use-package org
+  :ensure t
+  :defer 5
+  :functions org-end-of-line org-at-heading-p
+  :preface
+  (defun my/org-prepare-expand-heading ()
+    "Move point to before ellipsis, if after ellipsis."
+    (when (and (not (org-at-heading-p))
+               (save-excursion
+                 (org-end-of-line)
+                 (org-at-heading-p)))
+      (org-end-of-line)))
+  :config
+  (add-hook 'org-tab-first-hook #'my/org-prepare-expand-heading)
+  (setq org-src-preserve-indentation t)
+  (setq org-imenu-depth 4))
 #+end_src
 
 ** Navigation
