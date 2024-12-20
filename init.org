@@ -41,7 +41,6 @@ specified paths. Since we are using ~--init-directory NIX_STORE~ which is read o
 Make sure to also set the custom-file to a place outside the ~NIX_STORE~.
 
 #+begin_src emacs-lisp :tangle early-init.el
-(startup-redirect-eln-cache (expand-file-name "eln-cache/" user-emacs-directory))
 (setq user-emacs-directory (expand-file-name "emacs/" (getenv "XDG_STATE_HOME")))
 (setq custom-file (locate-user-emacs-file "custom.el"))
 #+end_src
@@ -184,6 +183,8 @@ with font faces.
    paths))
 
 (setq native-comp-eln-load-path (filter-nix-store native-comp-eln-load-path))
+;; Make sure to add back the user eln-cache
+(push (expand-file-name "eln-cache/" user-emacs-directory) native-comp-eln-load-path)
 (setq load-path (filter-nix-store load-path))
 #+end_src
 
@@ -412,6 +413,7 @@ Returns the modified ALIST."
         ;; aggressively doesn't get set in any buffers anyway
         scroll-preserve-screen-position t
         auto-window-vscroll nil)
+  (setq read-extended-command-predicate #'command-completion-default-include-p)
   :bind
   ("M-z" . zap-up-to-char))
 

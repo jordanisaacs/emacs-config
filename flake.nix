@@ -10,7 +10,7 @@
 
     systems.url = "github:nix-systems/default";
 
-    twist.url = "github:emacs-twist/twist.nix";
+    twist.url = "github:jordanisaacs/twist.nix";
     org-babel.url = "github:emacs-twist/org-babel";
     twist-overrides.url = "github:emacs-twist/overrides";
 
@@ -49,8 +49,9 @@
             nativeCompileAheadDefault = true;
             lockDir = ./lock;
             initFiles = [ emacsInit ];
-            initParser =
-              inputs.twist.lib.parseUsePackages { inherit (inputs.nixpkgs) lib; } { };
+            initParser = inputs.twist.lib.parseUsePackages {
+              inherit (inputs.nixpkgs) lib;
+            } { };
 
             registries = (import ./nix/registries.nix {
               inherit inputs;
@@ -83,7 +84,8 @@
                   inherit (tprev.emacs) meta nativeComp withNativeCompilation;
                 });
               };
-	    emacsFuncs = "${inputs.nixpkgs}/pkgs/applications/editors/emacs/build-support/emacs-funcs.sh";
+            emacsFuncs =
+              "${inputs.nixpkgs}/pkgs/applications/editors/emacs/build-support/emacs-funcs.sh";
           };
 
           emacs-jd = pkgs.symlinkJoin {
@@ -92,9 +94,12 @@
             buildInputs = [ pkgs.makeWrapper ];
             postBuild = ''
               wrapProgram $out/bin/emacs \
-                --prefix PATH : "${lib.makeBinPath [pkgs.emacs-lsp-booster pkgs.nodejs]}" \
-                --set LSP_USE_PLISTS true \
-                --add-flags --init-directory="${emacsConfig}"
+                --prefix PATH : "${
+                  lib.makeBinPath [ pkgs.emacs-lsp-booster pkgs.nodejs ]
+                }" \
+               --prefix EMACSNATIVELOADPATH : "${emacsConfig}/eln-cache" \
+               --set LSP_USE_PLISTS true \
+               --add-flags --init-directory="${emacsConfig}"
             '';
           };
         in {
