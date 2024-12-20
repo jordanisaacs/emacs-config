@@ -19,6 +19,13 @@ final: prev: {
     '';
   });
 
+  mathjax = prev.mathjax.overrideAttrs (old: {
+    patchPhase = ''
+      patchShebangs ./math2svg
+    '';
+    buildInputs = (old.buildInputs or [ ]) ++ [ pkgs.nodejs ];
+  });
+
   lsp-mode = prev.lsp-mode.overrideAttrs (old: { LSP_USE_PLISTS = true; });
 
   ccls = prev.ccls.overrideAttrs (old: { LSP_USE_PLISTS = true; });

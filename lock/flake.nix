@@ -323,6 +323,12 @@
       repo = "markdown-mode";
       type = "github";
     };
+    mathjax = {
+      flake = false;
+      owner = "astoff";
+      repo = "mathjax.el";
+      type = "github";
+    };
     modus-themes = {
       flake = false;
       owner = "protesilaos";

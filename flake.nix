@@ -92,7 +92,7 @@
             buildInputs = [ pkgs.makeWrapper ];
             postBuild = ''
               wrapProgram $out/bin/emacs \
-                --prefix PATH : "${pkgs.emacs-lsp-booster}/bin" \
+                --prefix PATH : "${lib.makeBinPath [pkgs.emacs-lsp-booster pkgs.nodejs]}" \
                 --set LSP_USE_PLISTS true \
                 --add-flags --init-directory="${emacsConfig}"
             '';

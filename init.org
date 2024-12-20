@@ -836,7 +836,6 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
   (vc-dir-mode-hook . diff-hl-dir-mode)
   (dired-mode-hook . diff-hl-dired-mode)
   (magit-post-refresh-hook . diff-hl-magit-post-refresh)
-  (magit-pre-refresh-hook . diff-hl-magit-pre-refresh)
   (diff-hl-mode-hook . diff-hl-flydiff-mode)
   (diff-hl-mode-hook . my/diff-hl-fix-modus)
   (modus-themes-after-load-theme-hook . my/diff-hl-fix-modus)
