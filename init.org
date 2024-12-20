@@ -400,6 +400,14 @@ Returns the modified ALIST."
 	`(progn ,@body)
       `(with-eval-after-load ,(car packages)
 	 (my/after-all-packages ,(cdr packages) ,@body))))
+
+  (defun my/yank-without-formatting ()
+    "Yank text without formatting by customizing yank-excluded-properties."
+    (interactive)
+    (let ((yank-excluded-properties
+           (append yank-excluded-properties
+                   '(font font-lock-face face foreground-color background-color))))
+      (yank)))
   :init
   (setq text-mode-ispell-word-completion nil)
   ;; TAB cycle never
