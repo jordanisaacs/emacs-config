@@ -205,29 +205,37 @@ Make sure to load our custom-file
 
 *** use-package
 
+**** Release
+
 #+begin_src emacs-lisp :tangle init.el
 (eval-when-compile
-  (require 'use-package))
+  (require 'use-package)
+  (setq use-package-expand-minimally t))
+#+end_src
 
+**** Debug (disabled)
+
+#+begin_src emacs-lisp :tangle no
+(require 'use-package)
+(eval-when-compile
+  (setq use-package-expand-minimally nil)
+  (setq use-package-verbose t)
+  (setq use-package-minimum-reported-time 0)
+  (setq use-package-compute-statistics t))
+#+end_src
+
+**** Common
+
+#+begin_src emacs-lisp :tangle init.el
 (eval-and-compile
   (defun use-package-ensure-ignore (&rest _args) t)
   (setq use-package-ensure-function #'use-package-ensure-ignore)
   (setq use-package-always-defer t)
   (setq use-package-hook-name-suffix nil))
 
-(if init-file-debug
-    (progn
-      (setq use-package-verbose t
-            use-package-expand-minimally nil
-            use-package-compute-statistics t
-            debug-on-error t))
-  (setq use-package-verbose nil
-        use-package-expand-minimally t))
-
 ;; Needed for :bind
 (use-package bind-key
   :ensure t)
-
 #+end_src
 
 **** Blackout
