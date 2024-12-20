@@ -489,14 +489,9 @@ For some reason eglot-booster-mode turns on but not early enough to wrap the ser
 startup when doing `:before eglot` so just load it on startup.
 
 #+begin_src emacs-lisp :tangle init.el
-(use-package eglot-booster
-  :ensure t
-  :commands (eglot-booster-mode)
-  :init
-  (eglot-booster-mode))
-
 (use-package consult-eglot
   :ensure t
+  :commands consult-eglot-symbols
   :after consult)
 
 (use-package eglot
@@ -516,11 +511,10 @@ startup when doing `:before eglot` so just load it on startup.
                       eglot-ignored-server-capabilities)))
   :hook
   (eglot-managed-mode-hook . my/eglot-setup-capf)
-  :init
-  (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
   :custom
   (lsp-completion-provider :none) ; use corfu intsead for lsp completion
   :config
+  (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
   (lsp-snippet-tempel-eglot-init)
   (setq eglot-autoshutdown t)
   (setq completion-category-defaults nil)
@@ -530,6 +524,13 @@ startup when doing `:before eglot` so just load it on startup.
 			   (zig-mode . (zig-mode zig-ts-mode)))))
   :custom-face
   (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
+
+(use-package eglot-booster
+  :ensure t
+  :commands (eglot-booster-mode)
+  :init
+  (with-eval-after-load 'eglot
+    (nerd-icons-completion-mode)))
 #+end_src
 
 ** Org mode
