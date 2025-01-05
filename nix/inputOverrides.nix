@@ -4,12 +4,19 @@
   };
 
   lsp-snippet-tempel = _: super: {
-    packageRequires = super.packageRequires // { tempel = "0"; };
-    files = removeAttrs super.files [ "lsp-snippet-yasnippet.el" "lsp-snippet.el" ];
+    packageRequires = super.packageRequires // {
+      tempel = "0";
+      lsp-snippet = "0";
+    };
+    files =
+      removeAttrs super.files [ "lsp-snippet-yasnippet.el" "lsp-snippet.el" ];
   };
 
   lsp-snippet = _: super: {
-    files = removeAttrs super.files [ "lsp-snippet-yasnippet.el" "lsp-snippet-tempel.el" ];
+    files = removeAttrs super.files [
+      "lsp-snippet-yasnippet.el"
+      "lsp-snippet-tempel.el"
+    ];
   };
 
   ace-window = _: super: {

@@ -35,19 +35,6 @@ Lower GC for init
                      file-name-handler-alist ',normal-file-name-handler-alist))))
 #+end_src
 
-During startup, emacs assumes there is a single user eln-cache that is at the
-top of the ~native-comp-eln-load-path~ list. When we redirect the
-~user-emacs-directory~ below, we still want to keep our eln-cache.
-
-NOTE: this is disabled because of a bug in upstream emacs. It sets the user
-eln-cache directory before processing command line arguments. Therefore, we
-actually have added in the eln-cache manually using the ~EMACSNATIVELOADPATH~
-env variable.
-
-#+begin_src emacs-lisp :tangle no
-(push (expand-file-name "eln-cache/" user-emacs-directory) (cdr native-comp-eln-load-path))
-#+end_src
-
 Redirect calls to `user-emacs-directory` to ~$XDG_DATA_DIR~ if not one of our
 specified paths. Since we are using ~--init-directory NIX_STORE~ which is read only.
 
@@ -56,6 +43,14 @@ Make sure to also set the custom-file to a place outside the ~NIX_STORE~.
 #+begin_src emacs-lisp :tangle early-init.el
 (setq user-emacs-directory (expand-file-name "emacs/" (getenv "XDG_STATE_HOME")))
 (setq custom-file (locate-user-emacs-file "custom.el"))
+#+end_src
+
+~startup.el~ will automatically redirect the eln-cache when changing
+user-emacs-directory getting rid of the old compilation location. But we still
+want access to it, so push it manually ourselves.
+
+#+begin_src emacs-lisp :tangle early-init.el
+(push (expand-file-name "eln-cache/" (getenv "XDG_STATE_HOME")) native-comp-eln-load-path)
 #+end_src
 
 Performance tweaks. Don't load default library and use fundamental-mode to reduce

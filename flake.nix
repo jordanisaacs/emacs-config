@@ -5,6 +5,9 @@
     nixpkgs.url = "nixpkgs/nixpkgs-unstable";
     emacs-unstable.url = "github:nix-community/emacs-overlay";
 
+    emacs-patched.url = "github:jordanisaacs/emacs";
+    emacs-patched.flake = false;
+
     emacs-lsp-booster.url = "github:slotThe/emacs-lsp-booster-flake";
     emacs-lsp-booster.inputs.nixpkgs.follows = "nixpkgs";
 
@@ -41,7 +44,8 @@
             (inputs.org-babel.lib.tangleOrgBabel { tangleArg = "init.el"; }
               (builtins.readFile ./init.org));
 
-          emacsPackage = pkgs.emacs-pgtk;
+          emacsPackage =
+            pkgs.emacs-pgtk.overrideAttrs { src = inputs.emacs-patched; };
 
           twistArgs = {
             inherit pkgs emacsPackage;
@@ -97,7 +101,6 @@
                 --prefix PATH : "${
                   lib.makeBinPath [ pkgs.emacs-lsp-booster pkgs.nodejs ]
                 }" \
-               --prefix EMACSNATIVELOADPATH : "${emacsConfig}/eln-cache" \
                --set LSP_USE_PLISTS true \
                --add-flags --init-directory="${emacsConfig}"
             '';
