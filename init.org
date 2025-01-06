@@ -530,6 +530,9 @@ Treesitter based calculation of programming complexity.
 For some reason eglot-booster-mode turns on but not early enough to wrap the server
 startup when doing `:before eglot` so just load it on startup.
 
+eglot Disable hook needs to be setup before eglot because hooks run as a stack. Need
+to make sure eglot loads before hook.
+
 #+begin_src emacs-lisp :tangle init.el
 (use-package consult-eglot
   :ensure t
@@ -1702,10 +1705,10 @@ Disabling line length fixes the annoying ~[...]~ in the compilation prompt.
   (add-to-list 'major-mode-remap-alist '(c++-mode . c++-ts-mode))
   (add-to-list 'major-mode-remap-alist '(c-or-c++-mode . c-or-c++-ts-mode))
   :hook
-  (c-ts-mode-hook . eglot-ensure)
   (c-ts-mode-hook . my/eglot-disable-on-type-formatting)
-  (c++-ts-mode-hook . eglot-ensure)
-  (c++-ts-mode-hook . my/eglot-disable-on-type-formatting))
+  (c-ts-mode-hook . eglot-ensure)
+  (c++-ts-mode-hook . my/eglot-disable-on-type-formatting)
+  (c++-ts-mode-hook . eglot-ensure))
 #+end_src
 
 *** Zig
