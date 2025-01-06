@@ -593,9 +593,10 @@ to make sure eglot loads before hook.
 
 ** Org mode
 
+Use builtin org mode.
+
 #+BEGIN_SRC emacs-lisp :tangle init.el
 (use-package org
-  :ensure t
   :defer 5
   :functions org-end-of-line org-at-heading-p
   :preface

@@ -976,23 +976,6 @@
         "type": "github"
       }
     },
-    "org": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1735888096,
-        "narHash": "sha256-9ZxBOLK7/WQG1FSSdbD782lOOsjnD+5D060eQczs72M=",
-        "ref": "bugfix",
-        "rev": "5a4686915e568ace469f490c0606d2a016c1101c",
-        "revCount": 27803,
-        "type": "git",
-        "url": "https://git.savannah.gnu.org/git/emacs/org-mode.git"
-      },
-      "original": {
-        "ref": "bugfix",
-        "type": "git",
-        "url": "https://git.savannah.gnu.org/git/emacs/org-mode.git"
-      }
-    },
     "pretty-hydra": {
       "flake": false,
       "locked": {
@@ -1120,7 +1103,6 @@
         "nerd-icons-dired": "nerd-icons-dired",
         "nix-ts-mode": "nix-ts-mode",
         "orderless": "orderless",
-        "org": "org",
         "pretty-hydra": "pretty-hydra",
         "python-pytest": "python-pytest",
         "repeat-help": "repeat-help",

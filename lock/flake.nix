@@ -365,12 +365,6 @@
       repo = "orderless";
       type = "github";
     };
-    org = {
-      flake = false;
-      ref = "bugfix";
-      type = "git";
-      url = "https://git.savannah.gnu.org/git/emacs/org-mode.git";
-    };
     pretty-hydra = {
       flake = false;
       owner = "jerrypnz";
