@@ -531,11 +531,11 @@
     "eglot-supplements": {
       "flake": false,
       "locked": {
-        "lastModified": 1736000082,
-        "narHash": "sha256-KMwibWIhS5bs+Ynd5wJYFZAOIAWSewF5wRy0VRcoHjk=",
+        "lastModified": 1736179008,
+        "narHash": "sha256-MPACwEGsNAG76Bp4Gf9ZUYMpU1ttwbpI7oYo7WO88ww=",
         "ref": "refs/heads/main",
-        "rev": "74bf1ddfdd2f0c65b119c8807b1a5ef155b54ade",
-        "revCount": 144,
+        "rev": "1804b9e56085f8e7f1cb273af80c7e2367f86ddf",
+        "revCount": 148,
         "type": "git",
         "url": "https://codeberg.org/harald/eglot-supplements.git"
       },
