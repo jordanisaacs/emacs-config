@@ -131,6 +131,7 @@
                 pkgs.nil
                 pkgs.fd
                 pkgs.ripgrep
+                pkgs.clang-tools
               ];
             };
           };

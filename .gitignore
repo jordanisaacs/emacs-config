@@ -1,6 +1,4 @@
 result
 
-
-# Added by cargo
-
-/target
+*.py
+*.c
