@@ -624,22 +624,6 @@
         "url": "https://codeberg.org/pidu/git-timemachine.git"
       }
     },
-    "go-mode": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1719779047,
-        "narHash": "sha256-VSia+hKBU7nwUOXZ1Ou+gBwPE1mWaTbsunQGCM22+w0=",
-        "owner": "dominikh",
-        "repo": "go-mode.el",
-        "rev": "602d73e22646b1b98b2eb97927fd426c0d1d2f92",
-        "type": "github"
-      },
-      "original": {
-        "owner": "dominikh",
-        "repo": "go-mode.el",
-        "type": "github"
-      }
-    },
     "gumshoe": {
       "flake": false,
       "locked": {
@@ -1081,7 +1065,6 @@
         "envrc": "envrc",
         "f": "f",
         "git-timemachine": "git-timemachine",
-        "go-mode": "go-mode",
         "gumshoe": "gumshoe",
         "hl-todo": "hl-todo",
         "hydra": "hydra",

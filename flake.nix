@@ -132,6 +132,9 @@
                 pkgs.fd
                 pkgs.ripgrep
                 pkgs.clang-tools
+
+                pkgs.go
+                pkgs.gopls
               ];
             };
           };

@@ -233,12 +233,6 @@
       type = "git";
       url = "https://codeberg.org/pidu/git-timemachine.git";
     };
-    go-mode = {
-      flake = false;
-      owner = "dominikh";
-      repo = "go-mode.el";
-      type = "github";
-    };
     gumshoe = {
       flake = false;
       owner = "Overdr0ne";

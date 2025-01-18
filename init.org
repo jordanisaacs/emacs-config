@@ -1723,14 +1723,22 @@ Disabling line length fixes the annoying ~[...]~ in the compilation prompt.
 
 *** Golang
 
-Use https://github.com/dominikh/go-mode.el. There is a
-supposed re-write with treesitter coming.
+Just use the builtin golang mode.
 
 #+begin_src emacs-lisp :tangle init.el
-(use-package go-mode
-  :ensure t
-  :hook (go-mode-hook . eglot-ensure))
+(use-package go-ts-mode
+  :mode "\\.go\\'"
+  :hook (go-ts-mode-hook . eglot-ensure))
 #+end_src
+
+go.mode mode
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package go-mod-ts-mode
+  :mode "/go\\.mod\\'"
+  :hook (go-ts-mode-hook . eglot-ensure))
+#+end_src
+
 
 *** Rust
 
