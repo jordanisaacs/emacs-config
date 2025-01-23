@@ -1301,7 +1301,7 @@ using a transform that puts the lock files on a local file system.
 *** Fonts
 
 #+begin_src emacs-lisp :tangle init.el
-(let ((mono-spaced-font "Berkeley Mono Variable")
+(let ((mono-spaced-font "Berkeley Mono")
       (proportionately-spaced-font "DejaVu Sans"))
   (set-face-attribute 'default nil :family mono-spaced-font :height 100  :weight 'normal)
   (set-face-attribute 'fixed-pitch nil :family mono-spaced-font :height 1.0 :weight 'normal)
