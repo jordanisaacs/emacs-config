@@ -99,7 +99,7 @@
             postBuild = ''
               wrapProgram $out/bin/emacs \
                 --prefix PATH : "${
-                  lib.makeBinPath [ pkgs.emacs-lsp-booster pkgs.nodejs ]
+                  lib.makeBinPath [ pkgs.emacs-lsp-booster pkgs.nodejs pkgs.perl ]
                 }" \
                --set LSP_USE_PLISTS true \
                --add-flags --init-directory="${emacsConfig}"
