@@ -135,7 +135,7 @@
     };
     consult-todo = {
       flake = false;
-      owner = "liuyinz";
+      owner = "eki3z";
       repo = "consult-todo";
       type = "github";
     };
@@ -267,6 +267,12 @@
       flake = false;
       owner = "jdtsmith";
       repo = "kind-icon";
+      type = "github";
+    };
+    llama = {
+      flake = false;
+      owner = "tarsius";
+      repo = "llama";
       type = "github";
     };
     lsp-snippet = {

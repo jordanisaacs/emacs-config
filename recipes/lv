@@ -1,0 +1,4 @@
+;; lv elpa recipe does not work in nix
+(lv :fetcher github
+    :repo "abo-abo/hydra"
+    :files ("lv.el"))

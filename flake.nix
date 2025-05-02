@@ -13,19 +13,19 @@
 
     systems.url = "github:nix-systems/default";
 
-    twist.url = "github:jordanisaacs/twist.nix";
+    twist.url = "github:emacs-twist/twist.nix";
     org-babel.url = "github:emacs-twist/org-babel";
     twist-overrides.url = "github:emacs-twist/overrides";
 
-    gnu-elpa.url =
-      "git+https://git.savannah.gnu.org/git/emacs/elpa.git?ref=main";
+    gnu-elpa.url = "github:elpa-mirrors/elpa";
+      # "git+https://git.savannah.gnu.org/git/emacs/elpa.git?ref=main";
     gnu-elpa.flake = false;
 
     melpa.url = "github:melpa/melpa";
     melpa.flake = false;
 
-    nongnu-elpa.url =
-      "git+https://git.savannah.gnu.org/git/emacs/nongnu.git?ref=main";
+    nongnu-elpa.url = "github:elpa-mirrors/nongnu";
+      # "git+https://git.savannah.gnu.org/git/emacs/nongnu.git?ref=main";
     nongnu-elpa.flake = false;
   };
 
@@ -45,7 +45,7 @@
               (builtins.readFile ./init.org));
 
           emacsPackage =
-            pkgs.emacs-pgtk.overrideAttrs { src = inputs.emacs-patched; };
+            pkgs.emacs-git-pgtk.overrideAttrs { src = inputs.emacs-patched; };
 
           twistArgs = {
             inherit pkgs emacsPackage;
@@ -89,7 +89,7 @@
                 });
               };
             emacsFuncs =
-              "${inputs.nixpkgs}/pkgs/applications/editors/emacs/build-support/emacs-funcs.sh";
+              "${inputs.nixpkgs}/pkgs/applications/editors/emacs/setup-hook.sh";
           };
 
           emacs-jd = pkgs.symlinkJoin {

@@ -33,4 +33,8 @@
     # packageRequires = builtins.removeAttrs super.packageRequires ["flycheck" "projectile"];
     files = builtins.removeAttrs super.files [ "gumshoe-persp.el" ];
   };
+
+  magit-delta = _: super: {
+    packageRequires = super.packageRequires // { dash = "0"; magit = "3"; };
+  };
 }

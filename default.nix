@@ -16,14 +16,14 @@ let
           mv $HOME/.emacs.d/eln-cache/* $out/share/emacs/native-lisp
       fi
     '';
+
+    setupHook = emacsFuncs;
   }).overrideAttrs (_: {
     postInstall = ''
       # Besides adding the output directory to the native load path, make sure
       # the current package's elisp files are in the load path, otherwise
       # (require 'file-b) from file-a.el in the same package will fail.
       mkdir -p $out/share/emacs/native-lisp
-      source ${emacsFuncs}
-      addEmacsVars "$out"
 
       # package-activate-all is used to activate packages.  In other builder
       # helpers, package-initialize is used for this purpose because

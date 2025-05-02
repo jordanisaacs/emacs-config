@@ -1,0 +1,4 @@
+;; embark-consult elpa recipe does not work in nix
+(embark-consult :fetcher github
+                :repo "oantolin/embark"
+                :files ("embark-consult.el"))

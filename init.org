@@ -1733,8 +1733,8 @@ Just use the builtin golang mode.
 
 go.mode mode
 
-#+begin_src emacs-lisp :tangle init.el
-(use-package go-mod-ts-mode
+#+begin_src emacs-lisp
+(use-package go-mod-ts-mode :tangle no
   :mode "/go\\.mod\\'"
   :hook (go-ts-mode-hook . eglot-ensure))
 #+end_src
