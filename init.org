@@ -422,7 +422,8 @@ Returns the modified ALIST."
   (setq completion-cycle-threshold nil)
   ;; tab does indentation + complete
   (setq tab-always-indent 'complete)
-  (setq indent-tabs-mode nil)
+  (setq-default indent-tabs-mode nil)
+  (setq-default tab-width 4)
   ;; Scrolling
   (setq scroll-margin 10
         scroll-conservatively 10
