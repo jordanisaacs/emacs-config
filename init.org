@@ -1777,3 +1777,16 @@ Using the emacs-rustic fork.
   :hook
   (first-file-hook . global-activity-watch-mode))
 #+end_src
+
+** AI
+
+*** gtepl
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package gptel
+  :ensure t
+  :functions gptel-make-gh-copilot
+  :config
+  (setq gptel-model 'claude-3.7-sonnet
+	gptel-backend (gptel-make-gh-copilot "Copilot")))
+#+end_src

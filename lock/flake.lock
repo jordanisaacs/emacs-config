@@ -624,6 +624,22 @@
         "url": "https://codeberg.org/pidu/git-timemachine.git"
       }
     },
+    "gptel": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1745540102,
+        "narHash": "sha256-sHMEpTXZiO8S3MuskpVvnFwJQNg6i2ERK0B0jayh35g=",
+        "owner": "karthink",
+        "repo": "gptel",
+        "rev": "db4e5c7ea39f7d58d8ca4856c98a6df71b1e18bf",
+        "type": "github"
+      },
+      "original": {
+        "owner": "karthink",
+        "repo": "gptel",
+        "type": "github"
+      }
+    },
     "gumshoe": {
       "flake": false,
       "locked": {
@@ -1081,6 +1097,7 @@
         "envrc": "envrc",
         "f": "f",
         "git-timemachine": "git-timemachine",
+        "gptel": "gptel",
         "gumshoe": "gumshoe",
         "hl-todo": "hl-todo",
         "hydra": "hydra",

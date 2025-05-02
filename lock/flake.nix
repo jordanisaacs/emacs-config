@@ -233,6 +233,12 @@
       type = "git";
       url = "https://codeberg.org/pidu/git-timemachine.git";
     };
+    gptel = {
+      flake = false;
+      owner = "karthink";
+      repo = "gptel";
+      type = "github";
+    };
     gumshoe = {
       flake = false;
       owner = "Overdr0ne";
