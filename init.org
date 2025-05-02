@@ -1780,6 +1780,8 @@ Using the emacs-rustic fork.
 
 ** AI
 
+For now install packages. Need to experiment and configure.
+
 *** gtepl
 
 #+begin_src emacs-lisp :tangle init.el
@@ -1789,4 +1791,11 @@ Using the emacs-rustic fork.
   :config
   (setq gptel-model 'claude-3.7-sonnet
 	gptel-backend (gptel-make-gh-copilot "Copilot")))
+#+end_src
+
+*** mcp
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package mcp
+  :ensure t)
 #+end_src

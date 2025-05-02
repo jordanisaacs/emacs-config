@@ -896,6 +896,22 @@
         "type": "github"
       }
     },
+    "mcp": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1746086271,
+        "narHash": "sha256-QwQLfniOCtna80lsUN23YWQRWy5mwDz4XcdTIW+XaDs=",
+        "owner": "lizqwerscott",
+        "repo": "mcp.el",
+        "rev": "08f5af98b2c5d2ba02b90824781d18bb3ce04dd6",
+        "type": "github"
+      },
+      "original": {
+        "owner": "lizqwerscott",
+        "repo": "mcp.el",
+        "type": "github"
+      }
+    },
     "modus-themes": {
       "flake": false,
       "locked": {
@@ -1114,6 +1130,7 @@
         "marginalia": "marginalia",
         "markdown-mode": "markdown-mode",
         "mathjax": "mathjax",
+        "mcp": "mcp",
         "modus-themes": "modus-themes",
         "nerd-icons": "nerd-icons",
         "nerd-icons-completion": "nerd-icons-completion",

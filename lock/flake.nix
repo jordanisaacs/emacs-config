@@ -335,6 +335,12 @@
       repo = "mathjax.el";
       type = "github";
     };
+    mcp = {
+      flake = false;
+      owner = "lizqwerscott";
+      repo = "mcp.el";
+      type = "github";
+    };
     modus-themes = {
       flake = false;
       owner = "protesilaos";
