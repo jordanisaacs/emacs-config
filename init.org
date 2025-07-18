@@ -569,6 +569,7 @@ to make sure eglot loads before hook.
 	(my/replace-keys eglot-server-programs
 			 '((nix-mode . (nix-mode nix-ts-mode))
 			   (zig-mode . (zig-mode zig-ts-mode)))))
+  (add-to-list 'project-vc-extra-root-markers "Cargo.toml")
   :custom-face
   (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
 
@@ -1646,10 +1647,16 @@ Disabling line length fixes the annoying ~[...]~ in the compilation prompt.
   :blackout " Fmt"
   :config
   (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff)
-        (alist-get 'rust-ts-mode apheleia-mode-alist) '(rustfmt)
         (alist-get 'sh-mode apheleia-mode-alist) '(shfmt)
+        (alist-get 'rust-ts-mode apheleia-mode-alist) '(rustfmt)
         (alist-get 'bash-ts-mode apheleia-mode-alist) '(shfmt)
-        (alist-get 'nix-ts-mode apheleia-mode-alist) '(nixfmt))
+        (alist-get 'nix-ts-mode apheleia-mode-alist) '(nixfmt)
+        (alist-get 'rustfmt apheleia-formatters)
+        '("rustfmt" "--edition" (progn
+                                  (when (not (bound-and-true-p rust-edition))
+                                    (my/set-rust-edition))
+                                  (or (bound-and-true-p rust-edition) "2024"))
+          "--quiet" "--emit" "stdout"))
   )
 
 ;; singlestore
@@ -1764,6 +1771,34 @@ Using the emacs-rustic fork.
   :after (rust-mode)
   :init
   (remove-hook 'rustic-mode-hook 'flycheck-mode)
+  :preface
+  (defun my/set-rust-edition ()
+      (when-let*
+          ((cratedir
+            (locate-dominating-file default-directory
+                                    "Cargo.toml"))
+           (manifest-path
+            (expand-file-name "Cargo.toml" cratedir))
+           (env process-environment)
+           (path exec-path))
+        (setq-local rust-edition
+                    (with-temp-buffer
+                      (setq-local process-environment env)
+                      (setq-local exec-path path)
+                      (let ((retcode
+                             (process-file
+                              "cargo" nil (list (current-buffer) nil) nil
+                              "metadata" "--format-version" "1")))
+                        (when (/= retcode 0)
+                          (error "Cargo metadata --format-version 1 returned %s: %s"
+                                 retcode (buffer-string)))
+                        (goto-char 0)
+                        (let ((metadata (json-parse-buffer
+                                         :object-type 'alist
+                                         :array-type 'list)))
+                          (cdr (assq 'edition
+                                     (--first (string= (cdr (assq 'manifest_path it)) manifest-path)
+                                              (cdr (assq 'packages metadata)))))))))))
   :custom
   (rustic-lsp-client 'eglot))
 #+end_src
