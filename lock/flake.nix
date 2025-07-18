@@ -79,6 +79,12 @@
       repo = "cape";
       type = "github";
     };
+    claude-code = {
+      flake = false;
+      owner = "stevemolitor";
+      repo = "claude-code.el";
+      type = "github";
+    };
     cognitive-complexity = {
       flake = false;
       owner = "emacs-vs";
@@ -459,6 +465,12 @@
       flake = false;
       owner = "minad";
       repo = "vertico";
+      type = "github";
+    };
+    vterm = {
+      flake = false;
+      owner = "akermu";
+      repo = "emacs-libvterm";
       type = "github";
     };
     vundo = {

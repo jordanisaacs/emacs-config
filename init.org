@@ -7,6 +7,7 @@
 ;;; early-init.el --- Early Initialization -*- lexical-binding: t; -*-
 #+end_src
 
+
 ** Startup
 Time the startup
 
@@ -764,6 +765,13 @@ any directory proferred by `consult-dir'."
        (t (eshell/cd (if regexp (eshell-find-previous-directory regexp)
                        (completing-read "cd: " eshell-dirs))))))))
 
+#+end_src
+
+*** VTerm
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package vterm
+  :ensure t)
 #+end_src
 
 ** Windowing
@@ -1783,7 +1791,7 @@ Using the emacs-rustic fork.
 
 For now install packages. Need to experiment and configure.
 
-*** gtepl
+*** gptel
 
 #+begin_src emacs-lisp :tangle init.el
 (use-package gptel
@@ -1799,4 +1807,14 @@ For now install packages. Need to experiment and configure.
 #+begin_src emacs-lisp :tangle init.el
 (use-package mcp
   :ensure t)
+#+end_src
+
+*** Claude Code
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package claude-code
+  :ensure t
+  :bind-keymap ("C-c c" . claude-code-command-map)
+  :init
+  (setq claude-code-terminal-backend 'vterm))
 #+end_src
