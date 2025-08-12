@@ -495,7 +495,7 @@ From [[https://www.gnu.org/software/emacs//manual/html_node/modus-themes/A-theme
 **** Treesitter
 
 Treesitter runs pre-display which is expensive in large files. Run it on an idle
-timer instead for large files.
+timer instead for large files. Idle timer is disabled because causes 100% cpu...
 
 #+begin_src emacs-lisp :tangle init.el
 (use-package treesit
@@ -515,12 +515,13 @@ timer instead for large files.
     "Schedule treesit--pre-display to run on idle timer for large files."
     (if (and (treesit-parser-list)
              (> (count-lines (point-min) (point-max)) my/large-file-line-threshold))
+        nil
         ;; Large file: use idle timer
-        (unless my/treesit-idle--timer
-          (let ((here (current-buffer)))
-            (setq-local my/treesit-idle--timer
-                        (run-with-idle-timer my/treesit-idle-pre-display-time nil
-                                             #'my/treesit-idle--pre-display-wrapper here))))
+        ;; (unless my/treesit-idle--timer
+        ;;  (let ((here (current-buffer)))
+        ;;    (setq-local my/treesit-idle--timer
+        ;;                (run-with-idle-timer my/treesit-idle-pre-display-time nil
+        ;;                                     #'my/treesit-idle--pre-display-wrapper here))))
       ;; Small file: run immediately
       (treesit--pre-redisplay)))
 
