@@ -229,12 +229,10 @@ Skip bidirectional text functionality for faster display.
 	      bidi-paragraph-direction 'left-to-right)
 #+end_src
 
-Defer processing of font faces while typing. Still keep precise scrolling though.
-Deferred jit is important because typing on a large 50k+ c++ file with treesitter lags due to fontification.
+Keep precise scrolling.
 
 #+begin_src emacs-lisp :tangle init.el
 (setq fast-but-imprecise-scrolling nil)
-(setq jit-lock-defer-time 0)
 #+end_src
 
 *** use-package
@@ -282,106 +280,14 @@ This adds the ~:blackout~ parameter to use-package. It changes the modeline.
   :functions blackout)
 #+end_src
 
-
-** Repeat mode
-
-#+begin_src  emacs-lisp :tangle init.el
-(use-package repeat
-  ;; builtin
-  :demand t
-  :preface
-  ;; https://old.reddit.com/r/emacs/comments/1adwnse/repeatmode_is_awesome_share_you_useful_configs/kk9vpif/
-  (defun repeatify (repeat-keymap)
-    "Set the `repeat-map' property on all commands bound in REPEAT-MAP."
-    (named-let process ((keymap (symbol-value repeat-keymap)))
-      (map-keymap
-       (lambda (_key cmd)
-	 (cond
-          ((symbolp cmd) (put cmd 'repeat-map repeat-keymap))
-          ((keymapp cmd) (process cmd))))
-       keymap)))
-  :config
-  (repeat-mode t))
-
-(use-package repeat-help
-  :ensure t
-  :after repeat
-  :commands repeat-help-mode
-  :demand t
-  :init
-  (setq repeat-help-key "C-h")
-  (setq repeat-help-popup-type 'embark)
-  (advice-add 'repeat-help--embark-indicate :before (lambda (&rest _) (require 'embark)))
-  :config
-  (repeat-help-mode t))
-#+end_src
-
-** Theming
-
-*** Generic change hook
-
-From [[https://www.gnu.org/software/emacs//manual/html_node/modus-themes/A-theme_002dagnostic-hook-for-theme-loading.html][modus themes manual]]
-
-#+begin_src emacs-lisp :tangle init.el
-(defvar my/after-enable-theme-hook nil
-   "Normal hook run after enabling a theme.")
-
-(defun my/run-after-enable-theme-hook (&rest _args)
-   "Run `after-enable-theme-hook'."
-   (run-hooks 'after-enable-theme-hook))
-
-(advice-add 'enable-theme :after #'my/run-after-enable-theme-hook)
-#+end_src
-
-*** hl-todo highlighting
-
-#+begin_src emacs-lisp :tangle init.el
-(use-package hl-todo
-  :ensure t
-  :commands (hl-todo-insert hl-todo-occur hl-todo-next hl-todo-previous)
-  :custom
-  (hl-todo-highlight-punctuation ":")
-  (hl-todo-keyword-faces nil)
-  :init
-  (defvar-keymap hl-todo-repeat-map
-    :repeat (:enter (hl-todo-insert) :exit (hl-todo-occur))
-    "n" #'hl-todo-next
-    "p" #'hl-todo-previous
-    "o" #'hl-todo-occur)
-  :config
-  (keymap-set hl-todo-mode-map "C-c t p" #'hl-todo-previous)
-  (keymap-set hl-todo-mode-map "C-c t n" #'hl-todo-next)
-  (keymap-set hl-todo-mode-map "C-c t o" #'hl-todo-occur)
-  (keymap-set hl-todo-mode-map "C-c t i" #'hl-todo-insert)
-  :hook
-  (prog-mode-hook . hl-todo-mode)
-  (text-mode-hook . hl-todo-mode))
-#+end_src
-
-*** Modus themes
-
-#+begin_src emacs-lisp :tangle init.el
-(use-package modus-themes
-  :ensure t
-  :commands modus-themes-load-theme
-  :functions modus-themes--retrieve-palette-value modus-themes--current-theme-palette
-  :preface
-  (defun my/hl-todo-modus-undone ()
-    (when (featurep 'hl-todo)
-      (modus-themes-with-colors
-	(add-to-list 'hl-todo-keyword-faces (cons "UNDONE" err)))))
-  :hook
-  (hl-todo-mode-hook . my/hl-todo-modus-undone)
-  (modus-themes-after-load-theme-hook . my/hl-todo-modus-undone)
-  :init
-  (modus-themes-load-theme 'modus-operandi))
-#+end_src
-
 ** Emacs
 
 #+begin_src emacs-lisp :tangle init.el
 (use-package emacs
   :preface
+  (defvar my/large-file-line-threshold 5000
+    "Line count threshold for considering a file large and applying optimizations.")
+
   (defun my/replace-keys (alist replacements)
     "Replace multiple keys in ALIST according to REPLACEMENTS.
 REPLACEMENTS should be a list of (old-key . new-key) pairs.
@@ -448,6 +354,123 @@ Returns the modified ALIST."
 (transient-mark-mode 1)
 #+END_SRC
 
+** Repeat mode
+
+#+begin_src  emacs-lisp :tangle init.el
+(use-package repeat
+  ;; builtin
+  :demand t
+  :preface
+  ;; https://old.reddit.com/r/emacs/comments/1adwnse/repeatmode_is_awesome_share_you_useful_configs/kk9vpif/
+  (defun repeatify (repeat-keymap)
+    "Set the `repeat-map' property on all commands bound in REPEAT-MAP."
+    (named-let process ((keymap (symbol-value repeat-keymap)))
+      (map-keymap
+       (lambda (_key cmd)
+	 (cond
+          ((symbolp cmd) (put cmd 'repeat-map repeat-keymap))
+          ((keymapp cmd) (process cmd))))
+       keymap)))
+  :config
+  (repeat-mode t))
+
+(use-package repeat-help
+  :ensure t
+  :after repeat
+  :commands repeat-help-mode
+  :demand t
+  :init
+  (setq repeat-help-key "C-h")
+  (setq repeat-help-popup-type 'embark)
+  (advice-add 'repeat-help--embark-indicate :before (lambda (&rest _) (require 'embark)))
+  :config
+  (repeat-help-mode t))
+#+end_src
+
+** Theming
+
+*** JIT Lock
+
+Antiblink causes syntax parsing when typing which is really slow in large files.
+Use advice to disable for 10K+ line files.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package jit-lock
+  :preface
+  (defun my/jit-lock-antiblink-advice (orig-fun &rest args)
+    "Skip antiblink processing for large files."
+    (let ((line-count (line-number-at-pos (point-max) t)))
+      (when (<= line-count my/large-file-line-threshold)
+        (apply orig-fun args))))
+  :custom
+  (jit-lock-stealth-time 5)
+  (jit-lock-defer-time 1)
+  (jit-lock-context-time 1)
+  :config
+  (advice-add 'jit-lock--antiblink-post-command :around #'my/jit-lock-antiblink-advice))
+#+end_src
+
+
+*** Generic change hook
+
+From [[https://www.gnu.org/software/emacs//manual/html_node/modus-themes/A-theme_002dagnostic-hook-for-theme-loading.html][modus themes manual]]
+
+#+begin_src emacs-lisp :tangle init.el
+(defvar my/after-enable-theme-hook nil
+   "Normal hook run after enabling a theme.")
+
+(defun my/run-after-enable-theme-hook (&rest _args)
+   "Run `after-enable-theme-hook'."
+   (run-hooks 'after-enable-theme-hook))
+
+(advice-add 'enable-theme :after #'my/run-after-enable-theme-hook)
+#+end_src
+
+*** hl-todo highlighting
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package hl-todo
+  :ensure t
+  :commands (hl-todo-insert hl-todo-occur hl-todo-next hl-todo-previous)
+  :custom
+  (hl-todo-highlight-punctuation ":")
+  (hl-todo-keyword-faces nil)
+  :init
+  (defvar-keymap hl-todo-repeat-map
+    :repeat (:enter (hl-todo-insert) :exit (hl-todo-occur))
+    "n" #'hl-todo-next
+    "p" #'hl-todo-previous
+    "o" #'hl-todo-occur)
+  :config
+  (keymap-set hl-todo-mode-map "C-c t p" #'hl-todo-previous)
+  (keymap-set hl-todo-mode-map "C-c t n" #'hl-todo-next)
+  (keymap-set hl-todo-mode-map "C-c t o" #'hl-todo-occur)
+  (keymap-set hl-todo-mode-map "C-c t i" #'hl-todo-insert)
+  :hook
+  (prog-mode-hook . hl-todo-mode)
+  (text-mode-hook . hl-todo-mode))
+#+end_src
+
+*** Modus themes
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package modus-themes
+  :ensure t
+  :commands modus-themes-load-theme
+  :functions modus-themes--retrieve-palette-value modus-themes--current-theme-palette
+  :preface
+  (defun my/hl-todo-modus-undone ()
+    (when (featurep 'hl-todo)
+      (modus-themes-with-colors
+	(add-to-list 'hl-todo-keyword-faces (cons "UNDONE" err)))))
+  :hook
+  (hl-todo-mode-hook . my/hl-todo-modus-undone)
+  (modus-themes-after-load-theme-hook . my/hl-todo-modus-undone)
+  :init
+  (modus-themes-load-theme 'modus-operandi))
+#+end_src
+
+
 ** Diagnostics
 
 *** Spell Checking
@@ -465,9 +488,61 @@ Returns the modified ALIST."
   )
 #+end_src
 
-*** Syntax checkers
+*** Syntax
 
-**** Flymake
+**** Treesitter
+
+Treesitter runs pre-display which is expensive in large files. Run it on an idle
+timer instead for large files.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package treesit
+  :functions treesit--pre-redisplay
+  :preface
+  (defvar-local my/treesit-idle-pre-display-time 1)
+  (defvar-local my/treesit-idle--timer nil)
+
+  (defun my/treesit-idle--pre-display-wrapper ()
+    "Wrapper to run treesit--pre-redisplay and clear timer."
+    (when (buffer-live-p (current-buffer))
+      (with-current-buffer (current-buffer)
+        (setq my/treesit-idle--timer nil)
+        (treesit--pre-redisplay))))
+
+  (defun my/treesit-pre-display-idle-schedule (&rest _)
+    "Schedule treesit--pre-display to run on idle timer for large files."
+    (if (and (treesit-parser-list)
+             (> (count-lines (point-min) (point-max)) my/large-file-line-threshold))
+        ;; Large file: use idle timer
+        (unless my/treesit-idle--timer
+          (setq my/treesit-idle--timer
+                (run-with-idle-timer my/treesit-idle-pre-display-time nil
+                                     #'my/treesit-idle--pre-display-wrapper)))
+      ;; Small file: run immediately
+      (treesit--pre-redisplay)))
+
+  (defun my/treesit-cancel-timer ()
+    "Cancel the treesitter idle timer if it exists."
+    (when my/treesit-idle--timer
+      (cancel-timer my/treesit-idle--timer)
+      (setq my/treesit-idle--timer nil)))
+
+  (defun my/treesit-setup-hooks ()
+    "Setup treesitter hooks for current buffer."
+    (when (treesit-parser-list)
+      ;; Remove the default hook and add our wrapper
+      (remove-hook 'pre-redisplay-functions #'treesit--pre-redisplay t)
+      (add-hook 'pre-redisplay-functions #'my/treesit-pre-display-idle-schedule t t)
+      ;; Cancel timer on buffer close
+      (add-hook 'kill-buffer-hook #'my/treesit-cancel-timer nil t)))
+  :hook
+  (find-file-hook . my/treesit-setup-hooks))
+#+end_src
+
+
+**** checkers
+
+***** Flymake
 
 #+begin_src emacs-lisp :tangle init.el
 (use-package flymake
@@ -477,7 +552,7 @@ Returns the modified ALIST."
   (setq flymake-fringe-indicator-position 'right-fringe))
 #+end_src
 
-**** Flycheck (disabled)
+***** Flycheck (disabled)
 
 #+begin_src emacs-lisp :tangle no
 (use-package consult-flycheck
@@ -519,7 +594,7 @@ Treesitter based calculation of programming complexity.
   :blackout
   :preface
   (defun enable-cc-line-limit ()
-    (my/minor-mode-line-limit 'cognitive-complexity-mode 5000))
+    (my/minor-mode-line-limit 'cognitive-complexity-mode my/large-file-line-threshold))
   :hook
   (prog-mode-hook . enable-cc-line-limit))
 #+end_src
