@@ -57,4 +57,8 @@ in stdenv.mkDerivation {
       ${xorg.lndir}/bin/lndir -silent ${init}/share/emacs/native-lisp $out/eln-cache
     fi
   '';
+  # Move for custom snippets
+  # mkdir $out/snippets
+  # Copy snippets directory
+  # cp -r ${./snippets}/* $out/snippets/
 }

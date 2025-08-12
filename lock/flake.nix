@@ -287,18 +287,6 @@
       repo = "llama";
       type = "github";
     };
-    lsp-snippet = {
-      flake = false;
-      owner = "svaante";
-      repo = "lsp-snippet";
-      type = "github";
-    };
-    lsp-snippet-tempel = {
-      flake = false;
-      owner = "svaante";
-      repo = "lsp-snippet";
-      type = "github";
-    };
     lv = {
       flake = false;
       owner = "abo-abo";
@@ -437,12 +425,6 @@
       repo = "svg-lib";
       type = "github";
     };
-    tempel = {
-      flake = false;
-      owner = "minad";
-      repo = "tempel";
-      type = "github";
-    };
     tldr = {
       flake = false;
       owner = "kuanyui";
@@ -501,6 +483,24 @@
       flake = false;
       owner = "atomontage";
       repo = "xterm-color";
+      type = "github";
+    };
+    yasnippet = {
+      flake = false;
+      owner = "joaotavora";
+      repo = "yasnippet";
+      type = "github";
+    };
+    yasnippet-capf = {
+      flake = false;
+      owner = "elken";
+      repo = "yasnippet-capf";
+      type = "github";
+    };
+    yasnippet-snippets = {
+      flake = false;
+      owner = "AndreaCrotti";
+      repo = "yasnippet-snippets";
       type = "github";
     };
     zig-ts-mode = {

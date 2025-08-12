@@ -3,3 +3,4 @@ result
 *.py
 *.c
 *.go
+*.cpp

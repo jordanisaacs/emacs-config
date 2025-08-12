@@ -42,6 +42,7 @@ specified paths. Since we are using ~--init-directory NIX_STORE~ which is read o
 Make sure to also set the custom-file to a place outside the ~NIX_STORE~.
 
 #+begin_src emacs-lisp :tangle early-init.el
+(defvar init-directory user-emacs-directory)
 (setq user-emacs-directory (expand-file-name "emacs/" (getenv "XDG_STATE_HOME")))
 (setq custom-file (locate-user-emacs-file "custom.el"))
 #+end_src
@@ -284,6 +285,7 @@ This adds the ~:blackout~ parameter to use-package. It changes the modeline.
 
 #+begin_src emacs-lisp :tangle init.el
 (use-package emacs
+  :defines init-directory
   :preface
   (defvar my/large-file-line-threshold 5000
     "Line count threshold for considering a file large and applying optimizations.")
@@ -403,7 +405,7 @@ Use advice to disable for 10K+ line files.
       (when (<= line-count my/large-file-line-threshold)
         (apply orig-fun args))))
   :custom
-  (jit-lock-stealth-time 5)
+  (jit-lock-stealth-time 2.5)
   (jit-lock-defer-time 1)
   (jit-lock-context-time 1)
   :config
@@ -619,13 +621,12 @@ to make sure eglot loads before hook.
 (use-package eglot
   :commands (eglot eglot-ensure)
   :functions eglot-completion-at-point
+  :after eglot
   :preface
   (defun my/eglot-setup-capf ()
     (setq-local completion-at-point-functions
-                (append (list (cape-capf-nonexclusive
-                               (cape-capf-super
-                                #'eglot-completion-at-point
-                                #'tempel-expand)))
+                (append (list #'eglot-completion-at-point
+                               #'yasnippet-capf)
                         (default-value 'completion-at-point-functions))))
   (defun my/eglot-disable-on-type-formatting ()
     (setq-local eglot-ignored-server-capabilities
@@ -637,7 +638,6 @@ to make sure eglot loads before hook.
   (lsp-completion-provider :none) ; use corfu intsead for lsp completion
   :config
   (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
-  (lsp-snippet-tempel-eglot-init)
   (setq eglot-autoshutdown t)
   (setq completion-category-defaults nil)
   (setq eglot-server-programs
@@ -1076,22 +1076,29 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
 
 ;; Snippets
 
-(use-package tempel
+(use-package yasnippet
   :ensure t
-  :commands tempel-expand
-  :preface
-  (defun my/tempel-setup-capf ()
-    ;; Add the Tempel Capf to `completion-at-point-functions`
-    (add-hook 'completion-at-point-functions
-               #'tempel-expand t t))
+  :functions yas-active-snippets
+  :commands yas-global-mode yas-prev-field yas-next-field
+  :bind (:map yas-keymap
+              ("M-}" . yas-next-field)
+              ("M-{" . yas-prev-field))
+  :config
+  ;; Use the snippets directory from the init directory
+  (let ((snippets-dir (expand-file-name "snippets" init-directory)))
+    (if (file-directory-p snippets-dir)
+        (setq yas-snippet-dirs (list snippets-dir))
+      (message "Error: snippets directory not found at %s" snippets-dir)))
   :init
-  (add-hook 'conf-mode-hook 'my/tempel-setup-capf)
-  (add-hook 'prog-mode-hook 'my/tempel-setup-capf)
-  (add-hook 'text-mode-hook 'my/tempel-setup-capf))
+  (yas-global-mode 1))
 
-(use-package lsp-snippet-tempel
+(use-package yasnippet-snippets
+  :ensure t)
+
+(use-package yasnippet-capf
   :ensure t
-  :commands lsp-snippet-tempel-eglot-init)
+  :commands yasnippet-capf
+  :bind ("C-c y" . yasnippet-capf))
 
 ;; Completion at point functions + capf UI
 

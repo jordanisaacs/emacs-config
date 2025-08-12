@@ -768,38 +768,6 @@
         "type": "github"
       }
     },
-    "lsp-snippet": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1735744674,
-        "narHash": "sha256-r9RXvM0LIqXLWB4o+A9D0kBdjTVnpVbDfHmnOJw3+9w=",
-        "owner": "svaante",
-        "repo": "lsp-snippet",
-        "rev": "4af77c59ba41440940c43a52918a193459d874e1",
-        "type": "github"
-      },
-      "original": {
-        "owner": "svaante",
-        "repo": "lsp-snippet",
-        "type": "github"
-      }
-    },
-    "lsp-snippet-tempel": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1735744674,
-        "narHash": "sha256-r9RXvM0LIqXLWB4o+A9D0kBdjTVnpVbDfHmnOJw3+9w=",
-        "owner": "svaante",
-        "repo": "lsp-snippet",
-        "rev": "4af77c59ba41440940c43a52918a193459d874e1",
-        "type": "github"
-      },
-      "original": {
-        "owner": "svaante",
-        "repo": "lsp-snippet",
-        "type": "github"
-      }
-    },
     "lv": {
       "flake": false,
       "locked": {
@@ -1138,8 +1106,6 @@
         "jinx": "jinx",
         "kind-icon": "kind-icon",
         "llama": "llama",
-        "lsp-snippet": "lsp-snippet",
-        "lsp-snippet-tempel": "lsp-snippet-tempel",
         "lv": "lv",
         "magit": "magit",
         "magit-delta": "magit-delta",
@@ -1163,7 +1129,6 @@
         "s": "s",
         "spinner": "spinner",
         "svg-lib": "svg-lib",
-        "tempel": "tempel",
         "tldr": "tldr",
         "transpose-frame": "transpose-frame",
         "treesit-fold": "treesit-fold",
@@ -1174,6 +1139,9 @@
         "whitespace-cleanup-mode": "whitespace-cleanup-mode",
         "with-editor": "with-editor",
         "xterm-color": "xterm-color",
+        "yasnippet": "yasnippet",
+        "yasnippet-capf": "yasnippet-capf",
+        "yasnippet-snippets": "yasnippet-snippets",
         "zig-ts-mode": "zig-ts-mode"
       }
     },
@@ -1254,22 +1222,6 @@
       "original": {
         "owner": "rougier",
         "repo": "svg-lib",
-        "type": "github"
-      }
-    },
-    "tempel": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1750420651,
-        "narHash": "sha256-fVZ7J/YgVM7HZXslP6jGDQ7Xazb5jW90h2bSh5uLnIA=",
-        "owner": "minad",
-        "repo": "tempel",
-        "rev": "9fa2c59660fe9473429a51872d3c00e1b95cab86",
-        "type": "github"
-      },
-      "original": {
-        "owner": "minad",
-        "repo": "tempel",
         "type": "github"
       }
     },
@@ -1430,6 +1382,54 @@
       "original": {
         "owner": "atomontage",
         "repo": "xterm-color",
+        "type": "github"
+      }
+    },
+    "yasnippet": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1749025756,
+        "narHash": "sha256-GXgZuIXm1btNkZLYFRq4MIuTczLpkmLGUTDft5mFdSI=",
+        "owner": "joaotavora",
+        "repo": "yasnippet",
+        "rev": "c1e6ff23e9af16b856c88dfaab9d3ad7b746ad37",
+        "type": "github"
+      },
+      "original": {
+        "owner": "joaotavora",
+        "repo": "yasnippet",
+        "type": "github"
+      }
+    },
+    "yasnippet-capf": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1747739106,
+        "narHash": "sha256-KWh8trHgrU+v+52cF0e1aJQ3oc9y8D25dg2UwIvKmsM=",
+        "owner": "elken",
+        "repo": "yasnippet-capf",
+        "rev": "f53c42a996b86fc95b96bdc2deeb58581f48c666",
+        "type": "github"
+      },
+      "original": {
+        "owner": "elken",
+        "repo": "yasnippet-capf",
+        "type": "github"
+      }
+    },
+    "yasnippet-snippets": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1754641198,
+        "narHash": "sha256-xwzSgMa3cb9Z4Sv09B3/Pd4SZ3JpzMw7kySODetFeZk=",
+        "owner": "AndreaCrotti",
+        "repo": "yasnippet-snippets",
+        "rev": "4f9f9e7b29822d66a34b7d5f1c19ed65cce1d8e1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "AndreaCrotti",
+        "repo": "yasnippet-snippets",
         "type": "github"
       }
     },
