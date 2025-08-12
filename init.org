@@ -504,11 +504,11 @@ timer instead for large files.
   (defvar-local my/treesit-idle-pre-display-time 1)
   (defvar-local my/treesit-idle--timer nil)
 
-  (defun my/treesit-idle--pre-display-wrapper ()
+  (defun my/treesit-idle--pre-display-wrapper (buffer)
     "Wrapper to run treesit--pre-redisplay and clear timer."
-    (when (buffer-live-p (current-buffer))
-      (with-current-buffer (current-buffer)
-        (setq my/treesit-idle--timer nil)
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (setq-local my/treesit-idle--timer nil)
         (treesit--pre-redisplay))))
 
   (defun my/treesit-pre-display-idle-schedule (&rest _)
@@ -517,9 +517,10 @@ timer instead for large files.
              (> (count-lines (point-min) (point-max)) my/large-file-line-threshold))
         ;; Large file: use idle timer
         (unless my/treesit-idle--timer
-          (setq my/treesit-idle--timer
-                (run-with-idle-timer my/treesit-idle-pre-display-time nil
-                                     #'my/treesit-idle--pre-display-wrapper)))
+          (let ((here (current-buffer)))
+            (setq-local my/treesit-idle--timer
+                        (run-with-idle-timer my/treesit-idle-pre-display-time nil
+                                             #'my/treesit-idle--pre-display-wrapper here))))
       ;; Small file: run immediately
       (treesit--pre-redisplay)))
 
@@ -534,9 +535,9 @@ timer instead for large files.
     (when (treesit-parser-list)
       ;; Remove the default hook and add our wrapper
       (remove-hook 'pre-redisplay-functions #'treesit--pre-redisplay t)
-      (add-hook 'pre-redisplay-functions #'my/treesit-pre-display-idle-schedule t t)
+      (add-hook 'pre-redisplay-functions #'my/treesit-pre-display-idle-schedule t)
       ;; Cancel timer on buffer close
-      (add-hook 'kill-buffer-hook #'my/treesit-cancel-timer nil t)))
+      (add-hook 'kill-buffer-hook #'my/treesit-cancel-timer t)))
   :hook
   (find-file-hook . my/treesit-setup-hooks))
 #+end_src
