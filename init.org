@@ -1930,10 +1930,33 @@ For now install packages. Need to experiment and configure.
 
 *** Claude Code
 
+Claude code in-editor.
+
 #+begin_src emacs-lisp :tangle init.el
 (use-package claude-code
   :ensure t
   :bind-keymap ("C-c c" . claude-code-command-map)
+  :bind
+  (:repeat-map my-claude-code-map ("M" . claude-code-cycle-mode))
+  :commands claude-code-mode
+  :functions claude-code-process-environment
+  :config
+  (monet-mode 1)
+  (add-hook 'claude-code-process-environment-functions #'monet-start-server-function)
+
+  (claude-code-mode)
   :init
   (setq claude-code-terminal-backend 'vterm))
+#+end_src
+
+Claude code IDE server.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package monet
+  :functions monet-start-server-function monet-ediff-tool monet-ediff-cleanup-tool
+  :commands monet-mode
+  :ensure t
+  :init
+  (setq monet-diff-tool #'monet-ediff-tool)
+  (setq monet-diff-cleanup-tool #'monet-ediff-cleanup-tool))
 #+end_src

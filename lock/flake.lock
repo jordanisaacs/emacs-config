@@ -211,11 +211,11 @@
     "claude-code": {
       "flake": false,
       "locked": {
-        "lastModified": 1752716724,
-        "narHash": "sha256-Il5blmrf5O5DJVYcz1O/bI05J2EP9/OF9KCODtQ3DDU=",
+        "lastModified": 1754669092,
+        "narHash": "sha256-WWYNfDqoXB83uPvKv5XcG54O2uWVe+jZwtJi4jcTQ+U=",
         "owner": "stevemolitor",
         "repo": "claude-code.el",
-        "rev": "4939a2e77fab0601396824c441c2c8f185cc2bbf",
+        "rev": "bc8420370df0759987582600075b3b8f5685936e",
         "type": "github"
       },
       "original": {
@@ -912,6 +912,22 @@
         "type": "github"
       }
     },
+    "monet": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1754762479,
+        "narHash": "sha256-UcRKC8jEf39DRlY9/Utqp42a473g5yuwkRgPm7lBcuI=",
+        "owner": "stevemolitor",
+        "repo": "monet",
+        "rev": "aad7462e476313c913e01f72ec00756edae68801",
+        "type": "github"
+      },
+      "original": {
+        "owner": "stevemolitor",
+        "repo": "monet",
+        "type": "github"
+      }
+    },
     "nerd-icons": {
       "flake": false,
       "locked": {
@@ -1115,6 +1131,7 @@
         "mathjax": "mathjax",
         "mcp": "mcp",
         "modus-themes": "modus-themes",
+        "monet": "monet",
         "nerd-icons": "nerd-icons",
         "nerd-icons-completion": "nerd-icons-completion",
         "nerd-icons-dired": "nerd-icons-dired",
@@ -1135,6 +1152,7 @@
         "vertico": "vertico",
         "vterm": "vterm",
         "vundo": "vundo",
+        "websocket": "websocket",
         "wgrep": "wgrep",
         "whitespace-cleanup-mode": "whitespace-cleanup-mode",
         "with-editor": "with-editor",
@@ -1318,6 +1336,22 @@
       "original": {
         "owner": "casouri",
         "repo": "vundo",
+        "type": "github"
+      }
+    },
+    "websocket": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1691550335,
+        "narHash": "sha256-pN3gTdVH5IWUq0eGvkXBgkUcxzni2Iq24ZrHnIfxAC8=",
+        "owner": "ahyatt",
+        "repo": "emacs-websocket",
+        "rev": "40c208eaab99999d7c1e4bea883648da24c03be3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ahyatt",
+        "repo": "emacs-websocket",
         "type": "github"
       }
     },
