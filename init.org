@@ -933,13 +933,9 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
 
 (use-package magit
   :ensure t
-  :functions magit-wip-commit-initial-backup
   :commands magit-wip-mode
   :hook
-  (my/project-git-hook . (lambda () (magit-wip-mode t)))
-  (before-save-hook . (lambda ()
-			(when (my/project-is-git)
-			  (magit-wip-commit-initial-backup)))))
+  (my/project-git-hook . (lambda () (magit-wip-mode t))))
 
 ;; diff highlighting
 
@@ -949,6 +945,8 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
   :commands diff-hl-stage-current-hunk diff-hl-revert-hunk diff-hl-next-hunk diff-hl-previous-hunk
   :custom
   (vc-git-diff-switches '("--histogram"))
+  ;; This is required because not setting results in flydiff delay being 0...
+  (diff-hl-flydiff-delay 1)
   :preface
   (defun my/diff-hl-define-thin-bitmaps (&rest _)
     (define-fringe-bitmap 'diff-hl-bmp-middle [240] nil nil '(center repeated))
@@ -968,6 +966,7 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
   (find-file-hook . diff-hl-mode)
   (vc-dir-mode-hook . diff-hl-dir-mode)
   (dired-mode-hook . diff-hl-dired-mode)
+  ;; UNDONE: Magit post refresh is very slow
   (magit-post-refresh-hook . diff-hl-magit-post-refresh)
   (diff-hl-mode-hook . diff-hl-flydiff-mode)
   (diff-hl-mode-hook . my/diff-hl-fix-modus)
