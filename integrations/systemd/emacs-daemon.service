@@ -4,6 +4,10 @@ Documentation=info:emacs man:emacs(1) https://www.gnu.org/software/emacs/
 
 [Service]
 Type=notify
+# Prepend user-local + nix-profile bins so executable-find / process-file
+# in Emacs (e.g. the pm package shelling out to `pm`) resolve correctly
+# without needing absolute paths in defcustoms.
+Environment=PATH=%h/.local/bin:%h/.nix-profile/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=%h/.projects/emacs-daemon/emacs/result/bin/emacs --fg-daemon
 ExecStop=%h/.projects/emacs-daemon/emacs/result/bin/emacsclient --eval "(kill-emacs)"
 Restart=on-failure
