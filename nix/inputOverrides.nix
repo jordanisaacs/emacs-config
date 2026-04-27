@@ -37,4 +37,14 @@
   magit-delta = _: super: {
     packageRequires = super.packageRequires // { dash = "0"; magit = "3"; };
   };
+
+  ghostel = _: super: {
+    files = (builtins.removeAttrs super.files [
+      "evil-ghostel.el"
+      "ghostel-evil.el"
+    ]) // {
+      # Bundled xterm-ghostty terminfo; loaded by ghostel.el via locate-library.
+      "terminfo" = "terminfo";
+    };
+  };
 }

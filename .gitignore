@@ -1,6 +1,18 @@
 result
+target
+.direnv
+.codex
 
 *.py
 *.c
 *.go
 *.cpp
+
+
+
+early-init.el
+init.el
+
+# Ghostel VT debug artifacts (opt-in via GHOSTEL_LOG_DIR)
+ghostel-debug.log
+ghostty-claude-capture-*/

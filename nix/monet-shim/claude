@@ -1,0 +1,21 @@
+#!/bin/sh
+# emacs-config: lazy monet start-and-connect wrapper for claude.
+# Packaged via flake.nix `monetShim' derivation. Ghostel prepends this
+# script's dir to PATH so even execvp-style invocations resolve here.
+
+SELF_DIR=$(cd -- "$(dirname -- "$0")" && pwd -P)
+
+# Strip our own dir from PATH so we can find the real claude.
+PATH=$(printf '%s' ":$PATH:" | sed -e "s|:$SELF_DIR:|:|g" -e 's|^:||' -e 's|:$||')
+export PATH
+
+if [ -z "$CLAUDE_CODE_SSE_PORT" ]; then
+  envout=$(@EMACSCLIENT@ --eval "(my/monet-env-for-cwd \"$PWD\")" 2>/dev/null || true)
+  # emacsclient wraps string returns in double quotes; strip them.
+  case $envout in
+    \"*\") envout=${envout#\"}; envout=${envout%\"};;
+  esac
+  [ -n "$envout" ] && eval "$envout"
+fi
+
+exec claude "$@"

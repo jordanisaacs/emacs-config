@@ -5,9 +5,6 @@
     nixpkgs.url = "nixpkgs/nixpkgs-unstable";
     emacs-unstable.url = "github:nix-community/emacs-overlay";
 
-    emacs-patched.url = "github:jordanisaacs/emacs";
-    emacs-patched.flake = false;
-
     emacs-lsp-booster.url = "github:slotThe/emacs-lsp-booster-flake";
     emacs-lsp-booster.inputs.nixpkgs.follows = "nixpkgs";
 
@@ -27,6 +24,12 @@
     nongnu-elpa.url = "github:elpa-mirrors/nongnu";
       # "git+https://git.savannah.gnu.org/git/emacs/nongnu.git?ref=main";
     nongnu-elpa.flake = false;
+
+    zig2nix.url = "github:Cloudef/zig2nix";
+    zig2nix.inputs.nixpkgs.follows = "nixpkgs";
+
+    ghostel.url = "git+file:./submodules/ghostel";
+    ghostel.flake = false;
   };
 
   outputs = inputs@{ self, nixpkgs, flake-parts, ... }:
@@ -44,8 +47,64 @@
             (inputs.org-babel.lib.tangleOrgBabel { tangleArg = "init.el"; }
               (builtins.readFile ./init.org));
 
-          emacsPackage =
-            pkgs.emacs-git-pgtk.overrideAttrs { src = inputs.emacs-patched; };
+          emacsPackage = pkgs.emacs-git-pgtk.overrideAttrs (old: {
+            patches = (old.patches or [ ])
+              ++ [ ./nix/patches/eln-cache-correct-spot.patch ];
+          });
+
+          fwatcher = pkgs.rustPlatform.buildRustPackage {
+            pname = "fwatcher";
+            version = "0.1.0";
+            src = ./nix/eglot-fwatcher;
+            cargoLock.lockFile = ./nix/eglot-fwatcher/Cargo.lock;
+            meta.mainProgram = "fwatcher";
+          };
+
+          eglotFwatcherEl = emacsPackage.pkgs.trivialBuild {
+            pname = "eglot-fwatcher";
+            version = "0.1.0";
+            src = ./nix/eglot-fwatcher/elisp;
+            preBuild = ''
+              substituteInPlace eglot-fwatcher.el \
+                --replace-fail '"fwatcher"' '"${fwatcher}/bin/fwatcher"'
+            '';
+          };
+
+          monetShim = pkgs.runCommand "monet-shim" { } ''
+            mkdir -p $out/bin $out/zdotdir
+            substitute ${./nix/monet-shim/claude} $out/bin/claude \
+              --replace-fail '@EMACSCLIENT@' '${emacsPackage}/bin/emacsclient'
+            chmod +x $out/bin/claude
+            install -m0644 ${./nix/monet-shim/zdotdir/.zshenv} $out/zdotdir/.zshenv
+            install -m0644 ${./nix/monet-shim/zdotdir/.zshrc} $out/zdotdir/.zshrc
+          '';
+
+          ghostelModule = let
+            zigEnv = inputs.zig2nix.outputs.zig-env.${system} {
+              zig = inputs.zig2nix.outputs.packages.${system}.zig-0_15_2;
+            };
+          in zigEnv.package {
+            pname = "ghostel-module";
+            version = "0.17.0";
+            src = inputs.ghostel;
+            # build.zig.zon2json-lock is regenerated via
+            #   nix run github:Cloudef/zig2nix#zon2json-lock -- build.zig.zon
+            # inside a checkout of the ghostel flake input.
+            zigBuildZonLock = ./nix/ghostel/build.zig.zon2json-lock;
+            zigBuildFlags = [ "-Doptimize=ReleaseFast" "-Dcpu=baseline" ];
+            preBuild = ''
+              # ghostel's build.zig installs the module one level above the
+              # zig install prefix to make it easy to dlopen from the repo;
+              # under Nix that path escapes $out, so flatten it.
+              substituteInPlace build.zig \
+                --replace-fail '"../ghostel-module.so"' '"ghostel-module.so"' \
+                --replace-fail '"../ghostel-module.dylib"' '"ghostel-module.dylib"'
+            '';
+            postInstall = ''
+              rm -f $out/lib/libghostel-module.so $out/lib/libghostel-module.dylib
+              rmdir $out/lib 2>/dev/null || true
+            '';
+          };
 
           twistArgs = {
             inherit pkgs emacsPackage;
@@ -71,6 +130,11 @@
             in ''
               (when init-file-user
                 (add-to-list 'treesit-extra-load-path "${treesitterPackage}/lib"))
+              (add-to-list 'load-path "${eglotFwatcherEl}/share/emacs/site-lisp")
+              (defvar my/monet-shim-dir "${monetShim}/bin"
+                "Directory holding the nix-provided `claude' PATH shim.")
+              (defvar my/monet-shim-zdotdir "${monetShim}/zdotdir"
+                "ZDOTDIR wrapper that chains ghostel's .zshenv and then our .zshrc; ensures the monet shim stays first in PATH after user's .zshrc runs.")
             '';
           };
 
@@ -78,7 +142,10 @@
             (lib.composeExtensions inputs.twist-overrides.overlays.twistScope
               (_: tsuper: {
                 elispPackages = tsuper.elispPackages.overrideScope
-                  (import ./nix/packageOverrides.nix { inherit pkgs; });
+                  (import ./nix/packageOverrides.nix {
+                    inherit pkgs ghostelModule;
+                    ghostelSrc = inputs.ghostel;
+                  });
               }));
 
           emacsConfig = pkgs.callPackage inputs.self {
@@ -99,18 +166,22 @@
             postBuild = ''
               wrapProgram $out/bin/emacs \
                 --prefix PATH : "${
-                  lib.makeBinPath [ pkgs.emacs-lsp-booster pkgs.nodejs pkgs.perl ]
+                  lib.makeBinPath [ pkgs.emacs-lsp-booster pkgs.nodejs pkgs.perl pkgs.fd pkgs.ripgrep pkgs.delta fwatcher ]
                 }" \
                --set LSP_USE_PLISTS true \
+               --set DICPATH "${pkgs.hunspellDicts.en_US}/share/hunspell" \
                --add-flags --init-directory="${emacsConfig}"
             '';
+            meta.mainProgram = "emacs";
           };
         in {
           _module.args.pkgs =
             import inputs.nixpkgs { inherit system overlays; };
 
           packages = {
-            inherit emacsConfig emacs-jd emacsEnv emacsInit emacsPackage;
+            inherit emacsConfig emacs-jd emacsEnv emacsInit emacsPackage
+              ghostelModule fwatcher eglotFwatcherEl monetShim;
+            default = emacs-jd;
           };
 
           checks = {
@@ -135,6 +206,12 @@
 
                 pkgs.go
                 pkgs.gopls
+
+                pkgs.rustc
+                pkgs.cargo
+                pkgs.rustfmt
+                pkgs.clippy
+                pkgs.rust-analyzer
               ];
             };
           };

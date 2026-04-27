@@ -82,7 +82,6 @@ This is a literate Emacs configuration that generates `init.el` from `init.org` 
 - **Completion**: `vertico` + `consult` + `marginalia` + `corfu` stack
 - **Git Integration**: `magit` with `diff-hl` for git gutters
 - **Project Management**: Built-in `project.el` with custom Nix store project finder
-- **AI Integration**: `gptel`, `mcp`, and `claude-code` packages
 
 ### Performance Optimizations
 - Deferred package loading via `use-package`

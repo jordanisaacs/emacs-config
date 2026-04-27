@@ -79,10 +79,10 @@
       repo = "cape";
       type = "github";
     };
-    claude-code = {
+    clipetty = {
       flake = false;
-      owner = "stevemolitor";
-      repo = "claude-code.el";
+      owner = "spudlyo";
+      repo = "clipetty";
       type = "github";
     };
     cognitive-complexity = {
@@ -113,6 +113,12 @@
       flake = false;
       owner = "mohkale";
       repo = "compile-multi";
+      type = "github";
+    };
+    cond-let = {
+      flake = false;
+      owner = "tarsius";
+      repo = "cond-let";
       type = "github";
     };
     consult = {
@@ -234,16 +240,16 @@
       repo = "f.el";
       type = "github";
     };
+    ghostel = {
+      flake = false;
+      owner = "dakra";
+      repo = "ghostel";
+      type = "github";
+    };
     git-timemachine = {
       flake = false;
       type = "git";
       url = "https://codeberg.org/pidu/git-timemachine.git";
-    };
-    gptel = {
-      flake = false;
-      owner = "karthink";
-      repo = "gptel";
-      type = "github";
     };
     gumshoe = {
       flake = false;
@@ -327,12 +333,6 @@
       flake = false;
       owner = "astoff";
       repo = "mathjax.el";
-      type = "github";
-    };
-    mcp = {
-      flake = false;
-      owner = "lizqwerscott";
-      repo = "mcp.el";
       type = "github";
     };
     modus-themes = {

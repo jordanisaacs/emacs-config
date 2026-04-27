@@ -216,24 +216,149 @@ Make sure to load our custom-file
 
 *** Performance
 
-Disable second pass over ~auto-mode-alist~.
+**** Large-buffer flag
+
+One-shot classification at =find-file= time so downstream features
+(jit-lock, treesit, cognitive-complexity, ...) don't re-run =count-lines=
+or =line-number-at-pos= on every post-command.
+
+#+begin_src emacs-lisp :tangle init.el
+(defvar my/large-file-line-threshold 5000
+  "Line count above which perf-sensitive features defer or skip work.")
+
+(defvar-local my/buffer-is-large nil
+  "Set at `find-file-hook' when the buffer exceeds
+`my/large-file-line-threshold'. Consumers should prefer this over
+re-counting lines on every command.")
+
+(defun my/check-buffer-is-large ()
+  (setq-local my/buffer-is-large
+              (save-restriction
+                (widen)
+                (> (line-number-at-pos (point-max) t)
+                   my/large-file-line-threshold))))
+
+(add-hook 'find-file-hook #'my/check-buffer-is-large -100)
+#+end_src
+
+**** Display
+
+Skip the second =auto-mode-alist= pass and the BPA bidi algorithm.
 
 #+begin_src emacs-lisp :tangle init.el
 (setq auto-mode-case-fold nil)
-#+end_src
-
-Skip bidirectional text functionality for faster display.
-
-#+begin_src emacs-lisp :tangle init.el
 (setq bidi-inhibit-bpa t)
 (setq-default bidi-display-reordering 'left-to-right
 	      bidi-paragraph-direction 'left-to-right)
 #+end_src
 
-Keep precise scrolling.
+**** Input responsiveness
+
+Skip fontification during continuous typing, raise process read chunk
+for LSP throughput.
 
 #+begin_src emacs-lisp :tangle init.el
-(setq fast-but-imprecise-scrolling nil)
+(setq redisplay-skip-fontification-on-input t)
+(setq read-process-output-max (* 4 1024 1024))
+#+end_src
+
+**** JIT lock
+
+Global defaults tuned for /small/ files: immediate fontification, no
+visible defer, default context/stealth intervals. Large buffers opt
+back into deferral via =my/jit-lock-large-file-tuning=.
+
+=jit-lock-defer-time= is read fresh inside =jit-lock-function= every call,
+so =setq-local= takes effect dynamically. Setting it globally to =0=
+keeps the global defer-timer alive (needed so per-buffer overrides
+actually fire) while still fontifying immediately when the local value
+is =0=.
+
+=jit-lock-context-time= can't be dialed per-buffer that way — it's baked
+into the global idle-timer at =jit-lock-register= time. Instead we
+advise =jit-lock-context-fontify= to filter =buffer-list= through a
+per-buffer throttle: the global timer keeps ticking, but buffers whose
+=my/jit-lock-context-throttle= hasn't elapsed are skipped on that tick.
+
+Antiblink refontification is skipped wholesale in large buffers via the
+existing =:around= advice on =jit-lock--antiblink-post-command=.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package jit-lock
+  :functions jit-lock-context-fontify jit-lock--antiblink-post-command
+  :preface
+  (defvar-local my/jit-lock-context-throttle nil
+    "Minimum seconds between context fontify passes in this buffer.
+nil means process on every `jit-lock-context-timer' tick (the default).")
+
+  (defvar-local my/jit-lock-context--last-run 0
+    "Float-time of this buffer's last processed context-fontify tick.")
+
+  (defun my/jit-lock-antiblink-advice (orig-fun &rest args)
+    "Skip antiblink processing for large buffers."
+    (unless my/buffer-is-large
+      (apply orig-fun args)))
+
+  (defun my/jit-lock-context-throttle-advice (orig-fun)
+    "Filter `buffer-list' through `my/jit-lock-context-throttle'.
+The global timer keeps ticking; throttled buffers just get dropped
+from the guest list on ticks that fire before their interval elapses."
+    (let* ((now (float-time))
+           (orig-bl (symbol-function 'buffer-list)))
+      (cl-letf (((symbol-function 'buffer-list)
+                 (lambda (&rest args)
+                   (cl-loop for buf in (apply orig-bl args)
+                            when (with-current-buffer buf
+                                   (when (or (null my/jit-lock-context-throttle)
+                                             (>= (- now my/jit-lock-context--last-run)
+                                                 my/jit-lock-context-throttle))
+                                     (setq-local my/jit-lock-context--last-run now)
+                                     t))
+                            collect buf))))
+        (funcall orig-fun))))
+
+  (defun my/jit-lock-large-file-tuning ()
+    "Opt large buffers back into deferral."
+    (when my/buffer-is-large
+      (setq-local jit-lock-defer-time 0.5
+                  my/jit-lock-context-throttle 1.0)))
+  :custom
+  ;; defer-time=0 keeps the global timer alive without adding a visible
+  ;; delay on small buffers; large buffers override via setq-local.
+  (jit-lock-defer-time 0)
+  (jit-lock-stealth-time 2.5)
+  :config
+  (advice-add 'jit-lock--antiblink-post-command :around
+              #'my/jit-lock-antiblink-advice)
+  (advice-add 'jit-lock-context-fontify :around
+              #'my/jit-lock-context-throttle-advice)
+  :hook
+  (find-file-hook . my/jit-lock-large-file-tuning))
+#+end_src
+
+**** Tree-sitter redisplay guard
+
+Treesit's =pre-redisplay-functions= entry reparses incrementally every
+redisplay, which dominates CPU on large files. Swap it for a guard
+that simply skips the call in large buffers. (An earlier attempt
+scheduled this on an idle timer instead; that wedged at 100% CPU.)
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package treesit
+  :functions treesit--pre-redisplay
+  :preface
+  (defun my/treesit-pre-redisplay-or-skip (&rest _)
+    "Run `treesit--pre-redisplay' unless the buffer is large."
+    (unless (and my/buffer-is-large (treesit-parser-list))
+      (treesit--pre-redisplay)))
+
+  (defun my/treesit-install-redisplay-guard ()
+    (when (treesit-parser-list)
+      (remove-hook 'pre-redisplay-functions #'treesit--pre-redisplay t)
+      (add-hook 'pre-redisplay-functions
+                #'my/treesit-pre-redisplay-or-skip nil t)))
+  :hook
+  (find-file-hook . my/treesit-install-redisplay-guard))
 #+end_src
 
 *** use-package
@@ -283,13 +408,13 @@ This adds the ~:blackout~ parameter to use-package. It changes the modeline.
 
 ** Emacs
 
+Several defaults below are cribbed from
+[[https://emacsredux.com/blog/2026/04/07/stealing-from-the-best-emacs-configs/][Bozhidar Batsov — /Stealing from the Best Emacs Configs/]] (2026-04-07).
+
 #+begin_src emacs-lisp :tangle init.el
 (use-package emacs
   :defines init-directory
   :preface
-  (defvar my/large-file-line-threshold 5000
-    "Line count threshold for considering a file large and applying optimizations.")
-
   (defun my/replace-keys (alist replacements)
     "Replace multiple keys in ALIST according to REPLACEMENTS.
 REPLACEMENTS should be a list of (old-key . new-key) pairs.
@@ -339,17 +464,73 @@ Returns the modified ALIST."
         ;; aggressively doesn't get set in any buffers anyway
         scroll-preserve-screen-position t
         auto-window-vscroll nil)
+  ;; Mouse wheel / trackpad scrolling. xterm-mouse-mode decodes wheel
+  ;; events from the host terminal (Ghostty); no-op on GUI frames.
+  ;; progressive-speed nil keeps trackpad scroll consistent instead of
+  ;; accelerating on every event.
+  (require 'xt-mouse nil t)
+  (when (fboundp 'xterm-mouse-mode)
+    (xterm-mouse-mode 1))
+  (setq mouse-wheel-scroll-amount '(3 ((shift) . hscroll)
+                                       ((control) . text-scale)
+                                       ((meta)))
+        mouse-wheel-progressive-speed nil
+        mouse-wheel-follow-mouse t)
+  (when (display-graphic-p)
+    (pixel-scroll-precision-mode 1))
   (setq read-extended-command-predicate #'command-completion-default-include-p)
+  ;; Emacs 31: disable eager background completion (causes orderless to
+  ;; churn while scrolling large files).
+  (setq completion-eager-display nil)
+  ;; Kill ring ergonomics
+  (setq save-interprogram-paste-before-kill t)
+  (setq kill-do-not-save-duplicates t)
+  ;; Mark ring: repeat C-SPC after `C-u C-SPC' to pop further
+  (setq set-mark-command-repeat-pop t)
   :bind
   ("M-z" . zap-up-to-char))
+
+;; Follow focus into *Help*
+(use-package help
+  :custom (help-window-select t))
+
+;; Stop ffap from pinging hostnames
+(use-package ffap
+  :custom (ffap-machine-p-known 'reject))
+
+;; Sane regex syntax in re-builder
+(use-package re-builder
+  :custom (reb-re-syntax 'string))
 
 ;; recent file list
 (recentf-mode 1)
 
-;; Persist history
+;; Persist history (including kill-ring and search rings)
 (use-package savehist
   :init
-  (savehist-mode))
+  (setq savehist-additional-variables
+        '(search-ring regexp-search-ring kill-ring))
+  (savehist-mode)
+  :config
+  ;; Strip text properties so persisted kill-ring doesn't bloat the file
+  (add-hook 'savehist-save-hook
+            (lambda ()
+              (setq kill-ring
+                    (mapcar #'substring-no-properties
+                            (cl-remove-if-not #'stringp kill-ring))))))
+
+;; Remember point across visits, and recenter after restoring
+(use-package saveplace
+  :init
+  (save-place-mode 1)
+  :config
+  (advice-add 'save-place-find-file-hook :after
+              (lambda (&rest _)
+                (when buffer-file-name (ignore-errors (recenter))))))
+
+;; Auto-chmod +x files with shebang on save
+(add-hook 'after-save-hook
+          #'executable-make-buffer-file-executable-if-script-p)
 
 ;; Transient mark mode
 ;; https://emacsdocs.org/docs/emacs/Mark
@@ -390,28 +571,6 @@ Returns the modified ALIST."
 #+end_src
 
 ** Theming
-
-*** JIT Lock
-
-Antiblink causes syntax parsing when typing which is really slow in large files.
-Use advice to disable for 10K+ line files.
-
-#+begin_src emacs-lisp :tangle init.el
-(use-package jit-lock
-  :preface
-  (defun my/jit-lock-antiblink-advice (orig-fun &rest args)
-    "Skip antiblink processing for large files."
-    (let ((line-count (line-number-at-pos (point-max) t)))
-      (when (<= line-count my/large-file-line-threshold)
-        (apply orig-fun args))))
-  :custom
-  (jit-lock-stealth-time 2.5)
-  (jit-lock-defer-time 1)
-  (jit-lock-context-time 1)
-  :config
-  (advice-add 'jit-lock--antiblink-post-command :around #'my/jit-lock-antiblink-advice))
-#+end_src
-
 
 *** Generic change hook
 
@@ -459,7 +618,7 @@ From [[https://www.gnu.org/software/emacs//manual/html_node/modus-themes/A-theme
 (use-package modus-themes
   :ensure t
   :commands modus-themes-load-theme
-  :functions modus-themes--retrieve-palette-value modus-themes--current-theme-palette
+  :functions modus-themes--retrieve-palette-value modus-themes--current-theme-palette modus-themes--with-colors-get-palette modus-themes-get-current-theme
   :preface
   (defun my/hl-todo-modus-undone ()
     (when (featurep 'hl-todo)
@@ -491,58 +650,6 @@ From [[https://www.gnu.org/software/emacs//manual/html_node/modus-themes/A-theme
 #+end_src
 
 *** Syntax
-
-**** Treesitter
-
-Treesitter runs pre-display which is expensive in large files. Run it on an idle
-timer instead for large files. Idle timer is disabled because causes 100% cpu...
-
-#+begin_src emacs-lisp :tangle init.el
-(use-package treesit
-  :functions treesit--pre-redisplay
-  :preface
-  (defvar-local my/treesit-idle-pre-display-time 1)
-  (defvar-local my/treesit-idle--timer nil)
-
-  (defun my/treesit-idle--pre-display-wrapper (buffer)
-    "Wrapper to run treesit--pre-redisplay and clear timer."
-    (when (buffer-live-p buffer)
-      (with-current-buffer buffer
-        (setq-local my/treesit-idle--timer nil)
-        (treesit--pre-redisplay))))
-
-  (defun my/treesit-pre-display-idle-schedule (&rest _)
-    "Schedule treesit--pre-display to run on idle timer for large files."
-    (if (and (treesit-parser-list)
-             (> (count-lines (point-min) (point-max)) my/large-file-line-threshold))
-        nil
-        ;; Large file: use idle timer
-        ;; (unless my/treesit-idle--timer
-        ;;  (let ((here (current-buffer)))
-        ;;    (setq-local my/treesit-idle--timer
-        ;;                (run-with-idle-timer my/treesit-idle-pre-display-time nil
-        ;;                                     #'my/treesit-idle--pre-display-wrapper here))))
-      ;; Small file: run immediately
-      (treesit--pre-redisplay)))
-
-  (defun my/treesit-cancel-timer ()
-    "Cancel the treesitter idle timer if it exists."
-    (when my/treesit-idle--timer
-      (cancel-timer my/treesit-idle--timer)
-      (setq my/treesit-idle--timer nil)))
-
-  (defun my/treesit-setup-hooks ()
-    "Setup treesitter hooks for current buffer."
-    (when (treesit-parser-list)
-      ;; Remove the default hook and add our wrapper
-      (remove-hook 'pre-redisplay-functions #'treesit--pre-redisplay t)
-      (add-hook 'pre-redisplay-functions #'my/treesit-pre-display-idle-schedule t)
-      ;; Cancel timer on buffer close
-      (add-hook 'kill-buffer-hook #'my/treesit-cancel-timer t)))
-  :hook
-  (find-file-hook . my/treesit-setup-hooks))
-#+end_src
-
 
 **** checkers
 
@@ -638,6 +745,7 @@ to make sure eglot loads before hook.
   (eglot-managed-mode-hook . my/eglot-setup-capf)
   :custom
   (lsp-completion-provider :none) ; use corfu intsead for lsp completion
+  (eglot-max-file-watches 80000)
   :config
   (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
   (setq eglot-autoshutdown t)
@@ -649,6 +757,12 @@ to make sure eglot loads before hook.
   (add-to-list 'project-vc-extra-root-markers "Cargo.toml")
   :custom-face
   (eglot-highlight-symbol-face ((t (:underline t :weight bold)))))
+
+(use-package eglot-fwatcher
+  :commands (eglot-fwatcher-mode)
+  :init
+  (with-eval-after-load 'eglot
+    (eglot-fwatcher-mode 1)))
 
 (use-package eglot-supplements
   :ensure t
@@ -695,18 +809,6 @@ Use builtin org mode.
 
 ** Navigation
 
-*** Bookmark+ (disabled)
-
-Enhanced bookmarks [[https://www.emacswiki.org/emacs/BookmarkPlus#h5o-2][EmacsWiki]]. I would like to enable this once I have time
-to set up a =Consult= function for searching bookmark+.
-
-#+begin_src emacs-lisp :tangle no
-(use-package bookmark+
-  :ensure t
-  :defer t)
-#+end_src
-
-
 *** Backtracking
 
 **** Gumshoe
@@ -722,9 +824,9 @@ This is a point tracker using space to retrace my steps.
    ("M-g M-B" . gumshoe-peruse-globally)
    ("M-g b" . gumshoe-buf-backtrack)
    ("M-g B" . gumshoe-win-backtrack)
-   (:map global-gumshoe-backtracking-mode-map
-         ("b" . global-gumshoe-backtracking-mode-back)
-         ("B" . global-gumshoe-backtracking-mode-forward))
+   (:map gumshoe-backtracking-mode-map
+         ("b" . gumshoe-backtracking-back)
+         ("B" . gumshoe-backtracking-forward))
    :init
    (global-gumshoe-mode 1))
 #+end_src
@@ -781,6 +883,172 @@ Adds xref stack support for consult.
 #+end_src
 
 ** Terminals
+
+*** TTY
+
+Emacs 31 supports child frames on TTY, so tooltips (and corfu's
+popupinfo) render natively under =emacs -nw=.
+
+#+begin_src emacs-lisp :tangle init.el
+(when (featurep 'tty-child-frames)
+  (tty-tip-mode 1))
+#+end_src
+
+**** Clipboard passthrough (OSC 52)
+
+Both directions of the system clipboard work via OSC 52 escape
+sequences: Emacs emits them, SSH forwards them transparently, and
+Ghostty reads/writes the local system clipboard.
+
+Prerequisite — in =~/.config/ghostty/config= on the local machine:
+
+#+begin_example
+clipboard-write = allow
+clipboard-read  = allow
+#+end_example
+
+=clipetty= handles the /write/ side — every kill/yank into the
+kill-ring is copied to the host clipboard.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package clipetty
+  :ensure t
+  :hook (after-init-hook . global-clipetty-mode))
+#+end_src
+
+For the /read/ side, force xterm's getSelection capability so =C-y=
+pulls the host clipboard via an OSC 52 query.
+
+#+begin_src emacs-lisp :tangle init.el
+(defvar xterm-extra-capabilities)
+
+(with-eval-after-load 'xterm
+  (setq xterm-extra-capabilities
+        '(getSelection setSelection modifyOtherKeys)))
+#+end_src
+
+**** Background sync (OSC 11)
+
+Under =emacs -nw= the terminal's own background briefly shows through
+during redisplay, causing dark flashes when the theme bg doesn't match
+the terminal. OSC 11 lets Emacs push its =default= face background to
+the host terminal so the two always agree. Reset on exit so Ghostty
+reverts to its configured background.
+
+#+begin_src emacs-lisp :tangle init.el
+(defun my/tty-sync-background ()
+  "Push the `default' face background to the controlling terminal via OSC 11."
+  (unless (display-graphic-p)
+    (send-string-to-terminal
+     (format "\e]11;%s\a" (face-background 'default nil 'default)))))
+
+(defun my/tty-reset-background ()
+  "Restore the terminal's configured background on Emacs exit."
+  (unless (display-graphic-p)
+    (send-string-to-terminal "\e]111\a")))
+
+(add-hook 'after-enable-theme-hook #'my/tty-sync-background)
+(add-hook 'kill-emacs-hook #'my/tty-reset-background)
+#+end_src
+
+**** Open URLs in host browser
+
+Ghostty has no escape sequence for "host, open this URL" (that would
+let any remote process pop the browser). Instead, reverse-forward a
+loopback TCP port from the host to this session and run a tiny
+listener on the host that pipes each line to =open= / =xdg-open=.
+Emacs connects via =make-network-process=.
+
+Eternal Terminal (what =arca et= speaks) tunnels TCP only —
+Unix-socket =RemoteForward= directives are silently ignored — so
+the channel is a port rather than a socket file.
+
+Prerequisite 1 — in =~/.ssh/config= on the host, on the block
+=arca et= reads:
+
+#+begin_example
+Host arca.ssh
+  RemoteForward 24545 localhost:24545
+#+end_example
+
+Prerequisite 2 — a host-side listener on the same port (run under
+launchd / systemd so it survives logout):
+
+#+begin_example
+socat -u TCP-LISTEN:24545,bind=127.0.0.1,fork,reuseaddr \
+      SYSTEM:'read url && (command -v xdg-open >/dev/null && xdg-open "$url" || open "$url")'
+#+end_example
+
+#+begin_src emacs-lisp :tangle init.el
+(defvar browse-url-browser-function)
+
+(defvar my/tty-url-opener-port 24545
+  "Forwarded loopback TCP port whose host listener opens URLs in the local browser.")
+
+(defun my/tty-browse-url (url &rest _args)
+  "Send URL to the host opener at 127.0.0.1:`my/tty-url-opener-port'.
+On failure, copy URL to the kill ring and message the error."
+  (condition-case err
+      (let ((proc (make-network-process
+                   :name "url-opener"
+                   :host "127.0.0.1"
+                   :service my/tty-url-opener-port
+                   :family 'ipv4
+                   :noquery t)))
+        (unwind-protect
+            (progn
+              (process-send-string proc (concat url "\n"))
+              (process-send-eof proc))
+          (delete-process proc)))
+    (error
+     (kill-new url)
+     (message "url-opener unreachable (%s); URL copied to kill ring: %s"
+              (error-message-string err) url))))
+
+(unless (display-graphic-p)
+  (setq browse-url-browser-function #'my/tty-browse-url))
+#+end_src
+
+**** Bare Escape in ghostel buffers
+
+In TTY Emacs =input-decode-map= has =\e= as a prefix for every xterm
+CSI / SS3 sequence (mouse, arrows, function keys, focus events), so a
+bare Escape press never resolves — Emacs waits forever for a follow-up
+byte, and bindings on =<escape>= (including ghostel's terminal
+forwarder) never fire. Outside ghostel that wait is desirable (it lets
+ESC act as a meta prefix); inside ghostel we want Escape to reach the
+embedded terminal instantly.
+
+Scope the fast-path to =ghostel-mode= buffers and use =sit-for 0=
+(no human-perceptible delay; nil only when input is already queued,
+which in practice means the outer terminal is mid-CSI-sequence). In
+every other case, restore the original =\e= prefix keymap and
+re-dispatch so xterm sequences still decode correctly.
+
+#+begin_src emacs-lisp :tangle init.el
+(defvar my/tty-esc-orig-decode nil
+  "Original `input-decode-map' entry for \\e, saved before overriding.")
+
+(defun my/tty-esc-decoder (_prompt)
+  "Input-decode translator for bare ESC in ghostel buffers.
+Emits `[escape]' immediately when current buffer is in `ghostel-mode'
+and no input is queued behind the ESC. Otherwise temporarily restores
+the original `\\e' prefix keymap, re-queues the ESC, and lets
+`read-key-sequence-vector' decode the full sequence."
+  (if (and (derived-mode-p 'ghostel-mode) (sit-for 0 t))
+      [escape]
+    (let ((saved (lookup-key input-decode-map [?\e])))
+      (define-key input-decode-map [?\e] my/tty-esc-orig-decode)
+      (unwind-protect
+          (progn
+            (push ?\e unread-command-events)
+            (read-key-sequence-vector nil))
+        (define-key input-decode-map [?\e] saved)))))
+
+(unless (display-graphic-p)
+  (setq my/tty-esc-orig-decode (lookup-key input-decode-map [?\e]))
+  (define-key input-decode-map [?\e] #'my/tty-esc-decoder))
+#+end_src
 
 *** Eshell
 
@@ -852,11 +1120,273 @@ any directory proferred by `consult-dir'."
   :ensure t)
 #+end_src
 
+*** Ghostel
+
+Terminal emulator powered by libghostty-vt. The native module is built
+and installed by Nix (see =nix/packageOverrides.nix=); don't let
+ghostel try to download it at runtime.
+
+Modus defines =ansi-color-*= (incl. bright variants) but only a subset of
+=term-color-*=, so re-point the ghostel palette at =ansi-color-*= to
+pick up the theme's full ANSI palette. =ghostel-ignore-cursor-change= is
+left at its default =nil= so shell DECSCUSR codes (ghostty shell
+integration) can drive cursor shape and visibility inside the ghostel
+buffer.
+
+Debug helpers (event logging, libghostty VT log, cursor/state
+probes, typing-latency measurement) live in =ghostel-debug.el= in the
+submodule — =M-x ghostel-debug-start= / =ghostel-debug-stop=,
+=ghostel-debug-enable-vt-log= / =ghostel-debug-disable-vt-log=,
+=ghostel-debug-cursor-dump=, =ghostel-debug-log-state=,
+=ghostel-debug-typing-latency=, =ghostel-debug-info=. Nothing from
+that library runs until invoked explicitly. Set
+=ghostel-debug-log-directory= to mirror VT log entries to disk.
+
+Ghostel inherits =COLORFGBG= from the outer ghostty (typically dark), so
+TUI apps like Claude Code auto-detect a dark theme even when the Emacs
+theme is light. Rewrite =COLORFGBG= from Emacs's =background-mode= when
+ghostel spawns a process so auto-detection matches the Emacs theme.
+
+Warn on =kill-emacs= when any ghostel shell has a foreground process
+other than the shell itself — Claude Code, a REPL, =cargo build=, etc.
+The check compares the PTY's foreground process group (=tpgid= in
+=/proc/PID/stat=) against the shell's own =pgrp=: when they differ, some
+child has taken the terminal. More reliable than OSC 133 prompt markers,
+which don't fire through raw-TTY apps like Claude and require shell
+integration to be installed.
+
+#+begin_src emacs-lisp :tangle init.el
+(defvar ghostel-ignore-cursor-change)
+
+(defun my/ghostel-colorfgbg-advice (env)
+  "Rewrite COLORFGBG for Ghostel shells to match Emacs theme polarity."
+  (append env
+          (list (if (eq (frame-parameter nil 'background-mode) 'light)
+                    "COLORFGBG=0;15"
+                  "COLORFGBG=15;0"))))
+
+(defun my/ghostel--shell-busy-p (pid)
+  "Non-nil if PID (this Emacs' child) has a foreground child of its own.
+Compares /proc/PID/stat fields pgrp and tpgid.  Also checks ppid to
+ensure PID is still a child of this Emacs, so PID reuse can't mislead
+us.  The comm field is parenthesized and may contain spaces, so parse
+past the final `)' before splitting.  Returns nil on any read/parse
+failure so a missing /proc entry doesn't block exit."
+  (ignore-errors
+    (with-temp-buffer
+      (insert-file-contents (format "/proc/%d/stat" pid))
+      (goto-char (point-max))
+      (search-backward ")")
+      (let* ((rest (buffer-substring-no-properties (1+ (point)) (point-max)))
+             (fields (split-string rest))
+             ;; After `)': state ppid pgrp session tty_nr tpgid ...
+             ;; Indices 0      1    2    3       4      5
+             (ppid  (string-to-number (nth 1 fields)))
+             (pgrp  (string-to-number (nth 2 fields)))
+             (tpgid (string-to-number (nth 5 fields))))
+        (and (= ppid (emacs-pid))
+             (> tpgid 0)
+             (/= tpgid pgrp))))))
+
+(defun my/ghostel-busy-buffers ()
+  "Return ghostel buffers whose shell has a foreground child process."
+  (seq-filter
+   (lambda (buf)
+     (with-current-buffer buf
+       (when (derived-mode-p 'ghostel-mode)
+         (let ((proc (get-buffer-process buf)))
+           (and proc
+                (process-live-p proc)
+                (my/ghostel--shell-busy-p (process-id proc)))))))
+   (buffer-list)))
+
+(defun my/ghostel-confirm-kill-emacs ()
+  "Prompt before exiting Emacs if any ghostel shell has a foreground child."
+  (let ((busy (my/ghostel-busy-buffers)))
+    (or (null busy)
+        (yes-or-no-p
+         (format "Ghostel command still running in %s; exit anyway? "
+                 (mapconcat #'buffer-name busy ", "))))))
+
+(add-hook 'kill-emacs-query-functions #'my/ghostel-confirm-kill-emacs)
+#+end_src
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package ghostel
+  :ensure t
+  :commands (ghostel ghostel-project ghostel-other)
+  :functions (ghostel--terminal-env ghostel--send-event)
+  :custom
+  (ghostel-module-auto-install nil)
+  (ghostel-ignore-cursor-change nil)
+  :bind
+  ;; Ghostty-style live scrollback: viewport drifts up while output keeps
+  ;; streaming into the buffer. ghostel--scroll-positions anchors the
+  ;; window, and typing any self-inserting key snaps back to the bottom.
+  ;; ghostel.el binds the function-key forms (`M-<return>', `M-<tab>',
+  ;; `M-<backspace>') but not their character-event counterparts
+  ;; (`M-RET'=M-\r, `M-TAB'=M-\t, `M-DEL'=M-\x7f). GUI Emacs normally
+  ;; delivers the function-key form, but key-translation on this setup
+  ;; (pgtk, kitty-keyboard, ESC-prefix synthesis, etc.) converts Alt-Enter
+  ;; into `M-RET' and the lookup misses. Bind the char forms explicitly.
+  (:map ghostel-mode-map
+        ("S-<prior>"   . scroll-down-command)
+        ("S-<next>"    . scroll-up-command)
+        ("C-<home>"    . beginning-of-buffer)
+        ("C-<end>"     . end-of-buffer)
+        ("M-RET"       . ghostel--send-event)
+        ("M-TAB"       . ghostel--send-event)
+        ("M-DEL"       . ghostel--send-event))
+  :config
+  (dolist (pair '((ghostel-color-black          . ansi-color-black)
+                  (ghostel-color-red            . ansi-color-red)
+                  (ghostel-color-green          . ansi-color-green)
+                  (ghostel-color-yellow         . ansi-color-yellow)
+                  (ghostel-color-blue           . ansi-color-blue)
+                  (ghostel-color-magenta        . ansi-color-magenta)
+                  (ghostel-color-cyan           . ansi-color-cyan)
+                  (ghostel-color-white          . ansi-color-white)
+                  (ghostel-color-bright-black   . ansi-color-bright-black)
+                  (ghostel-color-bright-red     . ansi-color-bright-red)
+                  (ghostel-color-bright-green   . ansi-color-bright-green)
+                  (ghostel-color-bright-yellow  . ansi-color-bright-yellow)
+                  (ghostel-color-bright-blue    . ansi-color-bright-blue)
+                  (ghostel-color-bright-magenta . ansi-color-bright-magenta)
+                  (ghostel-color-bright-cyan    . ansi-color-bright-cyan)
+                  (ghostel-color-bright-white   . ansi-color-bright-white)))
+    (face-spec-set (car pair) `((t :inherit ,(cdr pair)))))
+
+  (advice-add 'ghostel--terminal-env :filter-return
+              #'my/ghostel-colorfgbg-advice
+              '((name . my/ghostel-colorfgbg)))
+
+  (add-hook 'ghostel-mode-hook
+            (lambda ()
+              "Ghostel buffer-local tweaks."
+              (setq-local ghostel-ignore-cursor-change nil)
+              ;; Ink-based TUIs (Claude Code) pad the active input row
+              ;; with U+00A0; the `nobreak-space' face underlines it,
+              ;; which shows up as a spurious "_" next to the prompt.
+              (setq-local nobreak-char-display nil))))
+#+end_src
+
+** AI
+
+*** Server
+
+=emacsclient= is used by the monet shim to ask Emacs for a
+project-scoped websocket port when =claude= runs inside a ghostel shell.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package server
+  :functions server-running-p
+  :config
+  (unless (server-running-p) (server-start)))
+#+end_src
+
+*** Monet (Claude Code IDE bridge)
+
+Monet exposes Emacs to the Claude CLI as an MCP server over websockets.
+Each running server writes =~/.claude/ide/<port>.lock=; the CLI picks
+the matching one based on =workspaceFolders=. Monet supports multiple
+concurrent servers in one Emacs session — we run one per project and a
+single =generic= server for shells outside any project. Servers are
+started /lazily/, the first time =claude= actually runs.
+
+The mechanism is a PATH shim packaged in =nix/monet-shim/claude= and
+built into a Nix derivation (=monetShim= in =flake.nix=). Ghostel spawn
+advice prepends =my/monet-shim-dir= to =PATH=; the shim asks Emacs (via
+=emacsclient=) for the right port for =$PWD=, starting the monet server
+on first request, then =exec='s the real =claude=. A PATH shim (rather
+than a shell function) also covers subprocesses that =execvp= claude
+directly. The shim is only in =PATH= inside ghostel shells; the user's
+global shell config stays untouched.
+
+=monet-start-server-function= upstream is bypassed — it unconditionally
+creates a fresh server (no reuse) and has a latent bug where it accepts
+=DIRECTORY= but uses =default-directory= internally. We call
+=monet-start-server-in-directory= directly with an explicit key+dir,
+and check =monet--sessions= for a live session before creating a new
+one.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package monet
+  :ensure t
+  :commands (monet-mode monet-start-server-in-directory monet-list-sessions)
+  :defines monet--sessions my/monet-shim-dir my/monet-shim-zdotdir
+  :functions monet--session-port project-current project-root project-name
+  :init
+  (defun my/monet--session-key-and-dir (cwd)
+    "Return (KEY . DIR) for a monet session rooted at CWD.
+Inside a project, key is the project name and dir its root. Outside
+any project, falls back to the shared =generic= session."
+    (require 'project)
+    (let ((default-directory (file-name-as-directory cwd)))
+      (if-let* ((proj (project-current nil)))
+          (cons (project-name proj) (project-root proj))
+        (cons "generic" default-directory))))
+
+  (defun my/monet-env-for-cwd (cwd)
+    "Return a shell =export= snippet with monet env vars for CWD.
+Reuses an existing session for the computed key if one is alive,
+otherwise starts a new monet server. Called by the PATH shim via
+=emacsclient --eval=."
+    (require 'monet)
+    (let* ((key-and-dir (my/monet--session-key-and-dir cwd))
+           (key (car key-and-dir))
+           (dir (cdr key-and-dir))
+           (session (or (gethash key monet--sessions)
+                        (monet-start-server-in-directory key dir)))
+           (port (monet--session-port session)))
+      (format "export ENABLE_IDE_INTEGRATION=t;export CLAUDE_CODE_SSE_PORT=%d;"
+              port)))
+
+  (defun my/ghostel-monet-path-advice (env)
+    "Inject the monet shim into ghostel-spawned shells.
+Sets =ZDOTDIR= to our wrapper dir (chains ghostel's own .zshenv,
+sources user's .zshrc, then prepends shim to PATH) so =which claude=
+resolves to the shim even when user's .zshrc front-loads bin dirs.
+Also prepends the shim to =PATH= directly as a fallback for non-zsh
+shells that don't honor our ZDOTDIR."
+    (let ((ghostel-zsh-dir
+           (expand-file-name "etc/shell-integration/zsh"
+                             (file-name-directory (locate-library "ghostel")))))
+      (append env
+              (list (format "PATH=%s:%s"
+                            my/monet-shim-dir (or (getenv "PATH") ""))
+                    (format "GHOSTEL_MONET_SHIM=%s" my/monet-shim-dir)
+                    (format "ZDOTDIR=%s" my/monet-shim-zdotdir)
+                    (format "GHOSTEL_MONET_SHIM_ZDOTDIR=%s"
+                            my/monet-shim-zdotdir)
+                    (format "GHOSTEL_MONET_ZDOTDIR_CHAIN=%s"
+                            ghostel-zsh-dir)))))
+
+  (with-eval-after-load 'ghostel
+    (advice-add 'ghostel--terminal-env :filter-return
+                #'my/ghostel-monet-path-advice
+                '((name . my/ghostel-monet-path))))
+  :config
+  (monet-mode 1))
+#+end_src
+
 ** Windowing
 
 #+begin_src emacs-lisp :tangle init.el
-;; undo+redo window changes
+;; Split proportionally across all windows, not just the source
+(setq window-combination-resize t)
+
+;; undo+redo window changes, with reversible `C-x 1'
 (use-package winner
+  :commands winner-undo
+  :preface
+  (defun my/toggle-delete-other-windows ()
+    "Delete other windows, or if already alone, undo via `winner-undo'."
+    (interactive)
+    (if (and winner-mode
+             (equal (selected-window) (next-window)))
+        (winner-undo)
+      (delete-other-windows)))
+  :bind ("C-x 1" . my/toggle-delete-other-windows)
   :init
   (winner-mode t))
 
@@ -943,10 +1473,16 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
 (use-package diff-hl
   :ensure t
   :commands diff-hl-stage-current-hunk diff-hl-revert-hunk diff-hl-next-hunk diff-hl-previous-hunk
+  :functions modus-themes--with-colors-get-palette modus-themes-get-current-theme diff-hl-margin-mode
   :custom
   (vc-git-diff-switches '("--histogram"))
   ;; This is required because not setting results in flydiff delay being 0...
   (diff-hl-flydiff-delay 1)
+  ;; TTY fallback: a single thin bar glyph for every hunk type, colored
+  ;; via the inherited diff-hl-{insert,change,delete} faces.
+  (diff-hl-margin-symbols-alist
+   '((insert . "▌") (change . "▌") (delete . "▘")
+     (unknown . "▌") (ignored . "▌")))
   :preface
   (defun my/diff-hl-define-thin-bitmaps (&rest _)
     (define-fringe-bitmap 'diff-hl-bmp-middle [240] nil nil '(center repeated))
@@ -962,6 +1498,13 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
       (face-spec-set 'diff-hl-change `((t :foreground ,bg-changed-fringe :background unspecified)))
       (face-spec-set 'diff-hl-delete `((t :foreground ,bg-removed-fringe :background unspecified)))
       (face-spec-set 'diff-hl-insert `((t :foreground ,bg-added-fringe :background unspecified)))))
+  (defun my/diff-hl-sync-margin (&optional frame)
+    "Mirror the GUI fringe gutter on TTY frames via `diff-hl-margin-mode'."
+    (if (display-graphic-p frame)
+        (when (bound-and-true-p diff-hl-margin-mode)
+          (diff-hl-margin-mode -1))
+      (unless (bound-and-true-p diff-hl-margin-mode)
+        (diff-hl-margin-mode 1))))
   :hook
   (find-file-hook . diff-hl-mode)
   (vc-dir-mode-hook . diff-hl-dir-mode)
@@ -971,11 +1514,14 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
   (diff-hl-mode-hook . diff-hl-flydiff-mode)
   (diff-hl-mode-hook . my/diff-hl-fix-modus)
   (modus-themes-after-load-theme-hook . my/diff-hl-fix-modus)
+  (after-make-frame-functions . my/diff-hl-sync-margin)
   :init
   (advice-add 'diff-hl-define-bitmaps :override #'my/diff-hl-define-thin-bitmaps)
   (advice-add 'diff-hl-fringe-bmp-from-pos :override #'my/diff-hl-type-at-pos-fn)
   (advice-add 'diff-hl-fringe-bmp-from-type :override #'my/diff-hl-type-at-pos-fn)
   :config
+  (unless (daemonp)
+    (my/diff-hl-sync-margin))
   (repeatify 'diff-hl-command-map))
 
 (if (fboundp 'fringe-mode) (fringe-mode '8))
@@ -1059,11 +1605,7 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
 
 (use-package embark-consult
   :ensure t
-  :after (embark consult)
-  :hook
-  ;; if you want to have consult previews as you move around
-  ;; an auto-updating embark collect buffer
-  (embark-collect-mode-hook . consult-preview-at-point-mode))
+  :after (embark consult))
 
 
 ;; Completion style
@@ -1300,6 +1842,9 @@ Consult/vertico/marginalia
   ;; Optionally configure the narrowing key.
   ;; Both < and C-+ work reasonably well.
   (setq consult-narrow-key "<") ;; "C-+"
+  ;; Ubuntu's /usr/bin/fdfind is fd 8.x which doesn't support --and;
+  ;; force the bundled fd 10+ instead of consult's fdfind auto-detect.
+  (setq consult-fd-args '("fd" "--full-path --color=never"))
   ;; By default `consult-project-function' uses `project-root' from project.el.
   ;; Optionally configure a different project root function.
             ;;;; 1. project.el (the default)
@@ -1558,6 +2103,12 @@ is useful and good for performance.
 
 #+begin_src emacs-lisp :tangle init.el
 (use-package project
+  :functions (vc-git-command
+              vc-git--program-version
+              vc-default-project-list-files
+              project--value-in-dir
+              project--git-submodules
+              project--vc-merge-submodules-p)
   :preface
   ;; A subdirectory of /nix/store
   (defun my/nix-project-finder (dir)
@@ -1574,11 +2125,105 @@ is useful and good for performance.
   (defun my/run-project-git-hook ()
     (when (my/project-is-git)
       (run-hooks 'my/project-git-hook)))
+  (defun my/project-find-file-read ()
+    "Call `find-file' rooted at the current project."
+    (interactive)
+    (let ((default-directory (if-let* ((proj (project-current)))
+                                 (project-root proj)
+                               default-directory)))
+      (call-interactively #'find-file)))
+  (defun my/vc-git-project-list-files (dir extra-ignores)
+    "Drop-in replacement for `vc-git-project-list-files'.
+Walks the `git ls-files -z' output buffer NUL-by-NUL instead of
+materializing the full output as one string and calling `split-string'
+on it.  On a huge monorepo this removes the dominant cost from
+`project-find-file' (split-string + the GC churn it produces)."
+    (defvar vc-git-use-literal-pathspecs)
+    (if (not (or (not extra-ignores)
+                 (version<= "2.13" (vc-git--program-version))))
+        (vc-default-project-list-files 'Git dir extra-ignores)
+      (let* ((default-directory (expand-file-name (file-name-as-directory dir)))
+             (vc-git-use-literal-pathspecs nil)
+             (include-untracked (project--value-in-dir
+                                 'project-vc-include-untracked dir))
+             (submodules (project--git-submodules))
+             (gitver (vc-git--program-version))
+             (dedup (and (version<= "2.31" gitver) '("--deduplicate")))
+             (relative project-files-relative-names)
+             (args (append '("-z" "-c" "--exclude-standard")
+                           (and (<= 31 emacs-major-version)
+                                (version<= "2.35" gitver)
+                                '("--sparse"))
+                           (and include-untracked '("-o"))
+                           dedup))
+             files)
+        (when extra-ignores
+          (setq args
+                (append args
+                        (cons "--"
+                              (mapcar
+                               (lambda (i)
+                                 (format
+                                  ":(exclude,glob,top)%s"
+                                  (cond
+                                   ((string-match-p "\\*\\*" i) i)
+                                   ((string-prefix-p "./" i) (substring i 2))
+                                   (t (setq i (concat "**/" i))
+                                      (if (string-suffix-p "/" i)
+                                          (concat i "**")
+                                        i)))))
+                               extra-ignores)))))
+        (with-temp-buffer
+          (apply #'vc-git-command (current-buffer) 0 nil "ls-files" args)
+          (goto-char (point-min))
+          (let ((start (point-min))
+                (end (point-max))
+                pos)
+            (while (< start end)
+              (setq pos (or (search-forward "\0" end 'move) (1+ end)))
+              (let ((stop (1- pos)))
+                (when (> stop start)
+                  (let ((file (buffer-substring-no-properties start stop)))
+                    (unless (or (directory-name-p file)
+                                (member file submodules))
+                      (push (if relative file
+                              (concat default-directory file))
+                            files))))
+                (setq start pos)))))
+        (setq files (nreverse files))
+        (when (project--vc-merge-submodules-p default-directory)
+          (let ((sub-files
+                 (mapcar
+                  (lambda (module)
+                    (when (file-directory-p module)
+                      (let ((sub-files
+                             (my/vc-git-project-list-files
+                              (concat default-directory module)
+                              extra-ignores)))
+                        (if relative
+                            (mapcar (lambda (file)
+                                      (concat (file-name-as-directory module) file))
+                                    sub-files)
+                          sub-files))))
+                  submodules)))
+            (setq files (apply #'nconc files sub-files))))
+        (if dedup files (delete-consecutive-dups files)))))
   :init
   (advice-add 'project-switch-project :before (lambda (&rest _) (require 'magit-extras)))
   :config
+  (advice-add 'vc-git-project-list-files :override #'my/vc-git-project-list-files)
   (add-hook 'project-find-functions 'my/nix-project-finder)
-  (add-hook 'find-file-hook 'my/run-project-git-hook))
+  (add-hook 'find-file-hook 'my/run-project-git-hook)
+  ;; Rebind `C-x p p' dispatcher keys: `f' → `find-file' (at project root),
+  ;; `g' → `ghostel-project', `r' → `consult-ripgrep', `d' → `consult-fd'.
+  (setq project-switch-commands
+        (append (seq-reduce (lambda (acc cmd) (assq-delete-all cmd acc))
+                            '(project-find-file project-find-regexp project-find-dir)
+                            project-switch-commands)
+                '((my/project-find-file-read "Find file" ?f)
+                  (ghostel-project "Ghostel" ?g)
+                  (consult-ripgrep "Ripgrep" ?r)
+                  (consult-fd "Fd" ?d)))))
 #+end_src
 
 *** Direnv
@@ -1903,59 +2548,4 @@ Using the emacs-rustic fork.
   :ensure t
   :hook
   (first-file-hook . global-activity-watch-mode))
-#+end_src
-
-** AI
-
-For now install packages. Need to experiment and configure.
-
-*** gptel
-
-#+begin_src emacs-lisp :tangle init.el
-(use-package gptel
-  :ensure t
-  :functions gptel-make-gh-copilot
-  :config
-  (setq gptel-model 'claude-3.7-sonnet
-	gptel-backend (gptel-make-gh-copilot "Copilot")))
-#+end_src
-
-*** mcp
-
-#+begin_src emacs-lisp :tangle init.el
-(use-package mcp
-  :ensure t)
-#+end_src
-
-*** Claude Code
-
-Claude code in-editor.
-
-#+begin_src emacs-lisp :tangle init.el
-(use-package claude-code
-  :ensure t
-  :bind-keymap ("C-c c" . claude-code-command-map)
-  :bind
-  (:repeat-map my-claude-code-map ("M" . claude-code-cycle-mode))
-  :commands claude-code-mode
-  :functions claude-code-process-environment
-  :config
-  (monet-mode 1)
-  (add-hook 'claude-code-process-environment-functions #'monet-start-server-function)
-
-  (claude-code-mode)
-  :init
-  (setq claude-code-terminal-backend 'vterm))
-#+end_src
-
-Claude code IDE server.
-
-#+begin_src emacs-lisp :tangle init.el
-(use-package monet
-  :functions monet-start-server-function monet-ediff-tool monet-ediff-cleanup-tool
-  :commands monet-mode
-  :ensure t
-  :init
-  (setq monet-diff-tool #'monet-ediff-tool)
-  (setq monet-diff-cleanup-tool #'monet-ediff-cleanup-tool))
 #+end_src
