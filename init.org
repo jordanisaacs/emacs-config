@@ -1126,12 +1126,9 @@ Terminal emulator powered by libghostty-vt. The native module is built
 and installed by Nix (see =nix/packageOverrides.nix=); don't let
 ghostel try to download it at runtime.
 
-Modus defines =ansi-color-*= (incl. bright variants) but only a subset of
-=term-color-*=, so re-point the ghostel palette at =ansi-color-*= to
-pick up the theme's full ANSI palette. =ghostel-ignore-cursor-change= is
-left at its default =nil= so shell DECSCUSR codes (ghostty shell
-integration) can drive cursor shape and visibility inside the ghostel
-buffer.
+=ghostel-ignore-cursor-change= is left at its default =nil= so shell
+DECSCUSR codes (ghostty shell integration) can drive cursor shape and
+visibility inside the ghostel buffer.
 
 Debug helpers (event logging, libghostty VT log, cursor/state
 probes, typing-latency measurement) live in =ghostel-debug.el= in the
@@ -1223,42 +1220,31 @@ failure so a missing /proc entry doesn't block exit."
   ;; Ghostty-style live scrollback: viewport drifts up while output keeps
   ;; streaming into the buffer. ghostel--scroll-positions anchors the
   ;; window, and typing any self-inserting key snaps back to the bottom.
-  ;; ghostel.el binds the function-key forms (`M-<return>', `M-<tab>',
-  ;; `M-<backspace>') but not their character-event counterparts
-  ;; (`M-RET'=M-\r, `M-TAB'=M-\t, `M-DEL'=M-\x7f). GUI Emacs normally
-  ;; delivers the function-key form, but key-translation on this setup
-  ;; (pgtk, kitty-keyboard, ESC-prefix synthesis, etc.) converts Alt-Enter
-  ;; into `M-RET' and the lookup misses. Bind the char forms explicitly.
+  ;; ghostel.el binds the function-key forms (`M-<return>', `M-<tab>')
+  ;; and the char form `M-DEL', but not `M-RET' / `M-TAB'. GUI Emacs
+  ;; normally delivers the function-key form, but key-translation on
+  ;; this setup (pgtk, kitty-keyboard, ESC-prefix synthesis, etc.)
+  ;; converts Alt-Enter into `M-RET' and the lookup misses. Bind the
+  ;; char forms explicitly.
   (:map ghostel-mode-map
         ("S-<prior>"   . scroll-down-command)
         ("S-<next>"    . scroll-up-command)
         ("C-<home>"    . beginning-of-buffer)
         ("C-<end>"     . end-of-buffer)
         ("M-RET"       . ghostel--send-event)
-        ("M-TAB"       . ghostel--send-event)
-        ("M-DEL"       . ghostel--send-event))
+        ("M-TAB"       . ghostel--send-event))
   :config
-  (dolist (pair '((ghostel-color-black          . ansi-color-black)
-                  (ghostel-color-red            . ansi-color-red)
-                  (ghostel-color-green          . ansi-color-green)
-                  (ghostel-color-yellow         . ansi-color-yellow)
-                  (ghostel-color-blue           . ansi-color-blue)
-                  (ghostel-color-magenta        . ansi-color-magenta)
-                  (ghostel-color-cyan           . ansi-color-cyan)
-                  (ghostel-color-white          . ansi-color-white)
-                  (ghostel-color-bright-black   . ansi-color-bright-black)
-                  (ghostel-color-bright-red     . ansi-color-bright-red)
-                  (ghostel-color-bright-green   . ansi-color-bright-green)
-                  (ghostel-color-bright-yellow  . ansi-color-bright-yellow)
-                  (ghostel-color-bright-blue    . ansi-color-bright-blue)
-                  (ghostel-color-bright-magenta . ansi-color-bright-magenta)
-                  (ghostel-color-bright-cyan    . ansi-color-bright-cyan)
-                  (ghostel-color-bright-white   . ansi-color-bright-white)))
-    (face-spec-set (car pair) `((t :inherit ,(cdr pair)))))
-
   (advice-add 'ghostel--terminal-env :filter-return
               #'my/ghostel-colorfgbg-advice
               '((name . my/ghostel-colorfgbg)))
+
+  ;; Plain-link detection (3c61db6) attaches a `keymap' text property
+  ;; whose RET → `ghostel-open-link-at-point' to any string that resolves
+  ;; to a real path. Text-property keymaps win over `ghostel-mode-map',
+  ;; so once you type something like `cd submodules/ghostel/' at the
+  ;; prompt, RET stops sending Enter and starts opening dired. Restore
+  ;; terminal RET; mouse-1 still opens links.
+  (define-key ghostel-link-map (kbd "RET") #'ghostel--send-event)
 
   (add-hook 'ghostel-mode-hook
             (lambda ()
@@ -1349,7 +1335,7 @@ resolves to the shim even when user's .zshrc front-loads bin dirs.
 Also prepends the shim to =PATH= directly as a fallback for non-zsh
 shells that don't honor our ZDOTDIR."
     (let ((ghostel-zsh-dir
-           (expand-file-name "etc/shell-integration/zsh"
+           (expand-file-name "etc/shell/bootstrap/zsh"
                              (file-name-directory (locate-library "ghostel")))))
       (append env
               (list (format "PATH=%s:%s"

@@ -85,7 +85,7 @@
             };
           in zigEnv.package {
             pname = "ghostel-module";
-            version = "0.17.0";
+            version = "0.18.1";
             src = inputs.ghostel;
             # build.zig.zon2json-lock is regenerated via
             #   nix run github:Cloudef/zig2nix#zon2json-lock -- build.zig.zon

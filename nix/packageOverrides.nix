@@ -39,10 +39,6 @@ final: prev: {
     in {
       src = ghostelSrc;
       preBuild = (old.preBuild or "") + ''
-        # Drop the evil extension — evil isn't part of this configuration, so
-        # byte-compiling it would fail on missing deps.
-        rm -f evil-ghostel.el ghostel-evil.el
-
         install -m444 ${ghostelModule}/ghostel-module${moduleSuffix} \
           ghostel-module${moduleSuffix}
       '';
