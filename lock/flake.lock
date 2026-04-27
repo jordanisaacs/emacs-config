@@ -1008,6 +1008,22 @@
         "type": "github"
       }
     },
+    "pm": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1777272157,
+        "narHash": "sha256-qWdztfSop9s/I9AjZkbxdHX69DjmydGmWkaaAfuROrM=",
+        "ref": "refs/heads/master",
+        "rev": "6c1be0d3a2c487f59984f424f7741274f55bc062",
+        "revCount": 66,
+        "type": "git",
+        "url": "file:///home/jordan.isaacs/.repos/project-manager"
+      },
+      "original": {
+        "type": "git",
+        "url": "file:///home/jordan.isaacs/.repos/project-manager"
+      }
+    },
     "pretty-hydra": {
       "flake": false,
       "locked": {
@@ -1137,6 +1153,7 @@
         "nerd-icons-dired": "nerd-icons-dired",
         "nix-ts-mode": "nix-ts-mode",
         "orderless": "orderless",
+        "pm": "pm",
         "pretty-hydra": "pretty-hydra",
         "python-pytest": "python-pytest",
         "repeat-help": "repeat-help",

@@ -1,0 +1,3 @@
+(pm :fetcher git
+    :url "file:///home/jordan.isaacs/.repos/project-manager"
+    :files ("integrations/emacs/*.el" (:exclude "integrations/emacs/pm-tests.el")))

@@ -377,6 +377,11 @@
       repo = "orderless";
       type = "github";
     };
+    pm = {
+      flake = false;
+      type = "git";
+      url = "file:///home/jordan.isaacs/.repos/project-manager";
+    };
     pretty-hydra = {
       flake = false;
       owner = "jerrypnz";

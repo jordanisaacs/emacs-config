@@ -2238,9 +2238,14 @@ sibling navigation, and =project-name= advice that renders worktree
 buffers as =<container>/<alias>=. Source lives in the pm repo at
 =integrations/emacs/=.
 
+Source lives at [[https://github.com/jordan-isaacs_data/project-manager][jordan-isaacs_data/project-manager]];
+=recipes/pm= maps the package to its files under
+=integrations/emacs/= so twist.nix builds it like any other MELPA-style
+dependency.
+
 #+begin_src emacs-lisp :tangle init.el
 (use-package pm
-  :load-path "~/.repos/project-manager/integrations/emacs/"
+  :ensure t
   :commands (pm-dispatch pm-project-dispatch pm-refresh
              pm--project-finder pm-jump-parent pm-jump-sibling)
   :init
