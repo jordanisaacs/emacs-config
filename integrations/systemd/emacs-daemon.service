@@ -1,0 +1,14 @@
+[Unit]
+Description=Emacs daemon (always-on, tmux/zellij-style)
+Documentation=info:emacs man:emacs(1) https://www.gnu.org/software/emacs/
+
+[Service]
+Type=notify
+ExecStart=%h/.projects/emacs-daemon/emacs/result/bin/emacs --fg-daemon
+ExecStop=%h/.projects/emacs-daemon/emacs/result/bin/emacsclient --eval "(kill-emacs)"
+Restart=on-failure
+TimeoutStartSec=90
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target
