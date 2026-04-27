@@ -2226,6 +2226,34 @@ on it.  On a huge monorepo this removes the dominant cost from
                   (consult-fd "Fd" ?d)))))
 #+end_src
 
+*** pm
+
+Integration with the =pm= CLI (project_manager: a pool of git worktrees
+bound to named projects via symlinks). Recognizes pm containers
+(=~/.projects/<name>/=) as first-class =project.el= projects via a
+custom backend, exposes a transient menu (=C-x p P=) for project /
+worktree / pool / repo verbs, and treats every git worktree under a
+container as a "subproject" — federated =project-files=, parent /
+sibling navigation, and =project-name= advice that renders worktree
+buffers as =<container>/<alias>=. Source lives in the pm repo at
+=extensions/emacs/=.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package pm
+  :load-path "~/.repos/project-manager/extensions/emacs/"
+  :commands (pm-dispatch pm-project-dispatch pm-refresh
+             pm--project-finder pm-jump-parent pm-jump-sibling)
+  :init
+  (with-eval-after-load 'project
+    (add-hook 'project-find-functions #'pm--project-finder)
+    (add-to-list 'project-switch-commands
+                 '(pm-project-dispatch "PM" ?P) t))
+  (global-set-key (kbd "C-x p P") #'pm-dispatch)
+  (global-set-key (kbd "C-x p .") #'pm-project-dispatch)
+  (add-hook 'after-init-hook
+            (lambda () (run-with-idle-timer 0.5 nil #'pm-refresh))))
+#+end_src
+
 *** Direnv
 
 Use basic envrc, but investigate hacks from [[https://github.com/doomemacs/doomemacs/blob/98d753e1036f76551ccaa61f5c810782cda3b48a/modules/tools/direnv/config.el#L27][doom]].
