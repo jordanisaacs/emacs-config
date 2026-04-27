@@ -1144,13 +1144,14 @@ TUI apps like Claude Code auto-detect a dark theme even when the Emacs
 theme is light. Rewrite =COLORFGBG= from Emacs's =background-mode= when
 ghostel spawns a process so auto-detection matches the Emacs theme.
 
-Warn on =kill-emacs= when any ghostel shell has a foreground process
-other than the shell itself — Claude Code, a REPL, =cargo build=, etc.
-The check compares the PTY's foreground process group (=tpgid= in
-=/proc/PID/stat=) against the shell's own =pgrp=: when they differ, some
-child has taken the terminal. More reliable than OSC 133 prompt markers,
-which don't fire through raw-TTY apps like Claude and require shell
-integration to be installed.
+Warn on =kill-emacs= and =kill-buffer= when a ghostel shell has a
+foreground process other than the shell itself — Claude Code, a REPL,
+=cargo build=, etc. The check compares the PTY's foreground process
+group (=tpgid= in =/proc/PID/stat=) against the shell's own =pgrp=:
+when they differ, the leader of =tpgid= is the busy command, and we
+read =/proc/PID/comm= so the prompt names it.  More reliable than OSC
+133 prompt markers, which don't fire through raw-TTY apps like Claude
+and require shell integration to be installed.
 
 #+begin_src emacs-lisp :tangle init.el
 (defvar ghostel-ignore-cursor-change)
@@ -1162,50 +1163,78 @@ integration to be installed.
                     "COLORFGBG=0;15"
                   "COLORFGBG=15;0"))))
 
-(defun my/ghostel--shell-busy-p (pid)
-  "Non-nil if PID (this Emacs' child) has a foreground child of its own.
-Compares /proc/PID/stat fields pgrp and tpgid.  Also checks ppid to
-ensure PID is still a child of this Emacs, so PID reuse can't mislead
-us.  The comm field is parenthesized and may contain spaces, so parse
-past the final `)' before splitting.  Returns nil on any read/parse
-failure so a missing /proc entry doesn't block exit."
+(defun my/ghostel--proc-comm (pid)
+  "Return the command name of PID (from /proc/PID/comm), or nil."
   (ignore-errors
     (with-temp-buffer
-      (insert-file-contents (format "/proc/%d/stat" pid))
+      (insert-file-contents (format "/proc/%d/comm" pid))
+      (string-trim (buffer-string)))))
+
+(defun my/ghostel--foreground-child (shell-pid)
+  "Return (PID . COMM) of SHELL-PID's foreground PTY child, or nil.
+SHELL-PID must be a direct child of this Emacs (ppid guard against
+PID reuse).  Reads /proc/SHELL-PID/stat: when the PTY's foreground
+process group (tpgid) differs from the shell's own pgrp, the tpgid
+leader is the busy command; its name comes from /proc/tpgid/comm.
+Returns nil on any read/parse failure so a missing /proc entry never
+blocks exit."
+  (ignore-errors
+    (with-temp-buffer
+      (insert-file-contents (format "/proc/%d/stat" shell-pid))
       (goto-char (point-max))
       (search-backward ")")
-      (let* ((rest (buffer-substring-no-properties (1+ (point)) (point-max)))
-             (fields (split-string rest))
-             ;; After `)': state ppid pgrp session tty_nr tpgid ...
-             ;; Indices 0      1    2    3       4      5
-             (ppid  (string-to-number (nth 1 fields)))
-             (pgrp  (string-to-number (nth 2 fields)))
-             (tpgid (string-to-number (nth 5 fields))))
-        (and (= ppid (emacs-pid))
-             (> tpgid 0)
-             (/= tpgid pgrp))))))
+      ;; Fields after the parenthesized comm:
+      ;;   state(0) ppid(1) pgrp(2) session(3) tty(4) tpgid(5) ...
+      (let* ((tail (split-string
+                    (buffer-substring-no-properties (1+ (point))
+                                                    (point-max))))
+             (ppid  (string-to-number (nth 1 tail)))
+             (pgrp  (string-to-number (nth 2 tail)))
+             (tpgid (string-to-number (nth 5 tail))))
+        (when (and (= ppid (emacs-pid))
+                   (> tpgid 0)
+                   (/= tpgid pgrp))
+          (cons tpgid (or (my/ghostel--proc-comm tpgid) "?")))))))
+
+(defun my/ghostel-buffer-busy-info (&optional buffer)
+  "Return (PID . COMM) if BUFFER's ghostel shell has a foreground child.
+BUFFER defaults to the current buffer.  Nil if BUFFER isn't a live
+ghostel buffer or its shell is idle."
+  (with-current-buffer (or buffer (current-buffer))
+    (when (derived-mode-p 'ghostel-mode)
+      (when-let* ((proc (get-buffer-process (current-buffer)))
+                  ((process-live-p proc)))
+        (my/ghostel--foreground-child (process-id proc))))))
 
 (defun my/ghostel-busy-buffers ()
-  "Return ghostel buffers whose shell has a foreground child process."
-  (seq-filter
-   (lambda (buf)
-     (with-current-buffer buf
-       (when (derived-mode-p 'ghostel-mode)
-         (let ((proc (get-buffer-process buf)))
-           (and proc
-                (process-live-p proc)
-                (my/ghostel--shell-busy-p (process-id proc)))))))
-   (buffer-list)))
+  "Return ((BUFFER . COMM) ...) for every ghostel buffer with a foreground child."
+  (delq nil
+        (mapcar (lambda (buf)
+                  (when-let* ((info (my/ghostel-buffer-busy-info buf)))
+                    (cons buf (cdr info))))
+                (buffer-list))))
 
 (defun my/ghostel-confirm-kill-emacs ()
   "Prompt before exiting Emacs if any ghostel shell has a foreground child."
   (let ((busy (my/ghostel-busy-buffers)))
     (or (null busy)
         (yes-or-no-p
-         (format "Ghostel command still running in %s; exit anyway? "
-                 (mapconcat #'buffer-name busy ", "))))))
+         (format "Ghostel still running %s; exit anyway? "
+                 (mapconcat (pcase-lambda (`(,buf . ,comm))
+                              (format "%s in %s" comm (buffer-name buf)))
+                            busy ", "))))))
+
+(defun my/ghostel-confirm-kill-buffer ()
+  "Prompt before killing a ghostel buffer with a foreground child."
+  (or (not (derived-mode-p 'ghostel-mode))
+      (let ((info (my/ghostel-buffer-busy-info)))
+        (or (null info)
+            (yes-or-no-p
+             (format "%s still running in %s; kill buffer anyway? "
+                     (cdr info) (buffer-name)))))))
 
 (add-hook 'kill-emacs-query-functions #'my/ghostel-confirm-kill-emacs)
+(add-hook 'kill-buffer-query-functions #'my/ghostel-confirm-kill-buffer)
 #+end_src
 
 #+begin_src emacs-lisp :tangle init.el
