@@ -2236,11 +2236,11 @@ worktree / pool / repo verbs, and treats every git worktree under a
 container as a "subproject" — federated =project-files=, parent /
 sibling navigation, and =project-name= advice that renders worktree
 buffers as =<container>/<alias>=. Source lives in the pm repo at
-=extensions/emacs/=.
+=integrations/emacs/=.
 
 #+begin_src emacs-lisp :tangle init.el
 (use-package pm
-  :load-path "~/.repos/project-manager/extensions/emacs/"
+  :load-path "~/.repos/project-manager/integrations/emacs/"
   :commands (pm-dispatch pm-project-dispatch pm-refresh
              pm--project-finder pm-jump-parent pm-jump-sibling)
   :init
