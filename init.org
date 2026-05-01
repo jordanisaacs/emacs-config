@@ -1965,6 +1965,24 @@ using a transform that puts the lock files on a local file system.
 (dolist (hook '(text-mode-hook prog-mode-hook)) (add-hook hook 'set-bigger-spacing))
 #+end_src
 
+*** Window border
+
+On TTY frames the default ASCII =|= vertical window separator leaves
+visible gaps between rows. Swap it for the Unicode box-drawing
+character =│=, which renders as a continuous line.
+
+Set unconditionally: GUI frames are unaffected because Emacs draws their
+window separator as a 1-pixel bar styled by the =vertical-border= face
+and does not consult the display table for it.
+
+#+begin_src emacs-lisp :tangle init.el
+(unless standard-display-table
+  (setq standard-display-table (make-display-table)))
+(set-display-table-slot standard-display-table
+                        'vertical-border
+                        (make-glyph-code #x2502))
+#+end_src
+
 *** Breadcrumbs
 
 #+begin_src emacs-lisp :tangle init.el
