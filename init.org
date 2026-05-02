@@ -633,7 +633,7 @@ From [[https://www.gnu.org/software/emacs//manual/html_node/modus-themes/A-theme
   (hl-todo-mode-hook . my/hl-todo-modus-undone)
   (modus-themes-after-load-theme-hook . my/hl-todo-modus-undone)
   :init
-  (modus-themes-load-theme 'modus-operandi))
+  (modus-themes-load-theme 'modus-vivendi))
 #+end_src
 
 
