@@ -1306,6 +1306,53 @@ ghostel buffer or its shell is idle."
               (setq-local nobreak-char-display nil))))
 #+end_src
 
+**** Bookmark integration
+
+Make ghostel buffers usable with =M-x bookmark-set= /
+=M-x bookmark-jump=. The PTY, scrollback, and child process can't be
+persisted — what we save is the intent to recreate: the buffer's
+=default-directory= (kept current via OSC 7, TRAMP-aware) and its
+canonical ghostel identity (the original buffer name from before
+title-tracking renames). On jump, reuse a live buffer with that
+identity if one exists; otherwise spawn a fresh shell in the recorded
+directory under the original name. Project-prefixed names round-trip
+because we restore the literal identity rather than re-deriving from
+=project-current=.
+
+=ghostel-buffer-name= needs a =defvar= declaration so the =let= in the
+jump handler creates a dynamic binding =ghostel= can see (the file is
+=lexical-binding=, and the autoload hasn't fired yet on the first
+jump).
+
+#+begin_src emacs-lisp :tangle init.el
+(defvar ghostel-buffer-name)
+(declare-function ghostel "ghostel")
+(declare-function bookmark-prop-get "bookmark" (bookmark prop))
+
+(defun my/ghostel-bookmark-make-record ()
+  "Return a bookmark record for the current ghostel buffer."
+  (let ((dir default-directory)
+        (id  (or (bound-and-true-p ghostel--buffer-identity)
+                 (buffer-name))))
+    `(,(buffer-name)
+      (filename          . ,dir)
+      (handler           . my/ghostel-bookmark-jump)
+      (ghostel-directory . ,dir)
+      (ghostel-identity  . ,id))))
+
+(defun my/ghostel-bookmark-jump (bookmark)
+  "Jump to ghostel BOOKMARK: reuse a live buffer or spawn a fresh one."
+  (let ((default-directory  (bookmark-prop-get bookmark 'ghostel-directory))
+        (ghostel-buffer-name (bookmark-prop-get bookmark 'ghostel-identity)))
+    (ghostel)))
+
+(add-hook 'ghostel-mode-hook
+          (lambda ()
+            "Use the ghostel-aware bookmark recorder in ghostel buffers."
+            (setq-local bookmark-make-record-function
+                        #'my/ghostel-bookmark-make-record)))
+#+end_src
+
 ** AI
 
 *** Server
@@ -2343,15 +2390,20 @@ dependency.
 #+begin_src emacs-lisp :tangle init.el
 (use-package pm
   :ensure t
-  :commands (pm-dispatch pm-project-dispatch pm-refresh
-             pm--project-finder pm-jump-parent pm-jump-sibling)
+  :commands (pm-dispatch pm-project-dispatch pm-agent-launch-dispatch
+             pm-refresh pm--project-finder pm-jump-parent pm-jump-sibling)
   :custom
   (pm-agent-dispatch-function #'pm-agent-dispatch-ghostel)
   :init
   (with-eval-after-load 'project
     (add-hook 'project-find-functions #'pm--project-finder)
     (add-to-list 'project-switch-commands
-                 '(pm-project-dispatch "PM" ?P) t))
+                 '(pm-project-dispatch "PM" ?P) t)
+    ;; `?a' after `C-x p p <project>': fresh-launch agent dispatch
+    ;; (claude / codex / cursor) scoped to the just-picked project.
+    ;; Resumes go through the regular pm flow (`?P' → `l').
+    (add-to-list 'project-switch-commands
+                 '(pm-agent-launch-dispatch "Agent" ?a) t))
   (global-set-key (kbd "C-x p P") #'pm-dispatch)
   (global-set-key (kbd "C-x p .") #'pm-project-dispatch)
   (add-hook 'after-init-hook
