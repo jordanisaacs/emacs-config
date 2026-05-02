@@ -28,7 +28,15 @@
     zig2nix.url = "github:Cloudef/zig2nix";
     zig2nix.inputs.nixpkgs.follows = "nixpkgs";
 
-    ghostel.url = "git+file:./submodules/ghostel";
+    # Upstream ghostel pinned to the commit our local patches are based on.
+    # Local changes live in ./patches/ghostel and are applied at build time
+    # via `pkgs.applyPatches` (see `ghostelSrc` below). To bump upstream:
+    #   1. update the rev in this URL,
+    #   2. `nix flake update ghostel`,
+    #   3. re-roll patches if they no longer apply,
+    #   4. regenerate `nix/ghostel/build.zig.zon2json-lock` if upstream
+    #      touched `build.zig.zon` (see ghostelModule comment).
+    ghostel.url = "github:dakra/ghostel/e8eb2f8b1b7481b6c4da4ef42cca0a27be726dfb";
     ghostel.flake = false;
 
     # Source for `pm' (project_manager).  Pinned to remote master.
@@ -100,6 +108,17 @@
             chmod +x $out/bin/ghostel-editor
           '';
 
+          # Upstream ghostel + our functional patches. Single source of
+          # truth shared by the Zig module build and the elisp package
+          # override so they never drift.
+          ghostelSrc = pkgs.applyPatches {
+            name = "ghostel-patched-src";
+            src = inputs.ghostel;
+            patches = [
+              ./patches/ghostel/0001-Track-cursor-render-state-and-strip-inverse-cell-for.patch
+            ];
+          };
+
           ghostelModule = let
             zigEnv = inputs.zig2nix.outputs.zig-env.${system} {
               zig = inputs.zig2nix.outputs.packages.${system}.zig-0_15_2;
@@ -107,7 +126,7 @@
           in zigEnv.package {
             pname = "ghostel-module";
             version = "0.18.1";
-            src = inputs.ghostel;
+            src = ghostelSrc;
             # build.zig.zon2json-lock is regenerated via
             #   nix run github:Cloudef/zig2nix#zon2json-lock -- build.zig.zon
             # inside a checkout of the ghostel flake input.
@@ -164,8 +183,7 @@
               (_: tsuper: {
                 elispPackages = tsuper.elispPackages.overrideScope
                   (import ./nix/packageOverrides.nix {
-                    inherit pkgs ghostelModule;
-                    ghostelSrc = inputs.ghostel;
+                    inherit pkgs ghostelModule ghostelSrc;
                     pmSrc = inputs.pm-src;
                   });
               }));

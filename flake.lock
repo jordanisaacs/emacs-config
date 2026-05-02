@@ -111,17 +111,18 @@
     "ghostel": {
       "flake": false,
       "locked": {
-        "lastModified": 1777274750,
-        "narHash": "sha256-6TvIOxywm6/L7p20jhypfoJ5bo1jFPQRKSmY7LosvpI=",
-        "ref": "refs/heads/main",
-        "rev": "b3196b79431b041bef6934f1e491b1b6689b1775",
-        "revCount": 284,
-        "type": "git",
-        "url": "file:./submodules/ghostel"
+        "lastModified": 1777272124,
+        "narHash": "sha256-QKsIAkrRzvhiKKVjPBAOa0T+kVICrzVB1lln7OaFZzg=",
+        "owner": "dakra",
+        "repo": "ghostel",
+        "rev": "e8eb2f8b1b7481b6c4da4ef42cca0a27be726dfb",
+        "type": "github"
       },
       "original": {
-        "type": "git",
-        "url": "file:./submodules/ghostel"
+        "owner": "dakra",
+        "repo": "ghostel",
+        "rev": "e8eb2f8b1b7481b6c4da4ef42cca0a27be726dfb",
+        "type": "github"
       }
     },
     "gnu-elpa": {
