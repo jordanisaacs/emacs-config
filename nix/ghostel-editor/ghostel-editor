@@ -1,0 +1,15 @@
+#!/bin/sh
+# emacs-config: ghostel-aware $VISUAL/$EDITOR wrapper.
+# Packaged via flake.nix `ghostelEditor' derivation, wired through
+# $VISUAL by the ghostel-editor home-manager module.
+#
+# Inside a ghostel-managed terminal (EMACS_GHOSTEL_PATH set by ghostel
+# when it spawns the shell) we forward the file to the running Emacs
+# daemon so the buffer pops up in the user's existing session. Outside
+# ghostel we fall back to $EDITOR.
+
+if [ -n "$EMACS_GHOSTEL_PATH" ]; then
+  exec @EMACSCLIENT@ "$@"
+fi
+
+exec "${EDITOR:-vi}" "$@"

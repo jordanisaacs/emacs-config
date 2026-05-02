@@ -43,6 +43,8 @@
       flake = {
         homeManagerModules.emacs-daemon =
           ./integrations/home-manager/emacs-daemon.nix;
+        homeManagerModules.ghostel-editor =
+          ./integrations/home-manager/ghostel-editor.nix;
       };
 
       perSystem = { config, pkgs, lib, system, ... }:
@@ -89,6 +91,13 @@
             chmod +x $out/bin/claude
             install -m0644 ${./nix/monet-shim/zdotdir/.zshenv} $out/zdotdir/.zshenv
             install -m0644 ${./nix/monet-shim/zdotdir/.zshrc} $out/zdotdir/.zshrc
+          '';
+
+          ghostelEditor = pkgs.runCommand "ghostel-editor" { } ''
+            mkdir -p $out/bin
+            substitute ${./nix/ghostel-editor/ghostel-editor} $out/bin/ghostel-editor \
+              --replace-fail '@EMACSCLIENT@' '${emacsPackage}/bin/emacsclient'
+            chmod +x $out/bin/ghostel-editor
           '';
 
           ghostelModule = let
@@ -193,7 +202,8 @@
 
           packages = {
             inherit emacsConfig emacs-jd emacsEnv emacsInit emacsPackage
-              ghostelModule fwatcher eglotFwatcherEl monetShim;
+              ghostelModule fwatcher eglotFwatcherEl monetShim
+              ghostelEditor;
             default = emacs-jd;
           };
 
