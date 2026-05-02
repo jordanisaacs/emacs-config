@@ -245,11 +245,16 @@ re-counting lines on every command.")
 
 Skip the second =auto-mode-alist= pass and the BPA bidi algorithm.
 
+=tty-synchronized-output= is the local term.c patch wrapping each TTY
+redraw in DEC mode 2026 BSU/ESU so Ghostty presents frames atomically.
+No-op on GUI frames.
+
 #+begin_src emacs-lisp :tangle init.el
 (setq auto-mode-case-fold nil)
 (setq bidi-inhibit-bpa t)
 (setq-default bidi-display-reordering 'left-to-right
 	      bidi-paragraph-direction 'left-to-right)
+(setq tty-synchronized-output t)
 #+end_src
 
 **** Input responsiveness
@@ -1324,7 +1329,7 @@ creates a fresh server (no reuse) and has a latent bug where it accepts
 and check =monet--sessions= for a live session before creating a new
 one.
 
-#+begin_src emacs-lisp :tangle init.el
+#+begin_src emacs-lisp :tangle no
 (use-package monet
   :ensure t
   :commands (monet-mode monet-start-server-in-directory monet-list-sessions)
@@ -1480,7 +1485,14 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
   :ensure t
   :commands magit-wip-mode
   :hook
-  (my/project-git-hook . (lambda () (magit-wip-mode t))))
+  (my/project-git-hook . (lambda () (magit-wip-mode t)))
+  :config
+  ;; magit-section-visibility-indicators is (GUI-INDICATOR TTY-INDICATOR).
+  ;; Keep the GUI fringe-bitmap default; replace the TTY "…" with a
+  ;; left-margin chars (> v) that mirror the GUI >/v fringe bitmaps.
+  (setq magit-section-visibility-indicators
+        '((magit-fringe-bitmap> . magit-fringe-bitmapv)
+          (?> . ?v))))
 
 ;; diff highlighting
 
@@ -1859,7 +1871,24 @@ Consult/vertico/marginalia
   (setq consult-narrow-key "<") ;; "C-+"
   ;; Ubuntu's /usr/bin/fdfind is fd 8.x which doesn't support --and;
   ;; force the bundled fd 10+ instead of consult's fdfind auto-detect.
-  (setq consult-fd-args '("fd" "--full-path --color=never"))
+  ;; `-L' / `--follow' lets fd and rg traverse pm worktree symlinks so
+  ;; consult-find / consult-ripgrep search the whole pm container, not
+  ;; just the current worktree.
+  (setq consult-fd-args '("fd" "--full-path --color=never -L"))
+  (setq consult-ripgrep-args
+        (concat "rg --null --line-buffered --color=never --max-columns=1000"
+                " --path-separator / --smart-case --no-heading"
+                " --with-filename --line-number --search-zip --follow"))
+  ;; When inside a pm container (any depth — typically inside a worktree
+  ;; symlink), promote the container to be the consult project root so
+  ;; consult-find / consult-ripgrep span every worktree instead of being
+  ;; scoped to the current one.
+  (setq consult-project-function
+        (lambda (may-prompt)
+          (or (and (fboundp 'pm--container-of)
+                   (pm--container-of default-directory))
+              (when-let* ((proj (project-current may-prompt)))
+                (project-root proj)))))
   ;; By default `consult-project-function' uses `project-root' from project.el.
   ;; Optionally configure a different project root function.
             ;;;; 1. project.el (the default)
@@ -1982,6 +2011,25 @@ and does not consult the display table for it.
                         'vertical-border
                         (make-glyph-code #x2502))
 #+end_src
+
+*** TTY color depth
+
+Ghostty supports 24-bit color, but its terminfo entry advertises only
+256, and SSH does not propagate =TERM_PROGRAM= / =COLORTERM=. Without
+truecolor the modus palette gets quantized and magit / transient /
+diff faces look muddy.
+
+Fixed in =~/.zshrc=, gated on =TERM=xterm-ghostty=:
+
+#+begin_example
+export COLORTERM=truecolor
+export TERM_PROGRAM=ghostty
+export TERM_PROGRAM_VERSION=1.3.1
+#+end_example
+
+These must be in the *client* shell env when =emacsclient -t= attaches,
+since Emacs reads them at terminal-init time. Verify with =M-:
+(display-color-cells)= on a TTY frame — should report 16777216.
 
 *** Breadcrumbs
 
@@ -2281,6 +2329,8 @@ dependency.
   :ensure t
   :commands (pm-dispatch pm-project-dispatch pm-refresh
              pm--project-finder pm-jump-parent pm-jump-sibling)
+  :custom
+  (pm-agent-dispatch-function #'pm-agent-dispatch-ghostel)
   :init
   (with-eval-after-load 'project
     (add-hook 'project-find-functions #'pm--project-finder)

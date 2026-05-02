@@ -30,6 +30,10 @@
 
     ghostel.url = "git+file:./submodules/ghostel";
     ghostel.flake = false;
+
+    # Source for `pm' (project_manager).  Pinned to remote master.
+    pm-src.url = "github:jordan-isaacs_data/project-manager";
+    pm-src.flake = false;
   };
 
   outputs = inputs@{ self, nixpkgs, flake-parts, ... }:
@@ -49,7 +53,10 @@
 
           emacsPackage = pkgs.emacs-git-pgtk.overrideAttrs (old: {
             patches = (old.patches or [ ])
-              ++ [ ./nix/patches/eln-cache-correct-spot.patch ];
+              ++ [
+                ./nix/patches/eln-cache-correct-spot.patch
+                ./nix/patches/tty-synchronized-output.patch
+              ];
           });
 
           fwatcher = pkgs.rustPlatform.buildRustPackage {
@@ -145,6 +152,7 @@
                   (import ./nix/packageOverrides.nix {
                     inherit pkgs ghostelModule;
                     ghostelSrc = inputs.ghostel;
+                    pmSrc = inputs.pm-src;
                   });
               }));
 

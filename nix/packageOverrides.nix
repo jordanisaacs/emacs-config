@@ -1,5 +1,17 @@
-{ pkgs, ghostelModule, ghostelSrc, }:
+{ pkgs, ghostelModule, ghostelSrc, pmSrc, }:
 final: prev: {
+  # Build pm from a local worktree (see flake.nix `pm-src' input) so
+  # uncommitted changes show up. The recipe (`recipes/pm') still
+  # controls `:files' filtering; only the src is swapped.
+  #
+  # The `path:' input lands as a store symlink whose target lives in
+  # /home — trivialBuild's unpackPhase can't follow it inside the
+  # sandbox. `builtins.path' rematerializes the contents into a real
+  # store directory at eval time, before any sandboxed build runs.
+  pm = prev.pm.overrideAttrs (_: {
+    src = builtins.path { path = pmSrc; name = "pm-src"; };
+  });
+
   jinx = prev.jinx.overrideAttrs (old:
     let moduleSuffix = pkgs.stdenv.targetPlatform.extensions.sharedLibrary;
     in {

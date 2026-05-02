@@ -249,6 +249,22 @@
         "type": "github"
       }
     },
+    "pm-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1777692161,
+        "narHash": "sha256-cjoFix5BoNTzcnDekHQXotp3yBVj3Zdb/WdUF/FLEpA=",
+        "owner": "jordan-isaacs_data",
+        "repo": "project-manager",
+        "rev": "0f725b63dea7371ffef0020039a91b913092ccd2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jordan-isaacs_data",
+        "repo": "project-manager",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "emacs-lsp-booster": "emacs-lsp-booster",
@@ -260,6 +276,7 @@
         "nixpkgs": "nixpkgs_2",
         "nongnu-elpa": "nongnu-elpa",
         "org-babel": "org-babel",
+        "pm-src": "pm-src",
         "systems": "systems",
         "twist": "twist",
         "twist-overrides": "twist-overrides",

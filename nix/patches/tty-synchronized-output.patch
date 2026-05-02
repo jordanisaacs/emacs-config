@@ -1,0 +1,124 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jordan Isaacs <jordan@snowytrees.dev>
+Date: Fri, 2 May 2026 00:00:00 -0700
+Subject: [PATCH] term: wrap TTY redisplay in DEC mode 2026 (synchronized
+ output)
+
+When `tty-synchronized-output' is non-nil, bracket each redraw on a
+termcap frame with the DEC mode 2026 begin/end-synchronized-update
+sequences so a supporting terminal (e.g. Ghostty, recent kitty,
+wezterm, foot) presents the frame atomically.  This eliminates the
+visible stripes/tearing seen in TTY Emacs during heavy redraws, which
+the terminal would otherwise paint as Emacs writes them line by line.
+
+Implementation:
+
+- Install a new tty_update_begin hook (currently NULL for TTY).
+  Emits BSU when sync output is enabled and we aren't already inside
+  a synchronized frame.
+
+- Modify tty_update_end to emit ESU just before its existing
+  fflush, so the entire frame's writes hit the wire as one
+  atomic blast.
+
+- Add `bool_bf in_sync_update : 1' to struct tty_display_info as a
+  recursion guard for nested update_begin/update_end pairs (per-window
+  updates inside update_window_tree, menu drawing, etc.).
+
+- Defensively emit ESU in tty_reset_terminal_modes so a suspend/exit
+  doesn't strand the terminal in synchronized-update mode.
+
+The variable defaults to nil so behavior is unchanged out of the
+box.  Set it in init.el for known-good terminals.
+---
+ src/term.c     | 36 ++++++++++++++++++++++++++++++++++++
+ src/termchar.h |  6 ++++++
+ 2 files changed, 42 insertions(+)
+
+diff --git a/src/term.c b/src/term.c
+--- a/src/term.c	2026-05-02 01:17:14.420150667 +0000
++++ b/src/term.c	2026-05-02 01:18:06.379434367 +0000
+@@ -243,10 +243,33 @@
+       /* Output raw CR so kernel can track the cursor hpos.  */
+       current_tty = tty;
+       cmputc ('\r');
++      /* Defensively close any DEC mode 2026 synchronized-update
++	 window so we don't strand the terminal mid-frame on
++	 suspend/exit.  */
++      fputs ("\033[?2026l", tty->output);
++      tty->in_sync_update = false;
+       fflush (tty->output);
+     }
+ }
+ 
++/* Flag the start of a display update on a termcap terminal.
++   When `tty-synchronized-output' is non-nil, emit a DEC mode 2026
++   "begin synchronized update" so a supporting terminal presents
++   the frame atomically.  */
++
++static void
++tty_update_begin (struct frame *f)
++{
++  struct tty_display_info *tty = FRAME_TTY (f);
++  if (tty->output
++      && !NILP (Vtty_synchronized_output)
++      && !tty->in_sync_update)
++    {
++      fputs ("\033[?2026h", tty->output);
++      tty->in_sync_update = true;
++    }
++}
++
+ /* Flag the end of a display update on a termcap terminal. */
+ 
+ static void
+@@ -258,6 +281,11 @@
+     tty_show_cursor (tty);
+   tty_turn_off_insert (tty);
+   tty_background_highlight (tty);
++  if (tty->in_sync_update)
++    {
++      fputs ("\033[?2026l", tty->output);
++      tty->in_sync_update = false;
++    }
+   fflush (tty->output);
+ }
+ 
+@@ -4292,6 +4320,7 @@
+   terminal->ring_bell_hook = &tty_ring_bell;
+   terminal->reset_terminal_modes_hook = &tty_reset_terminal_modes;
+   terminal->set_terminal_modes_hook = &tty_set_terminal_modes;
++  terminal->update_begin_hook = &tty_update_begin;
+   terminal->update_end_hook = &tty_update_end;
+ #ifdef MSDOS
+   terminal->menu_show_hook = &x_menu_show;
+@@ -5195,6 +5224,13 @@
+ See `resume-tty'.  */);
+   Vresume_tty_functions = Qnil;
+ 
++  DEFVAR_LISP ("tty-synchronized-output", Vtty_synchronized_output,
++    doc: /* If non-nil, wrap TTY redisplay in DEC mode 2026 markers.
++When the controlling terminal supports synchronized output (e.g. Ghostty,
++recent kitty/wezterm/foot), this eliminates redraw flicker by causing the
++terminal to present each frame atomically.  Has no effect on GUI frames.  */);
++  Vtty_synchronized_output = Qnil;
++
+   DEFVAR_BOOL ("visible-cursor", visible_cursor,
+ 	       doc: /* Non-nil means to make the cursor very visible.
+ This only has an effect when running in a text terminal.
+diff --git a/src/termchar.h b/src/termchar.h
+--- a/src/termchar.h	2026-05-02 01:17:14.420150667 +0000
++++ b/src/termchar.h	2026-05-02 01:17:51.155644263 +0000
+@@ -206,6 +206,12 @@
+ 
+   bool_bf cursor_hidden : 1;
+ 
++  /* True while a DEC mode 2026 (synchronized output) frame is open.
++     Set by tty_update_begin, cleared by tty_update_end and on
++     terminal reset.  Recursion guard for nested update_begin/_end
++     pairs (menus, per-window updates).  */
++  bool_bf in_sync_update : 1;
++
+   /* True means use ^S/^Q for flow control.  */
+ 
+   bool_bf flow_control : 1;
