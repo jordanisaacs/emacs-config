@@ -1770,10 +1770,9 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
   (add-hook 'completion-at-point-functions (cape-capf-nonexclusive #'cape-file) nil nil)
   (add-hook 'completion-at-point-functions (cape-capf-nonexclusive #'cape-elisp-block) nil nil)
   :commands cape-wrap-buster cape-capf-super cape-capf-nonexclusive
-  :defines cape-file-directory-must-exit
   :config
   ;; https://old.reddit.com/r/emacs/comments/19b8a83/capefile_fails_when_called_as_a_capf_but_works/
-  (setq cape-file-directory-must-exit nil))
+  (setq cape-file-directory-must-exist nil))
 #+end_src
 
 **** Completion in region
