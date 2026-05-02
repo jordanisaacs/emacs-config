@@ -40,6 +40,11 @@
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = import inputs.systems;
 
+      flake = {
+        homeManagerModules.emacs-daemon =
+          ./integrations/home-manager/emacs-daemon.nix;
+      };
+
       perSystem = { config, pkgs, lib, system, ... }:
         let
           overlays = [
