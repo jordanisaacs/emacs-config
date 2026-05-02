@@ -214,6 +214,22 @@ Make sure to load our custom-file
 (load custom-file :no-error-if-file-is-missing)
 #+end_src
 
+*** local-init.el
+
+Escape hatch for ad-hoc, machine-local tweaks that shouldn't go through
+a Nix rebuild. Lives next to =custom.el= under =$XDG_STATE_HOME/emacs/=
+and is loaded last so it can override anything above. Byte-compile on
+demand so subsequent startups load the =.elc=.
+
+#+begin_src emacs-lisp :tangle init.el
+(let ((local-init (locate-user-emacs-file "local-init.el")))
+  (when (file-exists-p local-init)
+    (let ((compiled (byte-compile-dest-file local-init)))
+      (when (file-newer-than-file-p local-init compiled)
+        (byte-compile-file local-init)))
+    (load (file-name-sans-extension local-init))))
+#+end_src
+
 *** Performance
 
 **** Large-buffer flag
