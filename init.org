@@ -1539,6 +1539,16 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
 (use-package browse-at-remote
   :ensure t)
 
+;; Magit master uses transient internals (`transient--get-format', etc.)
+;; that aren't in the older transient bundled with Emacs 31's core. The
+;; recipe in `recipes/transient' redirects twist to fetch master from
+;; magit/transient on GitHub; this declaration makes transient a root
+;; package so `nix run .#lock --impure' actually consults that recipe
+;; (without it, twist resolves transient via the `gnu' registry's
+;; core-src and drops it from the lockfile on re-lock).
+(use-package transient
+  :ensure t)
+
 ;; Magit
 (use-package magit-delta
   :ensure t

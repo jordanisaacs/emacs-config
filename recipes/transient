@@ -1,0 +1,7 @@
+;; Override the GNU ELPA core-sync resolution so twist fetches
+;; transient master instead of using the older copy bundled with
+;; Emacs 31 (0.12.0). Magit master calls `transient--get-format',
+;; which only exists from transient 0.13 onward.
+(transient :fetcher github
+           :repo "magit/transient"
+           :files ("lisp/transient.el"))

@@ -341,12 +341,6 @@
       repo = "modus-themes";
       type = "github";
     };
-    monet = {
-      flake = false;
-      owner = "stevemolitor";
-      repo = "monet";
-      type = "github";
-    };
     nerd-icons = {
       flake = false;
       owner = "rainstormstudio";
@@ -442,6 +436,12 @@
       repo = "tldr.el";
       type = "github";
     };
+    transient = {
+      flake = false;
+      owner = "magit";
+      repo = "transient";
+      type = "github";
+    };
     transpose-frame = {
       flake = false;
       owner = "emacsorphanage";
@@ -470,12 +470,6 @@
       flake = false;
       owner = "casouri";
       repo = "vundo";
-      type = "github";
-    };
-    websocket = {
-      flake = false;
-      owner = "ahyatt";
-      repo = "emacs-websocket";
       type = "github";
     };
     wgrep = {
