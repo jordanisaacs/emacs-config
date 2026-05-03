@@ -2404,6 +2404,7 @@ dependency.
              pm-refresh pm--project-finder pm-jump-parent pm-jump-sibling)
   :custom
   (pm-agent-dispatch-function #'pm-agent-dispatch-ghostel)
+  (pm-manager-project "manager")
   :init
   (with-eval-after-load 'project
     (add-hook 'project-find-functions #'pm--project-finder)
