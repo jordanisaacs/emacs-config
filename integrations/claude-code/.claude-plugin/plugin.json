@@ -1,11 +1,11 @@
 {
   "name": "emacs-daemon",
   "version": "0.1.0",
-  "description": "Spawn coding agents (claude/codex/cursor) into the running Emacs daemon's ghostel terminal",
+  "description": "Launch pm agents (claude/codex/cursor) inside the running Emacs daemon",
   "author": {
     "name": "Jordan Isaacs",
     "email": "jordan.isaacs@databricks.com"
   },
-  "keywords": ["emacs", "ghostel", "emacsclient", "pm", "agent", "terminal"],
-  "skills": ["./skills/ghostel-agent"]
+  "keywords": ["emacs", "emacsclient", "pm", "agent", "terminal"],
+  "skills": ["./skills/pm-emacs"]
 }

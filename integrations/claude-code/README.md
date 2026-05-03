@@ -1,23 +1,27 @@
 # emacs-daemon Plugin
 
-Claude Code skill for spawning coding agents into the running Emacs daemon's ghostel terminal.
+Claude Code skill for launching `pm agent` sessions inside the user's running Emacs daemon.
 
 ## Skills
 
-### `ghostel-agent`
+### `pm-emacs`
 
-Activates when the user asks to start a new agent (claude / codex / cursor) in Emacs, mentions ghostel + pm agent, or asks for a new terminal in the running Emacs daemon.
+Activates when the user asks to start a new agent (claude / codex / cursor) in Emacs, mentions `pm agent` + emacs, or asks for a new terminal in the running Emacs daemon.
 
 Teaches the agent:
 
-- The emacsclient + ghostel spawn pattern (ghostel is a libghostty-vt terminal that runs inside Emacs)
-- How to set `default-directory` so the new shell lands in the right pm worktree
-- How to send a command into the new buffer once the shell is ready
-- How to combine the above with `pm agent claude|codex|cursor --project <name>`
-- Pre-flight checks (`server-running-p`, ghostel loaded)
+- The `emacsclient` handoff pattern (eval an elisp form inside the running daemon)
+- How to set `default-directory` so the new shell lands in the right pm project (defaults to project root, not a worktree)
+- How to send `pm agent claude|codex|cursor --project <name>` into the new buffer once the shell is ready
+- Pre-flight checks (`server-running-p`, terminal backend loaded)
+
+The terminal buffer the skill creates is a ghostel buffer (`libghostty-vt`-backed, `ghostel-mode`); the skill treats this as an implementation detail.
 
 ## Triggers
 
-- "new claude/codex agent in emacs", "open a ghostel", "spawn a terminal in emacs"
-- "pm agent" combined with emacs / ghostel
-- Any request to launch an interactive agent against an existing pm project worktree
+This skill is the user's default for launching coding agents — every agent runs as a `pm agent` inside their Emacs daemon, so the user rarely says "in emacs" out loud.
+
+- Any phrasing about starting / running / spawning / kicking off / firing up / opening a new agent (claude / codex / cursor)
+- "new claude session", "launch codex on `<project>`", "start cursor", etc.
+- Explicit Emacs / daemon / `emacsclient` mentions also still trigger
+- Does **not** trigger when "agent" just refers to the assistant in conversation ("the agent fixed X") — only on explicit requests to launch a new session
