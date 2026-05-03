@@ -28,15 +28,14 @@
     zig2nix.url = "github:Cloudef/zig2nix";
     zig2nix.inputs.nixpkgs.follows = "nixpkgs";
 
-    # Upstream ghostel pinned to the commit our local patches are based on.
-    # Local changes live in ./patches/ghostel and are applied at build time
-    # via `pkgs.applyPatches` (see `ghostelSrc` below). To bump upstream:
-    #   1. update the rev in this URL,
-    #   2. `nix flake update ghostel`,
-    #   3. re-roll patches if they no longer apply,
-    #   4. regenerate `nix/ghostel/build.zig.zon2json-lock` if upstream
+    # Upstream ghostel; pin tracked by flake.lock. Local changes live in
+    # ./patches/ghostel and are applied at build time via `pkgs.applyPatches`
+    # (see `ghostelSrc` below). To bump:
+    #   1. `nix flake update ghostel`,
+    #   2. re-roll patches if they no longer apply,
+    #   3. regenerate `nix/ghostel/build.zig.zon2json-lock` if upstream
     #      touched `build.zig.zon` (see ghostelModule comment).
-    ghostel.url = "github:dakra/ghostel/e8eb2f8b1b7481b6c4da4ef42cca0a27be726dfb";
+    ghostel.url = "github:dakra/ghostel";
     ghostel.flake = false;
 
     # Source for `pm' (project_manager).  Pinned to remote master.
@@ -125,7 +124,7 @@
             };
           in zigEnv.package {
             pname = "ghostel-module";
-            version = "0.18.1";
+            version = "0.21.0";
             src = ghostelSrc;
             # build.zig.zon2json-lock is regenerated via
             #   nix run github:Cloudef/zig2nix#zon2json-lock -- build.zig.zon

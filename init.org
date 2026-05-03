@@ -1066,7 +1066,13 @@ the original `\\e' prefix keymap, re-queues the ESC, and lets
             (read-key-sequence-vector nil))
         (define-key input-decode-map [?\e] saved)))))
 
-(unless (display-graphic-p)
+;; `input-decode-map' is a global keymap shared across frames; install
+;; the translator if Emacs serves any TTY (i.e. is a daemon — TTY clients
+;; can attach later — or itself runs on a TTY now).  The earlier
+;; `(unless (display-graphic-p))' gate skipped the install on pgtk
+;; daemons whose initial frame reports graphic, leaving every later
+;; `emacsclient -t' on the stock xterm-CSI prefix decoder.
+(when (or (daemonp) (not (display-graphic-p)))
   (setq my/tty-esc-orig-decode (lookup-key input-decode-map [?\e]))
   (define-key input-decode-map [?\e] #'my/tty-esc-decoder))
 #+end_src
@@ -1288,14 +1294,6 @@ ghostel buffer or its shell is idle."
               #'my/ghostel-colorfgbg-advice
               '((name . my/ghostel-colorfgbg)))
 
-  ;; Plain-link detection (3c61db6) attaches a `keymap' text property
-  ;; whose RET → `ghostel-open-link-at-point' to any string that resolves
-  ;; to a real path. Text-property keymaps win over `ghostel-mode-map',
-  ;; so once you type something like `cd submodules/ghostel/' at the
-  ;; prompt, RET stops sending Enter and starts opening dired. Restore
-  ;; terminal RET; mouse-1 still opens links.
-  (define-key ghostel-link-map (kbd "RET") #'ghostel--send-event)
-
   (add-hook 'ghostel-mode-hook
             (lambda ()
               "Ghostel buffer-local tweaks."
@@ -1303,7 +1301,10 @@ ghostel buffer or its shell is idle."
               ;; Ink-based TUIs (Claude Code) pad the active input row
               ;; with U+00A0; the `nobreak-space' face underlines it,
               ;; which shows up as a spurious "_" next to the prompt.
-              (setq-local nobreak-char-display nil))))
+              (setq-local nobreak-char-display nil)
+              ;; Spell-check makes no sense over a live terminal; the
+              ;; constant redraws also thrash jinx's overlays.
+              (when (fboundp 'jinx-mode) (jinx-mode -1)))))
 #+end_src
 
 **** Bookmark integration

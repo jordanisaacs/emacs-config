@@ -1,6 +1,6 @@
-From b3196b79431b041bef6934f1e491b1b6689b1775 Mon Sep 17 00:00:00 2001
+From f022f9d20d0ea54dc7060d9a6da38588a807c325 Mon Sep 17 00:00:00 2001
 From: Jordan Isaacs <jordan.isaacs@databricks.com>
-Date: Wed, 22 Apr 2026 06:43:43 +0000
+Date: Sat, 2 May 2026 23:13:53 +0000
 Subject: [PATCH] Track cursor render state and strip inverse cell for TTY
  Emacs
 
@@ -14,16 +14,16 @@ that hide DECTCEM and draw their own inverse cursor), strip the face
 on that cell and force visibility so the outer TTY's hardware cursor
 doesn't double-invert into an invisible default cell.
 ---
- lisp/ghostel.el | 48 +++++++++++++++++++++++++++++++---------
+ lisp/ghostel.el | 47 ++++++++++++++++++++++++--------
  src/ghostty.zig |  1 +
- src/render.zig  | 59 ++++++++++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 96 insertions(+), 12 deletions(-)
+ src/render.zig  | 71 ++++++++++++++++++++++++++++++++++++++++++++-----
+ 3 files changed, 101 insertions(+), 18 deletions(-)
 
 diff --git a/lisp/ghostel.el b/lisp/ghostel.el
-index a7f45ad..2653b7c 100644
+index 4dad548..a860150 100644
 --- a/lisp/ghostel.el
 +++ b/lisp/ghostel.el
-@@ -2345,23 +2345,49 @@ Only acts when the buffer has not been manually renamed by the user."
+@@ -2904,23 +2904,48 @@ Only acts when the buffer has not been manually renamed by the user."
    (when ghostel-set-title-function
      (funcall ghostel-set-title-function title)))
  
@@ -45,24 +45,23 @@ index a7f45ad..2653b7c 100644
 +VISIBLE is t or nil.  PASSWORD-INPUT forces a visible block cursor,
 +matching Ghostty's renderer policy for password fields."
 +  (cond
-+   (password-input 'box)
 +   ((not visible) nil)
-+   ((not (ghostel--buffer-focused-p (current-buffer))) 'hollow)
-+   (t
-+    (pcase style
-+      (0 '(bar . 2))
-+      (1 'box)
-+      (2 '(hbar . 2))
-+      (3 'hollow)
-+      (_ 'box)))))
++   (password-input 'box)
++   (t (pcase style
++        (0 '(bar . 2))       ; bar
++        (1 'box)             ; block
++        (2 '(hbar . 2))      ; underline
++        (3 'hollow)          ; hollow block
++        (_ 'box)))))
 +
 +(defun ghostel--set-cursor-style
 +    (style visible &optional blinking password-input)
 +  "Set the cursor style based on terminal render state.
  STYLE is one of: 0=bar, 1=block, 2=underline, 3=hollow-block.
 -VISIBLE is t or nil.
-+VISIBLE, BLINKING, and PASSWORD-INPUT are booleans from libghostty render
-+state.
++VISIBLE is t or nil.  BLINKING and PASSWORD-INPUT come from the
++libghostty render state and are stored in buffer-locals so other
++code (e.g. copy mode) can recover the current cursor.
  Skipped when copy mode is active because copy mode manages its own
  cursor, or when `ghostel-ignore-cursor-change' is non-nil."
 +  (setq ghostel--cursor-visible visible
@@ -85,10 +84,10 @@ index a7f45ad..2653b7c 100644
  (defun ghostel--update-directory (dir)
    "Update `default-directory' from terminal's OSC 7 report.
 diff --git a/src/ghostty.zig b/src/ghostty.zig
-index 5af8d9d..49b6964 100644
+index 44a976a..9c21a86 100644
 --- a/src/ghostty.zig
 +++ b/src/ghostty.zig
-@@ -82,6 +82,7 @@ pub const RS_DATA_COLOR_FOREGROUND = c.GHOSTTY_RENDER_STATE_DATA_COLOR_FOREGROUN
+@@ -102,6 +102,7 @@ pub const RS_DATA_COLOR_FOREGROUND = c.GHOSTTY_RENDER_STATE_DATA_COLOR_FOREGROUN
  pub const RS_DATA_CURSOR_VISUAL_STYLE = c.GHOSTTY_RENDER_STATE_DATA_CURSOR_VISUAL_STYLE;
  pub const RS_DATA_CURSOR_VISIBLE = c.GHOSTTY_RENDER_STATE_DATA_CURSOR_VISIBLE;
  pub const RS_DATA_CURSOR_BLINKING = c.GHOSTTY_RENDER_STATE_DATA_CURSOR_BLINKING;
@@ -97,10 +96,10 @@ index 5af8d9d..49b6964 100644
  pub const RS_DATA_CURSOR_VIEWPORT_X = c.GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_X;
  pub const RS_DATA_CURSOR_VIEWPORT_Y = c.GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_Y;
 diff --git a/src/render.zig b/src/render.zig
-index bfb4651..87b6287 100644
+index 2bd517f..48f419d 100644
 --- a/src/render.zig
 +++ b/src/render.zig
-@@ -879,6 +879,32 @@ fn positionCursorByCell(env: emacs.Env, term: *Terminal, cx: u16, cy: u16) bool
+@@ -548,6 +548,33 @@ fn positionCursorByCell(env: emacs.Env, term: *Terminal, cx: u16, cy: u16) !bool
      return true;
  }
  
@@ -113,62 +112,64 @@ index bfb4651..87b6287 100644
 +///
 +/// Re-seeds the row iterator, so callers must not rely on iterator
 +/// position after this call.
-+fn cursorCellIsInverse(term: *Terminal, cx: u16, cy: u16) bool {
-+    if (gt.c.ghostty_render_state_get(term.render_state, gt.RS_DATA_ROW_ITERATOR, @ptrCast(&term.row_iterator)) != gt.SUCCESS) {
-+        return false;
-+    }
++fn cursorCellIsInverse(term: *Terminal, cx: u16, cy: u16) !bool {
++    try gt.rs.read(term.render_state, gt.RS_DATA_ROW_ITERATOR, &term.row_iterator);
 +    var ri: u16 = 0;
 +    while (ri <= cy) : (ri += 1) {
-+        if (!gt.c.ghostty_render_state_row_iterator_next(term.row_iterator)) return false;
++        if (!gt.rs_row_next(term.row_iterator)) return false;
 +    }
-+    if (gt.c.ghostty_render_state_row_get(term.row_iterator, gt.RS_ROW_DATA_CELLS, @ptrCast(&term.row_cells)) != gt.SUCCESS) {
-+        return false;
++    try gt.rs_row.read(term.row_iterator, gt.RS_ROW_DATA_CELLS, &term.row_cells);
++    var col: u16 = 0;
++    while (gt.rs_row_cells_next(term.row_cells)) : (col += 1) {
++        if (col == cx) {
++            const raw_cell = try gt.rs_row_cells.get(gt.c.GhosttyCell, term.row_cells, gt.c.GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_RAW);
++            const style = try readCellStyle(term.row_cells, raw_cell) orelse return false;
++            return style.inverse;
++        }
 +    }
-+    if (gt.c.ghostty_render_state_row_cells_select(term.row_cells, cx) != gt.SUCCESS) {
-+        return false;
-+    }
-+    return readCellStyle(term.row_cells).inverse;
++    return false;
 +}
 +
- /// Redraw the terminal into the current Emacs buffer.
- ///
- /// Maintains a "growing buffer" model where the Emacs buffer contains
-@@ -1279,14 +1305,20 @@ pub fn redraw(env: emacs.Env, term: *Terminal, force_full_arg: bool) void {
-     // Batch-fetch cursor style/visibility (always available).
-     var cursor_visible: bool = true;
-     var cursor_style: c_int = gt.CURSOR_BLOCK;
-+    var cursor_blinking: bool = false;
-+    var cursor_password_input: bool = false;
-     {
-         const cursor_keys = [_]gt.c.GhosttyRenderStateData{
-             gt.RS_DATA_CURSOR_VISIBLE,
-             gt.RS_DATA_CURSOR_VISUAL_STYLE,
-+            gt.RS_DATA_CURSOR_BLINKING,
-+            gt.RS_DATA_CURSOR_PASSWORD_INPUT,
-         };
-         var cursor_values = [_]?*anyopaque{
-             @ptrCast(&cursor_visible),
-             @ptrCast(&cursor_style),
-+            @ptrCast(&cursor_blinking),
-+            @ptrCast(&cursor_password_input),
-         };
-         _ = gt.c.ghostty_render_state_get_multi(term.render_state, cursor_keys.len, &cursor_keys, @ptrCast(&cursor_values), null);
-     }
-@@ -1307,12 +1339,37 @@ pub fn redraw(env: emacs.Env, term: *Terminal, force_full_arg: bool) void {
-         if (!positionCursorByCell(env, term, cx, cy)) {
+ const BgFg = struct {
+     bg: gt.ColorRgb,
+     fg: gt.ColorRgb,
+@@ -627,11 +654,16 @@ pub fn renderCursor(env: emacs.Env, term: *Terminal) !void {
+     gotoActiveStart(env, term);
+     const active_start_int = env.extractInteger(env.point());
+ 
+-    // Batch-fetch cursor style/visibility (always available).
+-    const cursor_visible, const cursor_style = try gt.rs.getMulti(term.render_state, &[_]gt.Multi{
+-        .{ gt.RS_DATA_CURSOR_VISIBLE, bool },
+-        .{ gt.RS_DATA_CURSOR_VISUAL_STYLE, c_int },
+-    });
++    // Batch-fetch cursor style/visibility/blinking/password-input.
++    const cursor_visible, const cursor_style, const cursor_blinking, const cursor_password_input =
++        try gt.rs.getMulti(term.render_state, &[_]gt.Multi{
++            .{ gt.RS_DATA_CURSOR_VISIBLE, bool },
++            .{ gt.RS_DATA_CURSOR_VISUAL_STYLE, c_int },
++            .{ gt.RS_DATA_CURSOR_BLINKING, bool },
++            .{ gt.RS_DATA_CURSOR_PASSWORD_INPUT, bool },
++        });
++
++    var visible = cursor_visible;
+ 
+     // Position cursor (active-relative row -> absolute line).
+     // X/Y are only valid when HAS_VALUE is true, so query separately
+@@ -646,12 +678,37 @@ pub fn renderCursor(env: emacs.Env, term: *Terminal) !void {
+         if (!try positionCursorByCell(env, term, cx, cy)) {
              env.moveToColumn(@as(i64, cx));
          }
 +
 +        // When libghostty paints the cursor cell as reverse-video (e.g.
 +        // Claude Code hides DECTCEM and draws its own inverse cursor
 +        // cell), our applyStyle gives it an :fg/:bg swap against the
-+        // frame defaults.  On a TTY Emacs, the outer terminal draws the
++        // frame defaults. On a TTY Emacs, the outer terminal draws the
 +        // hardware cursor by reverse-video'ing the cell under `point',
 +        // so the two inversions cancel and the cursor becomes invisible.
 +        // Strip the face on that one cell and promote visibility so the
 +        // outer terminal's cursor lands on a default-face cell and
 +        // renders normally.
-+        if (cursorCellIsInverse(term, cx, cy)) {
++        if (try cursorCellIsInverse(term, cx, cy)) {
 +            const pt = env.extractInteger(env.point());
 +            const pmax = env.extractInteger(env.pointMax());
 +            if (pt + 1 <= pmax) {
@@ -179,7 +180,7 @@ index bfb4651..87b6287 100644
 +                    env.nil(),
 +                );
 +            }
-+            cursor_visible = true;
++            visible = true;
 +        }
      }
  
@@ -187,12 +188,13 @@ index bfb4651..87b6287 100644
 +    _ = env.call4(
          emacs.sym.@"ghostel--set-cursor-style",
          env.makeInteger(@as(i64, cursor_style)),
-         if (cursor_visible) env.t() else env.nil(),
+-        if (cursor_visible) env.t() else env.nil(),
++        if (visible) env.t() else env.nil(),
 +        if (cursor_blinking) env.t() else env.nil(),
 +        if (cursor_password_input) env.t() else env.nil(),
      );
+ }
  
-     // Update working directory from OSC 7
 -- 
 2.53.0
 
