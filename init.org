@@ -1557,9 +1557,6 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
 
 (use-package magit
   :ensure t
-  :commands magit-wip-mode
-  :hook
-  (my/project-git-hook . (lambda () (magit-wip-mode t)))
   :config
   ;; magit-section-visibility-indicators is (GUI-INDICATOR TTY-INDICATOR).
   ;; Keep the GUI fringe-bitmap default; replace the TTY "…" with a
