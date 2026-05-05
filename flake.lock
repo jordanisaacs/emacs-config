@@ -252,11 +252,11 @@
     "pm-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1777784556,
-        "narHash": "sha256-r9360jDSrL+Cmv6fgvnjWEM7PSz0rmvf5ltHhEYqsXw=",
+        "lastModified": 1778007877,
+        "narHash": "sha256-ITJYZyJLIdnn34xB1pTD/cQnWT6A54XtpYO7sguV/qQ=",
         "owner": "jordan-isaacs_data",
         "repo": "project-manager",
-        "rev": "3b6d5e4bac7de2d6d5acfb3bda6f6fc0fe803eeb",
+        "rev": "aa8cb672502f3e2dc29548877e339bf635eaf600",
         "type": "github"
       },
       "original": {
