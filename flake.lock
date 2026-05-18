@@ -252,17 +252,17 @@
     "pm-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1778141957,
-        "narHash": "sha256-f3Co7aRlmX9ynmQn/1OHPNPfLu7WYFDCjgCEW/Xmsi0=",
-        "owner": "jordan-isaacs_data",
-        "repo": "project-manager",
-        "rev": "17dc0f1e5bbc7e14abb47d636266319c05398e4b",
-        "type": "github"
+        "lastModified": 1778865104,
+        "narHash": "sha256-X6XH/+quh/zAdXdzfAEc35taybgrCH8H10Gd+aQciv0=",
+        "ref": "refs/heads/master",
+        "rev": "79476c7a4b258205761514517c2564c7004ae4b8",
+        "revCount": 111,
+        "type": "git",
+        "url": "https://tangled.org/snowytrees.dev/project-manager"
       },
       "original": {
-        "owner": "jordan-isaacs_data",
-        "repo": "project-manager",
-        "type": "github"
+        "type": "git",
+        "url": "https://tangled.org/snowytrees.dev/project-manager"
       }
     },
     "root": {

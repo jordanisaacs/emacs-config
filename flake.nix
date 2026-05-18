@@ -39,7 +39,7 @@
     ghostel.flake = false;
 
     # Source for `pm' (project_manager).  Pinned to remote master.
-    pm-src.url = "github:jordan-isaacs_data/project-manager";
+    pm-src.url = "git+https://tangled.org/snowytrees.dev/project-manager";
     pm-src.flake = false;
   };
 
