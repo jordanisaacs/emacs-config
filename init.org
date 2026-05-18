@@ -1180,6 +1180,12 @@ read =/proc/PID/comm= so the prompt names it.  More reliable than OSC
 133 prompt markers, which don't fire through raw-TTY apps like Claude
 and require shell integration to be installed.
 
+Upstream now ships =ghostel-query-before-killing= (default ='auto=),
+which flips =set-process-query-on-exit-flag= via OSC 133 C/D markers.
+We set it to =nil= so Emacs's built-in process-kill prompt doesn't
+fire on top of our =/proc=-based prompt — one informative prompt
+beats two redundant ones.
+
 #+begin_src emacs-lisp :tangle init.el
 (defvar ghostel-ignore-cursor-change)
 
@@ -1272,6 +1278,7 @@ ghostel buffer or its shell is idle."
   :custom
   (ghostel-module-auto-install nil)
   (ghostel-ignore-cursor-change nil)
+  (ghostel-query-before-killing nil)
   :bind
   ;; Ghostty-style live scrollback: viewport drifts up while output keeps
   ;; streaming into the buffer. ghostel--scroll-positions anchors the

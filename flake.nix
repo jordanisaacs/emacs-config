@@ -114,7 +114,7 @@
             name = "ghostel-patched-src";
             src = inputs.ghostel;
             patches = [
-              ./patches/ghostel/0001-Track-cursor-render-state-and-strip-inverse-cell-for.patch
+              ./patches/ghostel/0001-Strip-inverse-cell-on-cursor-for-TTY-Emacs.patch
             ];
           };
 
@@ -124,7 +124,7 @@
             };
           in zigEnv.package {
             pname = "ghostel-module";
-            version = "0.21.0";
+            version = "0.27.0";
             src = ghostelSrc;
             # build.zig.zon2json-lock is regenerated via
             #   nix run github:Cloudef/zig2nix#zon2json-lock -- build.zig.zon
