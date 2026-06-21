@@ -252,11 +252,11 @@
     "pm-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1781042399,
-        "narHash": "sha256-+FfZVybYkTQ8aZGk+Oj+XssuBjYcVPcgQbxixjTmm5s=",
+        "lastModified": 1782033704,
+        "narHash": "sha256-3L89Jj4O6XRrqJ/8Re9d165hzC3W77U0cfj57+DAC9w=",
         "ref": "refs/heads/master",
-        "rev": "d46f9e41dc42531c9756c62a0814ea39ca8a8017",
-        "revCount": 113,
+        "rev": "d19742821d6c0c6ff05d4d2812ac8196ab7652c7",
+        "revCount": 117,
         "type": "git",
         "url": "https://tangled.org/snowytrees.dev/project-manager"
       },
