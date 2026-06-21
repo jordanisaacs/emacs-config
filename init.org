@@ -1285,6 +1285,24 @@ host, so local /proc can't see them — skip them."
   (ghostel-module-auto-install nil)
   (ghostel-ignore-cursor-change nil)
   (ghostel-query-before-killing nil)
+  ;; Leaving point in the scrollback (isearch, consult-line, minibuffer
+  ;; navigation) switches to a read-only mode so the next redraw doesn't
+  ;; yank point back to the live prompt.  `ghostel-maybe-leave-input' can
+  ;; be added to avy/flash-style after-jump hooks for the same effect.
+  (ghostel-point-leave-input-mode 'copy)
+  ;; Activating the mark by keyboard (C-SPC, expand-region, C-x h, ...)
+  ;; switches to copy mode so streaming output can't clobber a
+  ;; keyboard-driven region; mouse selection already does this via
+  ;; `ghostel-mouse-drag-input-mode' (default `copy').
+  (ghostel-mark-activation-input-mode 'copy)
+  ;; Use ghostel's libghostty VT parser as the comint preoutput filter
+  ;; (replacing `ansi-color-process-output') so shell / inferior-REPL /
+  ;; ielm comint buffers get truecolor SGR, the full set of underline
+  ;; styles, and clickable OSC 8 hyperlinks.  Enabled per comint buffer;
+  ;; `ghostel-comint-global-mode' is the equivalent all-at-once toggle.
+  ;; eshell is not comint-derived, so it is unaffected.  (For heavy
+  ;; shell-mode use, xterm-color's advice to disable font-lock applies.)
+  :hook (comint-mode . ghostel-comint-mode)
   :bind
   ;; Ghostty-style live scrollback: viewport drifts up while output keeps
   ;; streaming into the buffer. ghostel anchors the window across redraws
@@ -1319,6 +1337,29 @@ host, so local /proc can't see them — skip them."
               ;; Spell-check makes no sense over a live terminal; the
               ;; constant redraws also thrash jinx's overlays.
               (when (fboundp 'jinx-mode) (jinx-mode -1)))))
+#+end_src
+
+**** Compilation in a real TTY
+
+=ghostel-compile-global-mode= advises =compilation-start=, so =M-x
+compile=, =recompile=, =project-compile=, and every other
+=compilation-start= caller runs in a real ghostel TTY — progress bars,
+truecolor, and curses tools render the way they do in a shell. The
+buffer behaves like =compilation-mode= during the run (=g= reruns,
+=n=/=p= walk errors, =RET= jumps to source) and finalizes into a
+=compilation-mode= subclass with working =next-error=. =grep-mode= is
+excluded by default via =ghostel-compile-global-mode-excluded-modes=;
+add other =compilation-mode= subclasses there to opt them out. Enabled
+eagerly so the very first =compile= routes through ghostel even before
+any ghostel terminal is opened (the native module loads lazily on the
+first run).
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package ghostel-compile
+  :ensure nil
+  :commands (ghostel-compile ghostel-recompile ghostel-compile-global-mode)
+  :init
+  (ghostel-compile-global-mode 1))
 #+end_src
 
 **** Bookmark integration
