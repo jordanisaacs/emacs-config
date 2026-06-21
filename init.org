@@ -1188,6 +1188,7 @@ beats two redundant ones.
 
 #+begin_src emacs-lisp :tangle init.el
 (defvar ghostel-ignore-cursor-change)
+(defvar ghostel--pid)
 
 (defun my/ghostel-colorfgbg-advice (env)
   "Rewrite COLORFGBG for Ghostel shells to match Emacs theme polarity."
@@ -1232,12 +1233,17 @@ blocks exit."
 (defun my/ghostel-buffer-busy-info (&optional buffer)
   "Return (PID . COMM) if BUFFER's ghostel shell has a foreground child.
 BUFFER defaults to the current buffer.  Nil if BUFFER isn't a live
-ghostel buffer or its shell is idle."
+local ghostel buffer or its shell is idle.  Reads the buffer-local
+`ghostel--pid' (the shell's OS pid, set for both backends) rather than
+the buffer process id: under the native PTY backend
+(`ghostel-use-native-pty', default on) the buffer process is a pipe
+process whose `process-id' is nil.  Remote TRAMP shells run on another
+host, so local /proc can't see them — skip them."
   (with-current-buffer (or buffer (current-buffer))
-    (when (derived-mode-p 'ghostel-mode)
-      (when-let* ((proc (get-buffer-process (current-buffer)))
-                  ((process-live-p proc)))
-        (my/ghostel--foreground-child (process-id proc))))))
+    (when (and (derived-mode-p 'ghostel-mode)
+               (not (file-remote-p default-directory)))
+      (when-let* ((pid (bound-and-true-p ghostel--pid)))
+        (my/ghostel--foreground-child pid)))))
 
 (defun my/ghostel-busy-buffers ()
   "Return ((BUFFER . COMM) ...) for every ghostel buffer with a foreground child."
