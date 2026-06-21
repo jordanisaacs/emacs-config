@@ -38,7 +38,7 @@ The terminal buffer this skill creates is a **ghostel buffer** — `libghostty-v
 
 ## Critical Rules
 
-1. **Never assume the daemon is running.** Pre-flight with `emacsclient -e '(server-running-p)'`. If it returns anything other than `t`, stop and tell the user — don't try to start the daemon yourself.
+1. **One `emacsclient -e` per spawn.** `emacsclient` failing to connect *is* the daemon check (no socket → non-zero exit + stderr); the ghostel feature check belongs **inside** the same elisp form (`(unless (featurep 'ghostel) (error ...))`). Don't pre-flight with a separate `(server-running-p)` call — it adds a round-trip and races the spawn. If `emacsclient` returns non-zero or prints `*ERROR*`, stop and tell the user; don't try to start the daemon yourself.
 2. **Always set `default-directory` in the eval form.** The new buffer inherits cwd from `default-directory` at spawn. If you don't set it, the shell lands wherever the daemon was started.
 3. **Pass paths with a trailing slash.** `default-directory` must end in `/` — `"/home/.../carvedb"` is wrong, `"/home/.../carvedb/"` is correct.
 4. **Sending input is async.** The shell starts in a background process; sending a command immediately races against shell startup. Use `run-at-time` with a small delay (≥0.5s) before `ghostel-send-string`.
@@ -51,11 +51,9 @@ The terminal buffer this skill creates is a **ghostel buffer** — `libghostty-v
 
 | What | How |
 |---|---|
-| Check daemon | `emacsclient -e '(server-running-p)'` → expect `t` |
-| Check terminal backend loaded | `emacsclient -e '(featurep (quote ghostel))'` → expect `t` |
 | Resolve a project path | `pm cd --print <project>` |
 | Resolve a worktree path | `pm cd --print <project> <wt>` (only if user specified a worktree) |
-| Spawn a new buffer + run a command | see "Canonical Spawn" below |
+| Spawn a new buffer + run a command | see "Canonical Spawn" below — daemon + feature checks are inline |
 
 Need to discover what projects / worktrees exist? Don't guess `pm` subcommands — load the **`pm-workflow`** skill, which is the authoritative reference for `pm project ls`, `pm pool ls`, etc.
 
@@ -73,23 +71,30 @@ These are the elisp entry points the spawn recipes call. You don't need to surfa
 
 ## Canonical Spawn
 
-The standard recipe — new buffer at the pm **project root**, then run a command:
+The standard recipe — one `emacsclient -e` call that asserts ghostel is loaded, opens a new buffer at the pm **project root**, and runs the command:
 
 ```bash
-emacsclient -e '(let* ((default-directory "/home/jordan.isaacs/.projects/<proj>/")
-                       (buf (generate-new-buffer "*ghostel:<proj>*")))
-                  (pop-to-buffer buf (append display-buffer--same-window-action
-                                             (list (cons (quote category) (quote comint)))))
-                  (ghostel--init-buffer buf)
-                  (run-at-time 0.8 nil
-                    (lambda ()
-                      (when (buffer-live-p buf)
-                        (with-current-buffer buf
-                          (ghostel-send-string "pm agent claude --project <proj>\n")))))
-                  (buffer-name buf))'
+emacsclient -e '(progn
+                  (unless (featurep (quote ghostel))
+                    (error "ghostel not loaded"))
+                  (let* ((default-directory "/home/jordan.isaacs/.projects/<proj>/")
+                         (buf (generate-new-buffer "*ghostel:<proj>*")))
+                    (pop-to-buffer buf (append display-buffer--same-window-action
+                                               (list (cons (quote category) (quote comint)))))
+                    (ghostel--init-buffer buf)
+                    (run-at-time 0.8 nil
+                      (lambda ()
+                        (when (buffer-live-p buf)
+                          (with-current-buffer buf
+                            (ghostel-send-string "pm agent claude --project <proj>\n")))))
+                    (buffer-name buf)))'
 ```
 
-`emacsclient` returns the new buffer name on success (e.g. `"*ghostel:columnar-storage*"`). Echo it back to the user so they can find it in Emacs (`C-x b`).
+Three possible outcomes from this single call:
+
+1. **Daemon down** — `emacsclient` exits non-zero with `emacsclient: can't find socket`. Stop, tell the user; don't start the daemon yourself.
+2. **Ghostel not loaded** — `emacsclient` prints `*ERROR*: ghostel not loaded` to stderr and exits non-zero. The user's config didn't load it — investigate; don't load it yourself.
+3. **Success** — `emacsclient` prints the new buffer name (e.g. `"*ghostel:columnar-storage*"`) on stdout. Echo it back to the user so they can find it in Emacs (`C-x b`).
 
 Substitute:
 - `<proj>` — pm project name (e.g. `columnar-storage`)
@@ -106,15 +111,18 @@ If the user explicitly asked for a worktree, use `~/.projects/<proj>/<wt>/` for 
 Default for non-interactive launches. Drop `pop-to-buffer` entirely — the buffer is created, the shell starts, the command runs, but no client frame is touched. The user can switch to it later (`C-x b`, etc.).
 
 ```bash
-emacsclient -e '(let* ((default-directory "/home/jordan.isaacs/.projects/<proj>/")
-                       (buf (generate-new-buffer "*ghostel:<proj>*")))
-                  (ghostel--init-buffer buf)
-                  (run-at-time 0.8 nil
-                    (lambda ()
-                      (when (buffer-live-p buf)
-                        (with-current-buffer buf
-                          (ghostel-send-string "pm agent claude --project <proj>\n")))))
-                  (buffer-name buf))'
+emacsclient -e '(progn
+                  (unless (featurep (quote ghostel))
+                    (error "ghostel not loaded"))
+                  (let* ((default-directory "/home/jordan.isaacs/.projects/<proj>/")
+                         (buf (generate-new-buffer "*ghostel:<proj>*")))
+                    (ghostel--init-buffer buf)
+                    (run-at-time 0.8 nil
+                      (lambda ()
+                        (when (buffer-live-p buf)
+                          (with-current-buffer buf
+                            (ghostel-send-string "pm agent claude --project <proj>\n")))))
+                    (buffer-name buf)))'
 ```
 
 Notes specific to background mode:
@@ -130,15 +138,18 @@ Use foreground (canonical) spawn when the user explicitly says "open it" / "show
 Use when the user explicitly named a worktree, or when the work is worktree-bound (`pm stacker`, branch-specific tasks, anything that calls `git` against a particular tree). Set `default-directory` to the worktree symlink and name the buffer after the worktree so concurrent worktree spawns don't collide:
 
 ```bash
-emacsclient -e '(let* ((default-directory "/home/jordan.isaacs/.projects/<proj>/<wt>/")
-                       (buf (generate-new-buffer "*ghostel:<proj>:<wt>*")))
-                  (ghostel--init-buffer buf)
-                  (run-at-time 0.8 nil
-                    (lambda ()
-                      (when (buffer-live-p buf)
-                        (with-current-buffer buf
-                          (ghostel-send-string "pm agent claude --project <proj>\n")))))
-                  (buffer-name buf))'
+emacsclient -e '(progn
+                  (unless (featurep (quote ghostel))
+                    (error "ghostel not loaded"))
+                  (let* ((default-directory "/home/jordan.isaacs/.projects/<proj>/<wt>/")
+                         (buf (generate-new-buffer "*ghostel:<proj>:<wt>*")))
+                    (ghostel--init-buffer buf)
+                    (run-at-time 0.8 nil
+                      (lambda ()
+                        (when (buffer-live-p buf)
+                          (with-current-buffer buf
+                            (ghostel-send-string "pm agent claude --project <proj>\n")))))
+                    (buffer-name buf)))'
 ```
 
 Note: `pm agent` itself runs in the project dir regardless of cwd — the worktree path only affects where the *interactive shell* lands. That's still useful when the user wants to run `git` / `pm stacker` commands in the same buffer alongside the agent.
@@ -152,12 +163,15 @@ The branch must already be checked out in the worktree (use `pm stacker create` 
 Drop the `run-at-time` block:
 
 ```bash
-emacsclient -e '(let* ((default-directory "/path/to/dir/")
-                       (buf (generate-new-buffer "*ghostel:scratch*")))
-                  (pop-to-buffer buf (append display-buffer--same-window-action
-                                             (list (cons (quote category) (quote comint)))))
-                  (ghostel--init-buffer buf)
-                  (buffer-name buf))'
+emacsclient -e '(progn
+                  (unless (featurep (quote ghostel))
+                    (error "ghostel not loaded"))
+                  (let* ((default-directory "/path/to/dir/")
+                         (buf (generate-new-buffer "*ghostel:scratch*")))
+                    (pop-to-buffer buf (append display-buffer--same-window-action
+                                               (list (cons (quote category) (quote comint)))))
+                    (ghostel--init-buffer buf)
+                    (buffer-name buf)))'
 ```
 
 ### Spawn a program directly (no shell wrapper)
@@ -165,18 +179,21 @@ emacsclient -e '(let* ((default-directory "/path/to/dir/")
 `ghostel-exec` execs PROGRAM via `/bin/sh -c` without sourcing the user's shell init. Use when you want a single program (not an interactive shell) and don't need PATH from `.zshrc`:
 
 ```bash
-emacsclient -e '(let* ((default-directory "/path/to/dir/")
-                       (buf (get-buffer-create "*claude:foo*")))
-                  (pop-to-buffer buf)
-                  (ghostel-exec buf "pm" (list "agent" "claude" "--project" "foo"))
-                  (buffer-name buf))'
+emacsclient -e '(progn
+                  (unless (featurep (quote ghostel))
+                    (error "ghostel not loaded"))
+                  (let* ((default-directory "/path/to/dir/")
+                         (buf (get-buffer-create "*claude:foo*")))
+                    (pop-to-buffer buf)
+                    (ghostel-exec buf "pm" (list "agent" "claude" "--project" "foo"))
+                    (buffer-name buf)))'
 ```
 
 This skips shell integration (no prompt markers, no `EMACS_GHOSTEL_PATH`). Prefer the canonical spawn unless you explicitly want a no-shell environment.
 
 ### Reuse an existing buffer
 
-Send into a known buffer (no new spawn):
+Send into a known buffer (no new spawn). No feature check needed — if the buffer exists, ghostel is loaded:
 
 ```bash
 emacsclient -e '(with-current-buffer "*ghostel:foo*"
@@ -187,27 +204,20 @@ Errors if the buffer doesn't exist or isn't a terminal buffer.
 
 ## Pre-flight Checklist
 
-Before the spawn:
+The spawn form does the daemon + ghostel checks itself — the only things you have to verify outside it are paths:
 
 ```bash
-# 1. Daemon up?
-emacsclient -e '(server-running-p)'                # → t
-
-# 2. Terminal backend loaded?
-emacsclient -e '(featurep (quote ghostel))'        # → t
-
-# 3. Project path correct?
+# Project path correct?
 pm cd --print <proj>                               # → /home/.../<proj>
 
 # Only if the user named a specific worktree:
-# 4. Worktree path correct?
 pm cd --print <proj> <wt>                          # → /home/.../<wt>
 
-# 5. Branch where you expect?
+# Branch where you expect (worktree-bound work only)?
 cd $(pm cd --print <proj> <wt>) && git branch --show-current
 ```
 
-If any step fails, stop and report — don't paper over with workarounds.
+Then run the spawn — `emacsclient` itself returns non-zero if the daemon is down, and the inline `(unless (featurep 'ghostel) ...)` errors out if the backend isn't loaded. If either fails, stop and report; don't paper over with workarounds.
 
 ## Tripping Hazards
 
@@ -219,7 +229,7 @@ If any step fails, stop and report — don't paper over with workarounds.
 | Reusing the default `*ghostel*` buffer name | New spawn collides with an existing session | `generate-new-buffer "*ghostel:<name>*"` |
 | Nested single quotes in `emacsclient -e '...'` | Shell parse error | Use `(quote symbol)` form, or switch to a heredoc |
 | Daemon not running | `emacsclient: can't find socket` | Tell the user; don't try `emacs --daemon` automatically |
-| Terminal backend not loaded | `void-function ghostel--init-buffer` | The user's Emacs config didn't load it — investigate; don't load it yourself |
+| Terminal backend not loaded | The inline `(unless (featurep 'ghostel) ...)` fires `*ERROR*: ghostel not loaded` on stderr (or `void-function ghostel--init-buffer` if you removed the guard) | The user's Emacs config didn't load it — investigate; don't load it yourself |
 | Spawning in a non-pm directory and then running `pm agent` | `pm agent` errors because cwd isn't a project | Set `default-directory` to a real `~/.projects/<p>/` path |
 | Foreground spawn during the user's active editing | `pop-to-buffer` splits or replaces the user's window | Use the background spawn (no `pop-to-buffer`); default to background unless the user said "open it" |
 | Defaulting to a worktree when the user just named a project | Picks an arbitrary worktree, may surprise the user | Default `default-directory` to `~/.projects/<proj>/`. Only descend into a worktree when the user named one or the task is worktree-bound (stacker, branch work) |
