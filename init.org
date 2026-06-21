@@ -1281,8 +1281,9 @@ ghostel buffer or its shell is idle."
   (ghostel-query-before-killing nil)
   :bind
   ;; Ghostty-style live scrollback: viewport drifts up while output keeps
-  ;; streaming into the buffer. ghostel--scroll-positions anchors the
-  ;; window, and typing any self-inserting key snaps back to the bottom.
+  ;; streaming into the buffer. ghostel anchors the window across redraws
+  ;; (renderer-side saved markers), and typing any self-inserting key
+  ;; snaps back to the bottom.
   ;; ghostel.el binds the function-key forms (`M-<return>', `M-<tab>')
   ;; and the char form `M-DEL', but not `M-RET' / `M-TAB'. GUI Emacs
   ;; normally delivers the function-key form, but key-translation on

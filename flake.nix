@@ -28,11 +28,10 @@
     zig2nix.url = "github:Cloudef/zig2nix";
     zig2nix.inputs.nixpkgs.follows = "nixpkgs";
 
-    # Upstream ghostel; pin tracked by flake.lock. Local changes live in
-    # ./patches/ghostel and are applied at build time via `pkgs.applyPatches`
-    # (see `ghostelSrc` below). To bump:
+    # Upstream ghostel; pin tracked by flake.lock. Currently used as-is
+    # (no local patches). To bump:
     #   1. `nix flake update ghostel`,
-    #   2. re-roll patches if they no longer apply,
+    #   2. bump `ghostelModule.version` to match upstream `build.zig.zon`,
     #   3. regenerate `nix/ghostel/build.zig.zon2json-lock` if upstream
     #      touched `build.zig.zon` (see ghostelModule comment).
     ghostel.url = "github:dakra/ghostel";
@@ -107,16 +106,11 @@
             chmod +x $out/bin/ghostel-editor
           '';
 
-          # Upstream ghostel + our functional patches. Single source of
-          # truth shared by the Zig module build and the elisp package
-          # override so they never drift.
-          ghostelSrc = pkgs.applyPatches {
-            name = "ghostel-patched-src";
-            src = inputs.ghostel;
-            patches = [
-              ./patches/ghostel/0001-Strip-inverse-cell-on-cursor-for-TTY-Emacs.patch
-            ];
-          };
+          # Upstream ghostel, used as-is. Single source of truth shared by
+          # the Zig module build and the elisp package override so they
+          # never drift. If local patches are needed again, wrap this in
+          # `pkgs.applyPatches`.
+          ghostelSrc = inputs.ghostel;
 
           ghostelModule = let
             zigEnv = inputs.zig2nix.outputs.zig-env.${system} {
@@ -124,7 +118,7 @@
             };
           in zigEnv.package {
             pname = "ghostel-module";
-            version = "0.27.0";
+            version = "0.36.0";
             src = ghostelSrc;
             # build.zig.zon2json-lock is regenerated via
             #   nix run github:Cloudef/zig2nix#zon2json-lock -- build.zig.zon
