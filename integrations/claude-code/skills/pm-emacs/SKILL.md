@@ -43,7 +43,7 @@ The terminal buffer this skill creates is a **ghostel buffer** — `libghostty-v
 3. **Pass paths with a trailing slash.** `default-directory` must end in `/` — `"/home/.../carvedb"` is wrong, `"/home/.../carvedb/"` is correct.
 4. **Sending input is async.** The shell starts in a background process; sending a command immediately races against shell startup. Use `run-at-time` with a small delay (≥0.5s) before `ghostel-send-string`.
 5. **Always include `\n` in `ghostel-send-string`.** Without it the line sits in the prompt, unsent. Use `"<command>\n"`.
-6. **Name a fresh buffer per agent.** Let-bind `ghostel-buffer-name` to `"*ghostel:<name>*"` around `(ghostel t)` so concurrent agents don't collide on the default `*ghostel*` buffer. If that name is already taken, ghostel appends `<2>`, `<3>`, … — so capture the returned buffer object rather than re-deriving it from the name.
+6. **Generate a fresh buffer per agent.** Use `generate-new-buffer "*ghostel:<name>*"` so concurrent agents don't collide on the default `*ghostel*` buffer.
 7. **Quote elisp safely for the shell.** When passing `'(quote category)` or similar through `emacsclient -e '...'`, write `(quote category)` (the symbol form) inside single-quoted shell strings — never nest single quotes.
 8. **Don't spawn an agent without explicit user intent.** Launching a Claude session is a visible, billable side effect. Confirm the project and agent before spawning. Don't ask about worktree unless the user has hinted that this is worktree-specific work — default to the project root.
 
@@ -63,16 +63,11 @@ These are the elisp entry points the spawn recipes call. You don't need to surfa
 
 | Function | Purpose |
 |---|---|
-| `(ghostel &optional NEW)` (interactive) | **The spawn primitive.** With NEW non-nil (`(ghostel t)`) it creates **and displays** a fresh terminal buffer, starts its shell, and returns the buffer. Honors a let-bound `ghostel-buffer-name` for the buffer name and `default-directory` for the cwd. |
+| `ghostel--init-buffer BUF` | Turns BUF into a terminal buffer and starts its shell. Required after `generate-new-buffer`. |
 | `ghostel-send-string STR` | Send STR (raw bytes, include `\n`) to the buffer's shell |
 | `ghostel-exec BUF PROGRAM &optional ARGS` | Spawn PROGRAM directly (no shell, no shell integration) in BUF |
+| `ghostel` (interactive) | Pop up the default terminal buffer (or new one with prefix arg) |
 | `ghostel-project` (interactive) | Spawn a terminal in `(project-root)` with project-prefixed name |
-
-> **ghostel 0.36.0:** create terminals with `(ghostel t)`. The older recipe —
-> `generate-new-buffer` then `ghostel--init-buffer` — is **deprecated**: the function
-> still exists (so it raises no error and the form returns a buffer name), but it no
-> longer starts a rendered shell, so the buffer comes up **blank and the agent never
-> launches**. This is the trap to avoid; always go through `(ghostel t)`.
 
 ## Canonical Spawn
 
@@ -83,8 +78,10 @@ emacsclient -e '(progn
                   (unless (featurep (quote ghostel))
                     (error "ghostel not loaded"))
                   (let* ((default-directory "/home/jordan.isaacs/.projects/<proj>/")
-                         (ghostel-buffer-name "*ghostel:<proj>*")
-                         (buf (ghostel t)))
+                         (buf (generate-new-buffer "*ghostel:<proj>*")))
+                    (pop-to-buffer buf (append display-buffer--same-window-action
+                                               (list (cons (quote category) (quote comint)))))
+                    (ghostel--init-buffer buf)
                     (run-at-time 0.8 nil
                       (lambda ()
                         (when (buffer-live-p buf)
@@ -92,8 +89,6 @@ emacsclient -e '(progn
                             (ghostel-send-string "pm agent claude --project <proj>\n")))))
                     (buffer-name buf)))'
 ```
-
-`(ghostel t)` creates the terminal, starts its shell, **displays it in the user's frame**, and returns the buffer — so the canonical spawn is itself the "open it / show it" path. (`default-directory` and `ghostel-buffer-name` are let-bound *around* the call so the new buffer picks them up.)
 
 Three possible outcomes from this single call:
 
@@ -113,15 +108,15 @@ If the user explicitly asked for a worktree, use `~/.projects/<proj>/<wt>/` for 
 
 ### Background spawn (don't steal the user's frame)
 
-`(ghostel t)` always displays the new buffer. To create + start the agent without leaving a window in the user's face, wrap the call in `save-window-excursion`: the buffer is displayed just long enough during creation to get a real window size, then the prior layout is restored. The buffer and its shell persist; the user switches to it later (`C-x b`).
+Default for non-interactive launches. Drop `pop-to-buffer` entirely — the buffer is created, the shell starts, the command runs, but no client frame is touched. The user can switch to it later (`C-x b`, etc.).
 
 ```bash
 emacsclient -e '(progn
                   (unless (featurep (quote ghostel))
                     (error "ghostel not loaded"))
                   (let* ((default-directory "/home/jordan.isaacs/.projects/<proj>/")
-                         (ghostel-buffer-name "*ghostel:<proj>*")
-                         (buf (save-window-excursion (ghostel t))))
+                         (buf (generate-new-buffer "*ghostel:<proj>*")))
+                    (ghostel--init-buffer buf)
                     (run-at-time 0.8 nil
                       (lambda ()
                         (when (buffer-live-p buf)
@@ -132,11 +127,11 @@ emacsclient -e '(progn
 
 Notes specific to background mode:
 
-- **No 24×80 fallback.** Because `(ghostel t)` displays the buffer during creation (inside `save-window-excursion`), the shell is sized to a real window before the layout is restored — unlike a never-displayed buffer, which would start at 24×80.
-- **Don't drop the `save-window-excursion`.** Without it, `(ghostel t)` leaves its window in the user's frame (that *is* the foreground/canonical spawn).
+- **Terminal sizing falls back to 24×80** until the buffer is first displayed, because `ghostel--init-buffer` uses `(selected-window)` (typically the daemon's minibuffer-only window) when no window shows the buffer. Auto-resize via `window-size-change-functions` corrects this once the user switches to it — but TUI programs that read `$LINES`/`$COLUMNS` at startup will see 24×80 first. Claude Code handles resize fine; if you need a specific size, display the buffer first.
+- **`pop-to-buffer` is the only thing we drop.** Keep `generate-new-buffer`, `ghostel--init-buffer`, and the `run-at-time` send — all three are still required.
 - **Echo the buffer name** back to the user so they can find it. `emacsclient` returns whatever the form returns; `(buffer-name buf)` makes that the new buffer's name.
 
-Use the foreground (canonical) spawn when the user says "open it" / "show it"; use background for "kick off an agent" / "start it in the background" / scripted launches.
+Use foreground (canonical) spawn when the user explicitly says "open it" / "show it"; use background for "kick off an agent" / "start it in the background" / scripted launches.
 
 ### Worktree-scoped spawn
 
@@ -147,8 +142,8 @@ emacsclient -e '(progn
                   (unless (featurep (quote ghostel))
                     (error "ghostel not loaded"))
                   (let* ((default-directory "/home/jordan.isaacs/.projects/<proj>/<wt>/")
-                         (ghostel-buffer-name "*ghostel:<proj>:<wt>*")
-                         (buf (ghostel t)))
+                         (buf (generate-new-buffer "*ghostel:<proj>:<wt>*")))
+                    (ghostel--init-buffer buf)
                     (run-at-time 0.8 nil
                       (lambda ()
                         (when (buffer-live-p buf)
@@ -172,8 +167,10 @@ emacsclient -e '(progn
                   (unless (featurep (quote ghostel))
                     (error "ghostel not loaded"))
                   (let* ((default-directory "/path/to/dir/")
-                         (ghostel-buffer-name "*ghostel:scratch*")
-                         (buf (ghostel t)))
+                         (buf (generate-new-buffer "*ghostel:scratch*")))
+                    (pop-to-buffer buf (append display-buffer--same-window-action
+                                               (list (cons (quote category) (quote comint)))))
+                    (ghostel--init-buffer buf)
                     (buffer-name buf)))'
 ```
 
@@ -229,13 +226,12 @@ Then run the spawn — `emacsclient` itself returns non-zero if the daemon is do
 | `default-directory` missing trailing `/` | Emacs error: "Search failed" / wrong cwd | Always end the path in `/` |
 | Sending the command immediately (no `run-at-time`) | The string lands before the shell prompt; first chars get eaten | `run-at-time 0.8 nil ...` (or longer for slow shells) |
 | Forgetting `\n` in `ghostel-send-string` | The command sits typed but unsent | Append `\n` |
-| Using `generate-new-buffer` + `ghostel--init-buffer` (the old recipe) | Buffer comes up **blank, no shell, agent never launches** — and no error, so it looks like it "worked" | Spawn with `(ghostel t)` (let-bind `ghostel-buffer-name`); `ghostel--init-buffer` is deprecated in 0.36.0 |
-| Reusing the default `*ghostel*` buffer name | New spawn collides with an existing session | Let-bind `ghostel-buffer-name` to `"*ghostel:<name>*"` and capture the buffer `(ghostel t)` returns |
+| Reusing the default `*ghostel*` buffer name | New spawn collides with an existing session | `generate-new-buffer "*ghostel:<name>*"` |
 | Nested single quotes in `emacsclient -e '...'` | Shell parse error | Use `(quote symbol)` form, or switch to a heredoc |
 | Daemon not running | `emacsclient: can't find socket` | Tell the user; don't try `emacs --daemon` automatically |
-| Terminal backend not loaded | The inline `(unless (featurep 'ghostel) ...)` fires `*ERROR*: ghostel not loaded` on stderr | The user's Emacs config didn't load it — investigate; don't load it yourself |
+| Terminal backend not loaded | The inline `(unless (featurep 'ghostel) ...)` fires `*ERROR*: ghostel not loaded` on stderr (or `void-function ghostel--init-buffer` if you removed the guard) | The user's Emacs config didn't load it — investigate; don't load it yourself |
 | Spawning in a non-pm directory and then running `pm agent` | `pm agent` errors because cwd isn't a project | Set `default-directory` to a real `~/.projects/<p>/` path |
-| Foreground spawn during the user's active editing | `(ghostel t)` displays the new buffer in the user's frame | Use the background spawn (`save-window-excursion`); default to background unless the user said "open it" |
+| Foreground spawn during the user's active editing | `pop-to-buffer` splits or replaces the user's window | Use the background spawn (no `pop-to-buffer`); default to background unless the user said "open it" |
 | Defaulting to a worktree when the user just named a project | Picks an arbitrary worktree, may surprise the user | Default `default-directory` to `~/.projects/<proj>/`. Only descend into a worktree when the user named one or the task is worktree-bound (stacker, branch work) |
 
 ## When to Hand Off

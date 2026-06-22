@@ -2449,11 +2449,19 @@ Source lives at [[https://github.com/jordan-isaacs_data/project-manager][jordan-
 =integrations/emacs/= so twist.nix builds it like any other MELPA-style
 dependency.
 
+=pm-sidebar= is a live agent-session sidebar (=C-x p a=): it streams session
+state from the =pm agent serve= daemon over SSE and renders it grouped by
+project, colored by status. It pairs with =pm-agent='s =ghostel-pre-spawn-hook=
+tagging — loaded alongside =ghostel= below so *every* ghostel session (not just
+=pm-agent-launch= dispatches) is tagged with =PM_META_*= and shows up in the
+sidebar, mappable back to its terminal buffer.
+
 #+begin_src emacs-lisp :tangle init.el
 (use-package pm
   :ensure t
   :commands (pm-dispatch pm-project-dispatch pm-agent-launch-dispatch
-             pm-refresh pm--project-finder pm-jump-parent pm-jump-sibling)
+             pm-refresh pm--project-finder pm-jump-parent pm-jump-sibling
+             pm-sidebar)
   :custom
   (pm-agent-dispatch-function #'pm-agent-dispatch-ghostel)
   (pm-manager-project "manager")
@@ -2467,8 +2475,13 @@ dependency.
     ;; Resumes go through the regular pm flow (`?P' → `l').
     (add-to-list 'project-switch-commands
                  '(pm-agent-launch-dispatch "Agent" ?a) t))
+  ;; Load pm-agent once ghostel is up so its `ghostel-pre-spawn-hook'
+  ;; (installed by `pm-agent-setup-ghostel') tags every ghostel session with
+  ;; PM_META_* for the `pm-sidebar' sidebar — not only `pm-agent-launch' spawns.
+  (with-eval-after-load 'ghostel (require 'pm-agent))
   (global-set-key (kbd "C-x p P") #'pm-dispatch)
   (global-set-key (kbd "C-x p .") #'pm-project-dispatch)
+  (global-set-key (kbd "C-x p a") #'pm-sidebar)  ; toggle live agent-session sidebar
   (add-hook 'after-init-hook
             (lambda () (run-with-idle-timer 0.5 nil #'pm-refresh))))
 #+end_src

@@ -995,11 +995,11 @@
     "pm": {
       "flake": false,
       "locked": {
-        "lastModified": 1782033704,
-        "narHash": "sha256-3L89Jj4O6XRrqJ/8Re9d165hzC3W77U0cfj57+DAC9w=",
+        "lastModified": 1782162247,
+        "narHash": "sha256-7R/xf2cRdM1M0nnJFy61IUaq+Q0QExUHiORL1pSUp74=",
         "ref": "refs/heads/master",
-        "rev": "d19742821d6c0c6ff05d4d2812ac8196ab7652c7",
-        "revCount": 117,
+        "rev": "c2b704963fa008b3f116225f421c7b2b8bee7a00",
+        "revCount": 126,
         "type": "git",
         "url": "file:///home/jordan.isaacs/.repos/project-manager"
       },
