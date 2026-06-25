@@ -106,11 +106,24 @@
             chmod +x $out/bin/ghostel-editor
           '';
 
-          # Upstream ghostel, used as-is. Single source of truth shared by
-          # the Zig module build and the elisp package override so they
-          # never drift. If local patches are needed again, wrap this in
-          # `pkgs.applyPatches`.
-          ghostelSrc = inputs.ghostel;
+          # Upstream ghostel + local patches. Single source of truth shared by
+          # the Zig module build and the elisp package override so they never
+          # drift. Patches touch only src/*.zig, so the elisp package is
+          # byte-identical to upstream.
+          ghostelSrc = pkgs.applyPatches {
+            name = "ghostel-src-patched";
+            src = inputs.ghostel;
+            patches = [
+              # Flush terminal-update events to Emacs OUTSIDE term_mutex, via a
+              # non-blocking pooled buffer. Without this the per-terminal reader
+              # thread blocks in a write() to the event pipe while holding
+              # term_mutex; if the display client stops draining the pipe (an
+              # emacsclient suspended inside an Eternal Terminal session that was
+              # slept), the main thread deadlocks waiting for term_mutex and the
+              # whole daemon wedges. See the patch header for details.
+              ./nix/ghostel/event-pipe-nonblocking-flush.patch
+            ];
+          };
 
           ghostelModule = let
             zigEnv = inputs.zig2nix.outputs.zig-env.${system} {
