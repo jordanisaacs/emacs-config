@@ -15,7 +15,7 @@ import (
 
 const (
 	defaultListenAddress   = "127.0.0.1:24545"
-	defaultBaseURL         = "http://127.0.0.1:24545"
+	defaultBaseURL         = "http://[::1]:24545"
 	maxTextClipboardBytes  = 4 << 20
 	maxImageClipboardBytes = 25 << 20
 	maxClipboardBytes      = maxImageClipboardBytes

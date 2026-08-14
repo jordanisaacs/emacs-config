@@ -32,10 +32,12 @@ Add the reverse-forward to the SSH host entry used to reach the Arca:
 
 ```sshconfig
 Host arca.ssh
-  RemoteForward 24545 127.0.0.1:24545
+  RemoteForward [::1]:24545 127.0.0.1:24545
 ```
 
-The shims connect to `http://127.0.0.1:24545` on the Arca. Override that with
+The shims connect to `http://[::1]:24545` on the Arca. Binding the Arca side
+explicitly to IPv6 avoids stale IPv4 listeners left by other connection
+transports. Override the URL with
 `EMACS_HOST_BRIDGE_URL` if the forwarded loopback port must differ.
 
 ## Running hostd
