@@ -1030,53 +1030,6 @@ On failure, copy URL to the kill ring and message the error."
   (setq browse-url-browser-function #'my/tty-browse-url))
 #+end_src
 
-**** Bare Escape in ghostel buffers
-
-In TTY Emacs =input-decode-map= has =\e= as a prefix for every xterm
-CSI / SS3 sequence (mouse, arrows, function keys, focus events), so a
-bare Escape press never resolves — Emacs waits forever for a follow-up
-byte, and bindings on =<escape>= (including ghostel's terminal
-forwarder) never fire. Outside ghostel that wait is desirable (it lets
-ESC act as a meta prefix); inside ghostel we want Escape to reach the
-embedded terminal instantly.
-
-Scope the fast-path to =ghostel-mode= buffers and use =sit-for 0=
-(no human-perceptible delay; nil only when input is already queued,
-which in practice means the outer terminal is mid-CSI-sequence). In
-every other case, restore the original =\e= prefix keymap and
-re-dispatch so xterm sequences still decode correctly.
-
-#+begin_src emacs-lisp :tangle init.el
-(defvar my/tty-esc-orig-decode nil
-  "Original `input-decode-map' entry for \\e, saved before overriding.")
-
-(defun my/tty-esc-decoder (_prompt)
-  "Input-decode translator for bare ESC in ghostel buffers.
-Emits `[escape]' immediately when current buffer is in `ghostel-mode'
-and no input is queued behind the ESC. Otherwise temporarily restores
-the original `\\e' prefix keymap, re-queues the ESC, and lets
-`read-key-sequence-vector' decode the full sequence."
-  (if (and (derived-mode-p 'ghostel-mode) (sit-for 0 t))
-      [escape]
-    (let ((saved (lookup-key input-decode-map [?\e])))
-      (define-key input-decode-map [?\e] my/tty-esc-orig-decode)
-      (unwind-protect
-          (progn
-            (push ?\e unread-command-events)
-            (read-key-sequence-vector nil))
-        (define-key input-decode-map [?\e] saved)))))
-
-;; `input-decode-map' is a global keymap shared across frames; install
-;; the translator if Emacs serves any TTY (i.e. is a daemon — TTY clients
-;; can attach later — or itself runs on a TTY now).  The earlier
-;; `(unless (display-graphic-p))' gate skipped the install on pgtk
-;; daemons whose initial frame reports graphic, leaving every later
-;; `emacsclient -t' on the stock xterm-CSI prefix decoder.
-(when (or (daemonp) (not (display-graphic-p)))
-  (setq my/tty-esc-orig-decode (lookup-key input-decode-map [?\e]))
-  (define-key input-decode-map [?\e] #'my/tty-esc-decoder))
-#+end_src
-
 *** Eshell
 
 #+begin_src emacs-lisp :tangle init.el
@@ -1157,14 +1110,11 @@ ghostel try to download it at runtime.
 DECSCUSR codes (ghostty shell integration) can drive cursor shape and
 visibility inside the ghostel buffer.
 
-Debug helpers (event logging, libghostty VT log, cursor/state
-probes, typing-latency measurement) live in =ghostel-debug.el= in the
-submodule — =M-x ghostel-debug-start= / =ghostel-debug-stop=,
-=ghostel-debug-enable-vt-log= / =ghostel-debug-disable-vt-log=,
-=ghostel-debug-cursor-dump=, =ghostel-debug-log-state=,
-=ghostel-debug-typing-latency=, =ghostel-debug-info=. Nothing from
-that library runs until invoked explicitly. Set
-=ghostel-debug-log-directory= to mirror VT log entries to disk.
+Debug helpers live in =ghostel-debug.el=: =M-x ghostel-debug-start= /
+=ghostel-debug-stop= toggle event and libghostty VT logging,
+=ghostel-debug-typing-latency= measures echo latency, and
+=ghostel-debug-info= captures the current terminal, renderer, spawn,
+and TRAMP state. Nothing from that library runs until invoked explicitly.
 
 Ghostel inherits =COLORFGBG= from the outer ghostty (typically dark), so
 TUI apps like Claude Code auto-detect a dark theme even when the Emacs
@@ -1308,12 +1258,10 @@ host, so local /proc can't see them — skip them."
   ;; streaming into the buffer. ghostel anchors the window across redraws
   ;; (renderer-side saved markers), and typing any self-inserting key
   ;; snaps back to the bottom.
-  ;; ghostel.el binds the function-key forms (`M-<return>', `M-<tab>')
-  ;; and the char form `M-DEL', but not `M-RET' / `M-TAB'. GUI Emacs
-  ;; normally delivers the function-key form, but key-translation on
-  ;; this setup (pgtk, kitty-keyboard, ESC-prefix synthesis, etc.)
-  ;; converts Alt-Enter into `M-RET' and the lookup misses. Bind the
-  ;; char forms explicitly.
+  ;; The semi-char keymap binds the function-key forms (`M-<return>',
+  ;; `M-<tab>') and the char form `M-DEL', but not `M-RET' / `M-TAB'.
+  ;; GUI Emacs normally delivers the function-key form, but key translation
+  ;; on this setup can produce the char form, so bind both explicitly.
   (:map ghostel-mode-map
         ("S-<prior>"   . scroll-down-command)
         ("S-<next>"    . scroll-up-command)
@@ -1360,53 +1308,6 @@ first run).
   :commands (ghostel-compile ghostel-recompile ghostel-compile-global-mode)
   :init
   (ghostel-compile-global-mode 1))
-#+end_src
-
-**** Bookmark integration
-
-Make ghostel buffers usable with =M-x bookmark-set= /
-=M-x bookmark-jump=. The PTY, scrollback, and child process can't be
-persisted — what we save is the intent to recreate: the buffer's
-=default-directory= (kept current via OSC 7, TRAMP-aware) and its
-canonical ghostel identity (the original buffer name from before
-title-tracking renames). On jump, reuse a live buffer with that
-identity if one exists; otherwise spawn a fresh shell in the recorded
-directory under the original name. Project-prefixed names round-trip
-because we restore the literal identity rather than re-deriving from
-=project-current=.
-
-=ghostel-buffer-name= needs a =defvar= declaration so the =let= in the
-jump handler creates a dynamic binding =ghostel= can see (the file is
-=lexical-binding=, and the autoload hasn't fired yet on the first
-jump).
-
-#+begin_src emacs-lisp :tangle init.el
-(defvar ghostel-buffer-name)
-(declare-function ghostel "ghostel")
-(declare-function bookmark-prop-get "bookmark" (bookmark prop))
-
-(defun my/ghostel-bookmark-make-record ()
-  "Return a bookmark record for the current ghostel buffer."
-  (let ((dir default-directory)
-        (id  (or (bound-and-true-p ghostel--buffer-identity)
-                 (buffer-name))))
-    `(,(buffer-name)
-      (filename          . ,dir)
-      (handler           . my/ghostel-bookmark-jump)
-      (ghostel-directory . ,dir)
-      (ghostel-identity  . ,id))))
-
-(defun my/ghostel-bookmark-jump (bookmark)
-  "Jump to ghostel BOOKMARK: reuse a live buffer or spawn a fresh one."
-  (let ((default-directory  (bookmark-prop-get bookmark 'ghostel-directory))
-        (ghostel-buffer-name (bookmark-prop-get bookmark 'ghostel-identity)))
-    (ghostel)))
-
-(add-hook 'ghostel-mode-hook
-          (lambda ()
-            "Use the ghostel-aware bookmark recorder in ghostel buffers."
-            (setq-local bookmark-make-record-function
-                        #'my/ghostel-bookmark-make-record)))
 #+end_src
 
 ** AI

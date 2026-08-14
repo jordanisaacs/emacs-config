@@ -28,8 +28,7 @@
     zig2nix.url = "github:Cloudef/zig2nix";
     zig2nix.inputs.nixpkgs.follows = "nixpkgs";
 
-    # Upstream ghostel; pin tracked by flake.lock. Currently used as-is
-    # (no local patches). To bump:
+    # Upstream ghostel; pin tracked by flake.lock. To bump:
     #   1. `nix flake update ghostel`,
     #   2. bump `ghostelModule.version` to match upstream `build.zig.zon`,
     #   3. regenerate `nix/ghostel/build.zig.zon2json-lock` if upstream
@@ -106,49 +105,30 @@
             chmod +x $out/bin/ghostel-editor
           '';
 
-          # Upstream ghostel + local patches. Single source of truth shared by
-          # the Zig module build and the elisp package override so they never
-          # drift. Patches touch only src/*.zig, so the elisp package is
-          # byte-identical to upstream.
-          ghostelSrc = pkgs.applyPatches {
-            name = "ghostel-src-patched";
-            src = inputs.ghostel;
-            patches = [
-              # Flush terminal-update events to Emacs OUTSIDE term_mutex, via a
-              # non-blocking pooled buffer. Without this the per-terminal reader
-              # thread blocks in a write() to the event pipe while holding
-              # term_mutex; if the display client stops draining the pipe (an
-              # emacsclient suspended inside an Eternal Terminal session that was
-              # slept), the main thread deadlocks waiting for term_mutex and the
-              # whole daemon wedges. See the patch header for details.
-              ./nix/ghostel/event-pipe-nonblocking-flush.patch
-            ];
-          };
+          # Single source of truth shared by the Zig module build and the
+          # Elisp package override so they never drift.
+          ghostelSrc = inputs.ghostel;
 
           ghostelModule = let
+            zig = inputs.zig2nix.outputs.packages.${system}.zig-0_16_0;
             zigEnv = inputs.zig2nix.outputs.zig-env.${system} {
-              zig = inputs.zig2nix.outputs.packages.${system}.zig-0_15_2;
+              inherit zig;
             };
           in zigEnv.package {
             pname = "ghostel-module";
-            version = "0.36.0";
+            version = "0.50.0";
             src = ghostelSrc;
             # build.zig.zon2json-lock is regenerated via
             #   nix run github:Cloudef/zig2nix#zon2json-lock -- build.zig.zon
             # inside a checkout of the ghostel flake input.
             zigBuildZonLock = ./nix/ghostel/build.zig.zon2json-lock;
             zigBuildFlags = [ "-Doptimize=ReleaseFast" "-Dcpu=baseline" ];
+            # zig2nix's Linux hook wraps Zig in bubblewrap to provide
+            # /usr/bin/env. Ghostty's Zig 0.16 build recursively invokes
+            # `zig env', and nested bubblewrap fails with InvalidExe. Use the
+            # underlying static Zig binary for both the outer and nested calls.
             preBuild = ''
-              # ghostel's build.zig installs the module one level above the
-              # zig install prefix to make it easy to dlopen from the repo;
-              # under Nix that path escapes $out, so flatten it.
-              substituteInPlace build.zig \
-                --replace-fail '"../ghostel-module.so"' '"ghostel-module.so"' \
-                --replace-fail '"../ghostel-module.dylib"' '"ghostel-module.dylib"'
-            '';
-            postInstall = ''
-              rm -f $out/lib/libghostel-module.so $out/lib/libghostel-module.dylib
-              rmdir $out/lib 2>/dev/null || true
+              export PATH=${zig}/bin:$PATH
             '';
           };
 

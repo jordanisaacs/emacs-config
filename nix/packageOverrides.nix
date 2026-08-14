@@ -53,6 +53,8 @@ final: prev: {
       preBuild = (old.preBuild or "") + ''
         install -m444 ${ghostelModule}/ghostel-module${moduleSuffix} \
           ghostel-module${moduleSuffix}
+        install -m444 ${ghostelModule}/ghostel-module.version \
+          ghostel-module.version
       '';
     });
 }
