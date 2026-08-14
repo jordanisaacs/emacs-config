@@ -42,7 +42,6 @@
   "Hook run after the local registry changes.")
 (defvar pm-agent-track--sessions (make-hash-table :test 'equal))
 (defvar pm-agent-track--process-timer nil)
-(defvar pm-agent-track--last-processes nil)
 (defvar pm-agent-track--title-timers (make-hash-table :test 'equal))
 (defvar pm-agent-track--setup-done nil)
 
@@ -80,43 +79,29 @@
   "Return wall-clock time in milliseconds."
   (floor (* 1000 (float-time))))
 
-(defun pm-agent-track--read-file (path &optional literal)
-  "Return PATH contents, or nil; LITERAL disables coding conversion."
-  (ignore-errors
-    (with-temp-buffer
-      (if literal (insert-file-contents-literally path) (insert-file-contents path))
-      (buffer-string))))
+(defun pm-agent-track--process-record (pid)
+  "Return the process fields needed for PID, or nil if it exited."
+  (when-let* ((attributes (process-attributes pid)))
+    (list :pid pid
+          :ppid (alist-get 'ppid attributes)
+          :pgrp (alist-get 'pgrp attributes)
+          :tpgid (alist-get 'tpgid attributes)
+          :comm (or (alist-get 'comm attributes) "")
+          :cmdline (or (alist-get 'args attributes) ""))))
 
-(defun pm-agent-track--process-record (name)
-  "Read one Linux /proc process record named NAME."
-  (when-let* ((raw (pm-agent-track--read-file (format "/proc/%s/stat" name)))
-              (close (cl-position ?\) raw :from-end t)))
-    (let ((fields (split-string (substring raw (+ close 2)))))
-      (when (>= (length fields) 6)
-        (let* ((open (string-match "(" raw))
-               (cmd-raw (or (pm-agent-track--read-file
-                             (format "/proc/%s/cmdline" name) t) "")))
-          (list :pid (string-to-number name)
-                :ppid (string-to-number (nth 1 fields))
-                :pgrp (string-to-number (nth 2 fields))
-                :tpgid (string-to-number (nth 5 fields))
-                :comm (if open (substring raw (1+ open) close) "")
-                :cmdline (string-trim (string-replace "\0" " " cmd-raw))))))))
+(defun pm-agent-track--foreground-processes (shell-pid)
+  "Return SHELL-PID's foreground process-group leader.
 
-(defun pm-agent-track--process-snapshot ()
-  "Return a snapshot of Linux process and process-group data."
-  (delq nil (mapcar #'pm-agent-track--process-record
-                    (directory-files "/proc" nil "\\`[0-9]+\\'"))))
-
-(defun pm-agent-track--foreground-processes (processes shell-pid)
-  "Return SHELL-PID's foreground process group from PROCESSES."
-  (when-let* ((shell (seq-find (lambda (record)
-                               (= (plist-get record :pid) shell-pid))
-                             processes)))
+The foreground group id is also its leader's pid.  Agent launch wrappers put
+the agent name in that leader's command line, so two targeted native process
+lookups provide the lifecycle and classification evidence we need.  Avoid a
+global /proc sweep here: on process-heavy hosts it can starve Emacs's event
+loop before the first frame becomes interactive."
+  (when-let* ((shell (pm-agent-track--process-record shell-pid)))
     (let ((tpgid (plist-get shell :tpgid)))
       (when (and (> tpgid 0) (/= tpgid (plist-get shell :pgrp)))
-        (seq-filter (lambda (record) (= (plist-get record :pgrp) tpgid))
-                    processes)))))
+        (when-let* ((leader (pm-agent-track--process-record tpgid)))
+          (list leader))))))
 
 (defun pm-agent-track--record-agent (record)
   "Classify one process RECORD as an agent, if possible."
@@ -234,7 +219,7 @@
                (when (buffer-live-p buffer)
                  (with-current-buffer buffer
                    (setq pm-agent-track--idle-timer nil)
-                   (pm-agent-track--scan-buffer pm-agent-track--last-processes t t)))))))))
+                   (pm-agent-track--scan-buffer t t)))))))))
 
 (defun pm-agent-track--remove (key &optional clear-identity)
   "Remove registry KEY and optionally CLEAR-IDENTITY in the current buffer."
@@ -305,12 +290,12 @@
         (pm-agent-track--publish key agent detection foreground))
        (t (pm-agent-track--schedule-idle))))))
 
-(defun pm-agent-track--scan-buffer (processes &optional force confirmation)
-  "Scan current Ghostel buffer using PROCESSES."
+(defun pm-agent-track--scan-buffer (&optional force confirmation)
+  "Scan the current Ghostel buffer's foreground process."
   (when (and (derived-mode-p 'ghostel-mode) (not (file-remote-p default-directory)))
     (let* ((key (bound-and-true-p pm-agent-buffer-id))
            (pid (bound-and-true-p ghostel--pid))
-           (foreground (and pid (pm-agent-track--foreground-processes processes pid))))
+           (foreground (and pid (pm-agent-track--foreground-processes pid))))
       (when key
         (if (null foreground)
             (progn (setq pm-agent-track--last-foreground nil)
@@ -337,12 +322,10 @@
 (defun pm-agent-track--process-tick ()
   "Refresh every Ghostel buffer's foreground process group."
   (condition-case err
-      (let ((processes (pm-agent-track--process-snapshot)))
-        (setq pm-agent-track--last-processes processes)
-        (dolist (buffer (buffer-list))
-          (with-current-buffer buffer
-            (when (derived-mode-p 'ghostel-mode)
-              (pm-agent-track--scan-buffer processes)))))
+      (dolist (buffer (buffer-list))
+        (with-current-buffer buffer
+          (when (derived-mode-p 'ghostel-mode)
+            (pm-agent-track--scan-buffer))))
     (error (message "pm agent tracker: process scan failed: %s"
                     (error-message-string err)))))
 
@@ -358,7 +341,7 @@
                (when (buffer-live-p buffer)
                  (with-current-buffer buffer
                    (setq pm-agent-track--update-timer nil)
-                   (pm-agent-track--scan-buffer pm-agent-track--last-processes t)))))))))
+                   (pm-agent-track--scan-buffer t)))))))))
 
 (defun pm-agent-track--buffer-killed ()
   "Remove current Ghostel buffer from the registry."
@@ -410,7 +393,7 @@
             ;; Identity without native screen evidence is deliberately ignored.
             (when (derived-mode-p 'ghostel-mode)
               (setq pm-agent-track--identity identity)
-              (pm-agent-track--scan-buffer pm-agent-track--last-processes t)))))
+              (pm-agent-track--scan-buffer t)))))
     (error (message "pm agent tracker: ignored malformed identity: %s"
                     (error-message-string err)))))
 

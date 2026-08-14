@@ -43,14 +43,19 @@
   (should (equal (pm-agent-track--record-agent '(:comm "agent" :cmdline "agent"))
                  "cursor")))
 
-(ert-deftest pm-agent-track-finds-foreground-process-group ()
-  (let ((processes '((:pid 1 :pgrp 1 :tpgid 20)
-                     (:pid 20 :pgrp 20 :tpgid 20)
-                     (:pid 21 :pgrp 20 :tpgid 20)
-                     (:pid 30 :pgrp 30 :tpgid 30))))
-    (should (equal (mapcar (lambda (record) (plist-get record :pid))
-                           (pm-agent-track--foreground-processes processes 1))
-                   '(20 21)))))
+(ert-deftest pm-agent-track-finds-foreground-process-group-leader ()
+  (cl-letf (((symbol-function 'pm-agent-track--process-record)
+             (lambda (pid)
+               (pcase pid
+                 (1 '(:pid 1 :pgrp 1 :tpgid 20))
+                 (20 '(:pid 20 :pgrp 20 :tpgid 20 :comm "codex"))))))
+    (should (equal (pm-agent-track--foreground-processes 1)
+                   '((:pid 20 :pgrp 20 :tpgid 20 :comm "codex"))))))
+
+(ert-deftest pm-agent-track-ignores-idle-shell-process-group ()
+  (cl-letf (((symbol-function 'pm-agent-track--process-record)
+             (lambda (_pid) '(:pid 1 :pgrp 1 :tpgid 1))))
+    (should-not (pm-agent-track--foreground-processes 1))))
 
 (ert-deftest pm-agent-track-initial-idle-is-seen-later-idle-is-done ()
   (with-temp-buffer
