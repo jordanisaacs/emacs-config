@@ -122,6 +122,17 @@
             '';
           };
 
+          pmAgentTrackerEl = pkgs.runCommand "pm-agent-tracker-elisp" { } ''
+            site=$out/share/emacs/site-lisp
+            mkdir -p "$site"
+            install -m0444 ${./nix/pm-agent-tracker/pm-agent-rules.el} \
+              "$site/pm-agent-rules.el"
+            install -m0444 ${./nix/pm-agent-tracker/pm-agent-track.el} \
+              "$site/pm-agent-track.el"
+            install -m0444 ${./nix/pm-agent-tracker/pm-sidebar.el} \
+              "$site/pm-sidebar.el"
+          '';
+
           monetShim = pkgs.runCommand "monet-shim" { } ''
             mkdir -p $out/bin $out/zdotdir
             substitute ${./nix/monet-shim/claude} $out/bin/claude \
@@ -194,6 +205,9 @@
               (when init-file-user
                 (add-to-list 'treesit-extra-load-path "${treesitterPackage}/lib"))
               (add-to-list 'load-path "${eglotFwatcherEl}/share/emacs/site-lisp")
+              ;; This local pm-sidebar intentionally shadows the package's
+              ;; server-backed implementation.
+              (add-to-list 'load-path "${pmAgentTrackerEl}/share/emacs/site-lisp")
               (defvar my/monet-shim-dir "${monetShim}/bin"
                 "Directory holding the nix-provided `claude' PATH shim.")
               (defvar my/monet-shim-zdotdir "${monetShim}/zdotdir"
@@ -243,7 +257,7 @@
 
           packages = {
             inherit emacsConfig emacs-jd emacsEnv emacsInit emacsPackage
-              ghostelModule fwatcher eglotFwatcherEl monetShim
+              ghostelModule fwatcher eglotFwatcherEl pmAgentTrackerEl monetShim
               ghostelEditor hostd hostctl;
             default = emacs-jd;
           };
