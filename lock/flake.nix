@@ -13,6 +13,12 @@
       repo = "activity-watch-mode";
       type = "github";
     };
+    alert = {
+      flake = false;
+      owner = "jwiegley";
+      repo = "alert";
+      type = "github";
+    };
     all-the-icons = {
       flake = false;
       owner = "domtronn";
@@ -77,12 +83,6 @@
       flake = false;
       owner = "minad";
       repo = "cape";
-      type = "github";
-    };
-    clipetty = {
-      flake = false;
-      owner = "spudlyo";
-      repo = "clipetty";
       type = "github";
     };
     cognitive-complexity = {
@@ -251,6 +251,12 @@
       type = "git";
       url = "https://codeberg.org/pidu/git-timemachine.git";
     };
+    gntp = {
+      flake = false;
+      owner = "tekai";
+      repo = "gntp.el";
+      type = "github";
+    };
     gumshoe = {
       flake = false;
       owner = "Overdr0ne";
@@ -291,6 +297,12 @@
       flake = false;
       owner = "tarsius";
       repo = "llama";
+      type = "github";
+    };
+    log4e = {
+      flake = false;
+      owner = "aki2o";
+      repo = "log4e";
       type = "github";
     };
     lv = {

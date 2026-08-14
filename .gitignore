@@ -6,6 +6,8 @@ target
 *.py
 *.c
 *.go
+!host-bridge/*.go
+!host-bridge/**/*.go
 *.cpp
 
 

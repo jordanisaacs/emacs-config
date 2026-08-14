@@ -79,6 +79,39 @@
             meta.mainProgram = "fwatcher";
           };
 
+          hostd = pkgs.buildGoModule {
+            pname = "hostd";
+            version = "0.1.0";
+            src = ./host-bridge;
+            vendorHash = null;
+            subPackages = [ "cmd/hostd" ];
+            env.CGO_ENABLED = "1";
+            meta = {
+              description = "Authenticated macOS host integration daemon";
+              mainProgram = "hostd";
+              platforms = lib.platforms.darwin;
+            };
+          };
+
+          hostctl = pkgs.buildGoModule {
+            pname = "hostctl";
+            version = "0.1.0";
+            src = ./host-bridge;
+            vendorHash = null;
+            subPackages = [ "cmd/hostctl" ];
+            postInstall = ''
+              hostctlBinary=$out/bin/hostctl
+              for shim in notify-send xdg-open wl-copy wl-paste; do
+                install -m0755 "$hostctlBinary" "$out/bin/$shim"
+              done
+              rm "$hostctlBinary"
+            '';
+            meta = {
+              description = "Linux command shims for the macOS host integration daemon";
+              platforms = lib.platforms.linux;
+            };
+          };
+
           eglotFwatcherEl = emacsPackage.pkgs.trivialBuild {
             pname = "eglot-fwatcher";
             version = "0.1.0";
@@ -211,7 +244,7 @@
           packages = {
             inherit emacsConfig emacs-jd emacsEnv emacsInit emacsPackage
               ghostelModule fwatcher eglotFwatcherEl monetShim
-              ghostelEditor;
+              ghostelEditor hostd hostctl;
             default = emacs-jd;
           };
 

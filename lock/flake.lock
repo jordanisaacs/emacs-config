@@ -32,6 +32,22 @@
         "type": "github"
       }
     },
+    "alert": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1773692748,
+        "narHash": "sha256-i4aEOsUTsNKpRrztk0uY9+zxK7QCqUP6+Qc/h7H1AOw=",
+        "owner": "jwiegley",
+        "repo": "alert",
+        "rev": "31fc56855289d0846e73d7ca9b84b628aeac16a0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jwiegley",
+        "repo": "alert",
+        "type": "github"
+      }
+    },
     "all-the-icons": {
       "flake": false,
       "locked": {
@@ -205,22 +221,6 @@
       "original": {
         "owner": "minad",
         "repo": "cape",
-        "type": "github"
-      }
-    },
-    "clipetty": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1587870119,
-        "narHash": "sha256-T9cWx0RVfGlsoqGoMhmwPlp6kjrIEvqMCtzmj1njKrw=",
-        "owner": "spudlyo",
-        "repo": "clipetty",
-        "rev": "01b39044b9b65fa4ea7d3166f8b1ffab6f740362",
-        "type": "github"
-      },
-      "original": {
-        "owner": "spudlyo",
-        "repo": "clipetty",
         "type": "github"
       }
     },
@@ -672,6 +672,22 @@
         "url": "https://codeberg.org/pidu/git-timemachine.git"
       }
     },
+    "gntp": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1414205413,
+        "narHash": "sha256-avhib7p0Xot6FZVRuBqtFGV9ogbpXUZ8vzXm5qWUfts=",
+        "owner": "tekai",
+        "repo": "gntp.el",
+        "rev": "767571135e2c0985944017dc59b0be79af222ef5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "tekai",
+        "repo": "gntp.el",
+        "type": "github"
+      }
+    },
     "gumshoe": {
       "flake": false,
       "locked": {
@@ -781,6 +797,22 @@
       "original": {
         "owner": "tarsius",
         "repo": "llama",
+        "type": "github"
+      }
+    },
+    "log4e": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1706015586,
+        "narHash": "sha256-RPLoHl1G49yJKwatHfw2TrX4fzwFrsYznC7Cj8JvCPQ=",
+        "owner": "aki2o",
+        "repo": "log4e",
+        "rev": "6d71462df9bf595d3861bfb328377346aceed422",
+        "type": "github"
+      },
+      "original": {
+        "owner": "aki2o",
+        "repo": "log4e",
         "type": "github"
       }
     },
@@ -1076,6 +1108,7 @@
       "inputs": {
         "ace-window": "ace-window",
         "activity-watch-mode": "activity-watch-mode",
+        "alert": "alert",
         "all-the-icons": "all-the-icons",
         "all-the-icons-completion": "all-the-icons-completion",
         "all-the-icons-dired": "all-the-icons-dired",
@@ -1087,7 +1120,6 @@
         "bufler": "bufler",
         "burly": "burly",
         "cape": "cape",
-        "clipetty": "clipetty",
         "cognitive-complexity": "cognitive-complexity",
         "compat": "compat",
         "compile-multi": "compile-multi",
@@ -1116,6 +1148,7 @@
         "f": "f",
         "ghostel": "ghostel",
         "git-timemachine": "git-timemachine",
+        "gntp": "gntp",
         "gumshoe": "gumshoe",
         "hl-todo": "hl-todo",
         "hydra": "hydra",
@@ -1123,6 +1156,7 @@
         "jinx": "jinx",
         "kind-icon": "kind-icon",
         "llama": "llama",
+        "log4e": "log4e",
         "lv": "lv",
         "magit": "magit",
         "magit-delta": "magit-delta",

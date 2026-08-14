@@ -903,6 +903,23 @@ Adds xref stack support for consult.
   :ensure t)
 #+end_src
 
+** Notifications
+
+*** Alert
+
+Ghostel's OSC 9 / OSC 777 handler uses =alert=.  The =hostctl= package
+installs a real =notify-send= shim on the Arca, turning terminal
+notifications into native host notifications through the authenticated
+host bridge.  The shim implements the standard options used by Alert,
+so use Alert's built-in =libnotify= backend directly.
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package alert
+  :ensure t
+  :custom
+  (alert-default-style 'libnotify))
+#+end_src
+
 ** Terminals
 
 *** TTY
@@ -915,37 +932,54 @@ popupinfo) render natively under =emacs -nw=.
   (tty-tip-mode 1))
 #+end_src
 
-**** Clipboard passthrough (OSC 52)
+**** Host clipboard
 
-Both directions of the system clipboard work via OSC 52 escape
-sequences: Emacs emits them, SSH forwards them transparently, and
-Ghostty reads/writes the local system clipboard.
+The =hostctl= package installs real =wl-copy= and =wl-paste= shims.
+They send clipboard contents through the authenticated host bridge
+instead of encoding them in OSC 52 terminal sequences.  The shims are
+MIME-aware: Emacs uses UTF-8 text, while command-line tools can probe
+=wl-paste -l= and transfer PNG images with =--type image/png=.
 
-Prerequisite — in =~/.config/ghostty/config= on the local machine:
-
-#+begin_example
-clipboard-write = allow
-clipboard-read  = allow
-#+end_example
-
-=clipetty= handles the /write/ side — every kill/yank into the
-kill-ring is copied to the host clipboard.
+Clipboard reads are sensitive and remain disabled unless =hostd= is
+started with =--allow-clipboard-read=.  When the bridge is absent or
+reads are disabled, Emacs falls back to its internal kill ring.
 
 #+begin_src emacs-lisp :tangle init.el
-(use-package clipetty
-  :ensure t
-  :hook (after-init-hook . global-clipetty-mode))
-#+end_src
+(defvar interprogram-cut-function)
+(defvar interprogram-paste-function)
 
-For the /read/ side, force xterm's getSelection capability so =C-y=
-pulls the host clipboard via an OSC 52 query.
+(defun my/tty-wl-copy (text)
+  "Copy TEXT to the host clipboard with the wl-copy shim."
+  (when-let* ((wl-copy (executable-find "wl-copy"))
+              (process
+               (make-process
+                :name "wl-copy"
+                :command (list wl-copy "--type" "text/plain;charset=utf-8")
+                :coding 'utf-8-unix
+                :connection-type 'pipe
+                :noquery t)))
+    (process-send-string process text)
+    (process-send-eof process)))
 
-#+begin_src emacs-lisp :tangle init.el
+(defun my/tty-wl-paste ()
+  "Return UTF-8 text from the host clipboard, or nil when unavailable."
+  (when-let* ((wl-paste (executable-find "wl-paste")))
+    (with-temp-buffer
+      (let ((coding-system-for-read 'utf-8-unix))
+        (when (zerop
+               (call-process wl-paste nil t nil
+                             "--no-newline"
+                             "--type" "text/plain;charset=utf-8"))
+          (buffer-string))))))
+
+(unless (display-graphic-p)
+  (setq interprogram-cut-function #'my/tty-wl-copy)
+  (setq interprogram-paste-function #'my/tty-wl-paste))
+
 (defvar xterm-extra-capabilities)
 
 (with-eval-after-load 'xterm
-  (setq xterm-extra-capabilities
-        '(getSelection setSelection modifyOtherKeys)))
+  (setq xterm-extra-capabilities '(modifyOtherKeys)))
 #+end_src
 
 **** Background sync (OSC 11)
@@ -974,60 +1008,14 @@ reverts to its configured background.
 
 **** Open URLs in host browser
 
-Ghostty has no escape sequence for "host, open this URL" (that would
-let any remote process pop the browser). Instead, reverse-forward a
-loopback TCP port from the host to this session and run a tiny
-listener on the host that pipes each line to =open= / =xdg-open=.
-Emacs connects via =make-network-process=.
-
-Eternal Terminal (what =arca et= speaks) tunnels TCP only —
-Unix-socket =RemoteForward= directives are silently ignored — so
-the channel is a port rather than a socket file.
-
-Prerequisite 1 — in =~/.ssh/config= on the host, on the block
-=arca et= reads:
-
-#+begin_example
-Host arca.ssh
-  RemoteForward 24545 localhost:24545
-#+end_example
-
-Prerequisite 2 — a host-side listener on the same port (run under
-launchd / systemd so it survives logout):
-
-#+begin_example
-socat -u TCP-LISTEN:24545,bind=127.0.0.1,fork,reuseaddr \
-      SYSTEM:'read url && (command -v xdg-open >/dev/null && xdg-open "$url" || open "$url")'
-#+end_example
+The =hostctl= package installs an =xdg-open= shim which sends HTTP(S)
+URLs through the authenticated host bridge.
 
 #+begin_src emacs-lisp :tangle init.el
 (defvar browse-url-browser-function)
 
-(defvar my/tty-url-opener-port 24545
-  "Forwarded loopback TCP port whose host listener opens URLs in the local browser.")
-
-(defun my/tty-browse-url (url &rest _args)
-  "Send URL to the host opener at 127.0.0.1:`my/tty-url-opener-port'.
-On failure, copy URL to the kill ring and message the error."
-  (condition-case err
-      (let ((proc (make-network-process
-                   :name "url-opener"
-                   :host "127.0.0.1"
-                   :service my/tty-url-opener-port
-                   :family 'ipv4
-                   :noquery t)))
-        (unwind-protect
-            (progn
-              (process-send-string proc (concat url "\n"))
-              (process-send-eof proc))
-          (delete-process proc)))
-    (error
-     (kill-new url)
-     (message "url-opener unreachable (%s); URL copied to kill ring: %s"
-              (error-message-string err) url))))
-
 (unless (display-graphic-p)
-  (setq browse-url-browser-function #'my/tty-browse-url))
+  (setq browse-url-browser-function #'browse-url-xdg-open))
 #+end_src
 
 *** Eshell
