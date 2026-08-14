@@ -107,7 +107,11 @@
 
           # Single source of truth shared by the Zig module build and the
           # Elisp package override so they never drift.
-          ghostelSrc = inputs.ghostel;
+          ghostelSrc = pkgs.applyPatches {
+            name = "ghostel-source-0.50.0";
+            src = inputs.ghostel;
+            patches = [ ./nix/patches/ghostel-agent-monitor.patch ];
+          };
 
           ghostelModule = let
             zig = inputs.zig2nix.outputs.packages.${system}.zig-0_16_0;

@@ -1,0 +1,153 @@
+diff --git a/lisp/ghostel.el b/lisp/ghostel.el
+index e66c6f5..3d8a17e 100644
+--- a/lisp/ghostel.el
++++ b/lisp/ghostel.el
+@@ -917,6 +917,7 @@ to nil to disable the regex fallback entirely (OSC 133 only)."
+ (declare-function ghostel--mode-enabled "ghostel-module")
+ (declare-function ghostel--alt-screen-p "ghostel-module")
+ (declare-function ghostel--copy-all-text "ghostel-module")
++(declare-function ghostel--copy-active-screen-text "ghostel-module")
+ (declare-function ghostel--module-version "ghostel-module")
+ (declare-function ghostel--mouse-event "ghostel-module")
+ (declare-function ghostel--new "ghostel-module")
+@@ -1070,6 +1071,18 @@ local code should not assume it is signalable unless the process is local.")
+ (defvar-local ghostel--last-directory nil
+   "Last known working directory from OSC 7, used for dedup.")
+ 
++(defvar ghostel-terminal-update-hook nil
++  "Hook run in a Ghostel buffer whenever its native terminal state changes.
++The buffer need not be displayed and its Emacs text need not have been
++redrawn yet.  Consumers that need current terminal contents should call
++`ghostel-active-screen-text'.")
++
++(defvar-local ghostel-terminal-update-generation 0
++  "Monotonic generation of this buffer's native terminal state.")
++
++(defvar-local ghostel--progress-state nil)
++(defvar-local ghostel--progress-value nil)
++
+ (defvar-local ghostel--title nil
+   "Last terminal title reported by OSC 0/2; nil when unset or cleared.")
+ 
+@@ -1201,6 +1214,26 @@ True while a fullscreen TUI (vim, less, htop, …) runs, regardless of
+ which DEC mode (47, 1047, or 1049) it used to get there."
+   (and ghostel--term (ghostel--alt-screen-p ghostel--term)))
+ 
++(defun ghostel-active-screen-text ()
++  "Return the active terminal screen as plain text, without scrollback.
++This reads the native terminal model, so it stays current for hidden buffers
++whose Emacs text is waiting for a redraw.  Return an empty string before the
++terminal has been initialized or when the screen is blank."
++  (if ghostel--term
++      (or (ghostel--copy-active-screen-text ghostel--term) "")
++    ""))
++
++(defun ghostel-terminal-title ()
++  "Return the last OSC 0/2 title reported by the current terminal."
++  ghostel--title)
++
++(defun ghostel-terminal-progress ()
++  "Return the last OSC 9;4 progress report as (STATE . VALUE).
++STATE is one of `remove', `set', `error', `indeterminate', or `pause'.
++VALUE is an integer from 0 through 100 or nil."
++  (and ghostel--progress-state
++       (cons ghostel--progress-state ghostel--progress-value)))
++
+ 
+ ;;; Keymap
+ 
+@@ -3396,20 +3429,22 @@ in batch runs."
+                          (error-message-string err)))))))))))
+ 
+ (defun ghostel--osc-progress (state-str progress)
+-  "Dispatch ConEmu OSC 9;4 progress to `ghostel-progress-function'.
++  "Record ConEmu OSC 9;4 progress and dispatch it to the configured handler.
+ STATE-STR is the state name as a string (sent from the native
+ module); it is converted to a known symbol via an explicit allowlist
+ to avoid polluting the obarray if a future Zig-side typo sneaks in.
+ Unknown state strings are silently dropped.
+ PROGRESS is an integer 0-100 or nil."
+-  (when ghostel-progress-function
+-    (let ((state-sym (pcase state-str
+-                       ("remove"        'remove)
+-                       ("set"           'set)
+-                       ("error"         'error)
+-                       ("indeterminate" 'indeterminate)
+-                       ("pause"         'pause))))
+-      (when state-sym
++  (let ((state-sym (pcase state-str
++                     ("remove"        'remove)
++                     ("set"           'set)
++                     ("error"         'error)
++                     ("indeterminate" 'indeterminate)
++                     ("pause"         'pause))))
++    (when state-sym
++      (setq ghostel--progress-state state-sym
++            ghostel--progress-value progress)
++      (when ghostel-progress-function
+         (condition-case err
+             (funcall ghostel-progress-function state-sym progress)
+           (error
+@@ -4545,6 +4580,8 @@ terminal windows."
+ Visible output arriving within `ghostel-immediate-redraw-interval' of the
+ last keystroke is redrawn immediately; other visible output uses a coalescing
+ timer.  Hidden output remains pending until the buffer is displayed."
++  (cl-incf ghostel-terminal-update-generation)
++  (run-hooks 'ghostel-terminal-update-hook)
+   (if (ghostel--get-render-window (current-buffer))
+       ;; Interactive echo: output arriving within
+       ;; `ghostel-immediate-redraw-interval' of the last keystroke.
+diff --git a/src/GhostelTerm.zig b/src/GhostelTerm.zig
+index 15a4a35..e019895 100644
+--- a/src/GhostelTerm.zig
++++ b/src/GhostelTerm.zig
+@@ -762,6 +762,48 @@ pub const emacs_functions = [_]emacs.FunctionEntry{
+             }
+         },
+     },
++    .{
++        .name = "ghostel--copy-active-screen-text",
++        .arity = .{ 1, 1 },
++        .doc =
++        \\Return the active screen as plain text, excluding scrollback.
++        \\
++        \\(ghostel--copy-active-screen-text TERM)
++        ,
++        .impl = struct {
++            pub fn call(env: emacs.Env, _: isize, args: [*c]emacs.Value) !emacs.Value {
++                const term = env.getUserPtr(Self, args[0]) orelse return error.InvalidTerminalHandle;
++                const options = gt.formatter.Options{
++                    .emit = .plain,
++                    .unwrap = true,
++                    .trim = true,
++                };
++                try term.lockTerm();
++                defer term.unlockTerm();
++
++                const terminal = &term.terminal;
++                if (terminal.rows == 0 or terminal.cols == 0) return env.nil();
++                const screen = terminal.screens.active;
++                const top_left = screen.pages.pin(.{ .active = .{
++                    .x = 0,
++                    .y = 0,
++                } }) orelse return env.nil();
++                const bottom_right = screen.pages.pin(.{ .active = .{
++                    .x = terminal.cols - 1,
++                    .y = terminal.rows - 1,
++                } }) orelse return env.nil();
++
++                var formatter = gt.formatter.ScreenFormatter.init(screen, options);
++                formatter.content = .{ .selection = gt.Selection.init(top_left, bottom_right, false) };
++                var writer = std.Io.Writer.Allocating.init(module_alloc);
++                defer writer.deinit();
++                try formatter.format(&writer.writer);
++                const written = writer.written();
++                if (written.len == 0) return env.nil();
++                return env.makeString(written);
++            }
++        },
++    },
+     .{
+         .name = "ghostel--spawn-native-process",
+         .arity = .{ 3, 3 },
+
