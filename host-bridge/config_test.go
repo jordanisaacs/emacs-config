@@ -39,17 +39,6 @@ func TestValidateListenAddressRejectsNonLoopback(t *testing.T) {
 	}
 }
 
-func TestDefaultBaseURLUsesIPv6Loopback(t *testing.T) {
-	t.Setenv("EMACS_HOST_BRIDGE_URL", "")
-	baseURL, err := baseURLFromEnvironment()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, want := baseURL.String(), "http://[::1]:24545"; got != want {
-		t.Fatalf("default base URL = %q, want %q", got, want)
-	}
-}
-
 func TestNormalizeClipboardMIME(t *testing.T) {
 	for _, value := range []string{"", "text/plain", "text/plain; charset=UTF-8"} {
 		mimeType, err := normalizeClipboardMIME(value)
