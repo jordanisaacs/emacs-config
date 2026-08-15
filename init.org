@@ -736,8 +736,9 @@ Treesitter based calculation of programming complexity.
 
 **** eglot
 
-For some reason eglot-booster-mode turns on but not early enough to wrap the server
-startup when doing `:before eglot` so just load it on startup.
+Emacs 32 has a fast native JSON parser, so retain eglot-booster only for its
+process I/O buffering.  Enable it as soon as eglot loads, before the first
+server starts.
 
 eglot Disable hook needs to be setup before eglot because hooks run as a stack. Need
 to make sure eglot loads before hook.
@@ -801,9 +802,11 @@ to make sure eglot loads before hook.
 (use-package eglot-booster
   :ensure t
   :commands (eglot-booster-mode)
+  :custom
+  (eglot-booster-io-only t)
   :init
   (with-eval-after-load 'eglot
-    (nerd-icons-completion-mode)))
+    (eglot-booster-mode 1)))
 #+end_src
 
 ** Org mode
