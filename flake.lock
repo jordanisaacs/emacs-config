@@ -252,11 +252,11 @@
     "pm-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1786745860,
-        "narHash": "sha256-7b5LzXdBIlhFdqyCDxkdm3HZMeNhvNSb1TyVUf2pPMw=",
+        "lastModified": 1786760597,
+        "narHash": "sha256-UWMma5Wp/PU6Usz/YJZsvvAZBMbzP1HEPJXoq5kEh0g=",
         "owner": "jordanisaacs",
         "repo": "project-manager",
-        "rev": "b334d02c2612fdfa2bbe451efb4735ca8baafb7c",
+        "rev": "8764a443e519df5ca14df566e365e913f61a3271",
         "type": "github"
       },
       "original": {

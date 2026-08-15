@@ -1027,11 +1027,11 @@
     "pm": {
       "flake": false,
       "locked": {
-        "lastModified": 1782162247,
-        "narHash": "sha256-7R/xf2cRdM1M0nnJFy61IUaq+Q0QExUHiORL1pSUp74=",
+        "lastModified": 1786760597,
+        "narHash": "sha256-UWMma5Wp/PU6Usz/YJZsvvAZBMbzP1HEPJXoq5kEh0g=",
         "ref": "refs/heads/master",
-        "rev": "c2b704963fa008b3f116225f421c7b2b8bee7a00",
-        "revCount": 126,
+        "rev": "8764a443e519df5ca14df566e365e913f61a3271",
+        "revCount": 138,
         "type": "git",
         "url": "file:///home/jordan.isaacs/.repos/project-manager"
       },
