@@ -57,11 +57,25 @@ func TestInstalledShimCommands(t *testing.T) {
 		t.Fatalf("wl-copy exit = %d, MIME = %q, stderr = %q", exitCode, host.writtenMIME, stderr.String())
 	}
 
+	stderr.Reset()
+	png := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0, 0, 0, 0}
+	exitCode = RunHostctl("wl-copy", nil, bytes.NewReader(png), &stdout, &stderr)
+	if exitCode != 0 || host.writtenMIME != "image/png" {
+		t.Fatalf("wl-copy inferred exit = %d, MIME = %q, stderr = %q", exitCode, host.writtenMIME, stderr.String())
+	}
+
 	stdout.Reset()
 	stderr.Reset()
 	exitCode = RunHostctl("wl-paste", []string{"--no-newline"}, strings.NewReader(""), &stdout, &stderr)
 	if exitCode != 0 || stdout.String() != "from host" {
 		t.Fatalf("wl-paste exit = %d, stdout = %q, stderr = %q", exitCode, stdout.String(), stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	exitCode = RunHostctl("wl-paste", nil, strings.NewReader(""), &stdout, &stderr)
+	if exitCode != 0 || stdout.String() != "from host\n" {
+		t.Fatalf("wl-paste default exit = %d, stdout = %q, stderr = %q", exitCode, stdout.String(), stderr.String())
 	}
 
 	stdout.Reset()
@@ -82,6 +96,8 @@ func TestShimHelpDoesNotRequireBridgeConfiguration(t *testing.T) {
 		{program: "xdg-open", args: []string{"--help"}},
 		{program: "wl-copy", args: []string{"--help"}},
 		{program: "wl-paste", args: []string{"--help"}},
+		{program: "wl-copy", args: []string{"--version"}},
+		{program: "wl-paste", args: []string{"--version"}},
 	} {
 		var stdout, stderr bytes.Buffer
 		exitCode := RunHostctl(test.program, test.args, strings.NewReader(""), &stdout, &stderr)

@@ -178,6 +178,10 @@ func runClientCommand(
 			printWlCopyHelp(stdout)
 			return 0
 		}
+		if options.version {
+			printWlClipboardVersion(stdout)
+			return 0
+		}
 		client, err := getClient()
 		if err != nil {
 			fmt.Fprintln(stderr, err)
@@ -192,6 +196,10 @@ func runClientCommand(
 		}
 		if options.help {
 			printWlPasteHelp(stdout)
+			return 0
+		}
+		if options.version {
+			printWlClipboardVersion(stdout)
 			return 0
 		}
 		client, err := getClient()
