@@ -611,11 +611,11 @@
     "envrc": {
       "flake": false,
       "locked": {
-        "lastModified": 1774454973,
-        "narHash": "sha256-H1GBCwb4P44551yZLuPaHt+AV9U+VNPslXL6Lf+sHik=",
+        "lastModified": 1786450883,
+        "narHash": "sha256-Eeb0guYHSjM+wCTAbx8iOGO9svLeTpXvefrOjqVnu7s=",
         "owner": "purcell",
         "repo": "envrc",
-        "rev": "60820285aeed4f87969d663a1c14a905c7bb763a",
+        "rev": "e4f9fd79a612c8f81b4ba5b12ee7261fc33568f0",
         "type": "github"
       },
       "original": {
@@ -1360,11 +1360,11 @@
     "vterm": {
       "flake": false,
       "locked": {
-        "lastModified": 1775439296,
-        "narHash": "sha256-ZSkGvKPhX4yZ2HNeNuHI7a01kjzBNBTdsWTj7y/xi8s=",
+        "lastModified": 1785420858,
+        "narHash": "sha256-I/tppD7Lp3w5nCvHRRrn/dhm8BEg7u4Le3+SerfLvQs=",
         "owner": "akermu",
         "repo": "emacs-libvterm",
-        "rev": "54c29d14bca05bdd8ae60cda01715d727831e3f9",
+        "rev": "70921114908ebb260d6686db8cbe2445a64f90a2",
         "type": "github"
       },
       "original": {
@@ -1440,11 +1440,11 @@
     "xterm-color": {
       "flake": false,
       "locked": {
-        "lastModified": 1765576093,
-        "narHash": "sha256-SLgkSXqlwZE+YihYPoMN633lUJx4PAuxCXkrHZqXH/0=",
+        "lastModified": 1780525017,
+        "narHash": "sha256-XhxSZ+5K5Jmcq+yL6WqXDMWYtlJOXoC5gdTbSL65v8Y=",
         "owner": "atomontage",
         "repo": "xterm-color",
-        "rev": "86fab1d247eb5ebe6b40fa5073a70dfa487cd465",
+        "rev": "ffdad85e584dfc0857f2a1fb970f5ef0f5d31ba3",
         "type": "github"
       },
       "original": {
