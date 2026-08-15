@@ -14,7 +14,6 @@
 (require 'seq)
 (require 'subr-x)
 (require 'emacs-agent-rules)
-(require 'pm-commands)
 (require 'pm-project)
 
 (declare-function ghostel-active-screen-text "ghostel" ())
@@ -37,11 +36,21 @@
   "Seconds used to coalesce bursts of terminal updates."
   :type 'number :group 'emacs-agent-track)
 
+(defcustom emacs-agent-track-title-interval 1.0
+  "Seconds between native title refreshes while identified agents are live."
+  :type 'number :group 'emacs-agent-track)
+
+(defcustom emacs-agent-track-native-title-program "@EMACS_AGENT_NATIVE_TITLE@"
+  "One-shot helper that reads vendor-owned session titles."
+  :type 'file :group 'emacs-agent-track)
+
 (defvar emacs-agent-track-change-hook nil
   "Hook run after the local registry changes.")
 (defvar emacs-agent-track--sessions (make-hash-table :test 'equal))
 (defvar emacs-agent-track--process-timer nil)
-(defvar emacs-agent-track--title-timers (make-hash-table :test 'equal))
+(defvar emacs-agent-track--title-timer nil)
+(defvar emacs-agent-track--title-process nil)
+(defvar emacs-agent-track--title-dirty nil)
 (defvar emacs-agent-track--setup-done nil)
 
 (defvar-local emacs-agent-id nil
@@ -65,6 +74,8 @@
 (defconst emacs-agent-track--idle-delay 0.1)
 (defconst emacs-agent-track--idle-required 3)
 (defconst emacs-agent-track--idle-cap 0.7)
+(defconst emacs-agent-track--uuid-regexp
+  "[[:xdigit:]]\\{8\\}-[[:xdigit:]]\\{4\\}-[[:xdigit:]]\\{4\\}-[[:xdigit:]]\\{4\\}-[[:xdigit:]]\\{12\\}")
 
 (defun emacs-agent-track--new-id ()
   "Return a new opaque local identifier."
@@ -166,6 +177,26 @@ loop before the first frame becomes interactive."
                           (lambda (a b) (< (plist-get a :pid) (plist-get b :pid)))))
                :comm)))
 
+(defun emacs-agent-track--resumed-session-id (agent records)
+  "Return AGENT's explicit resume id from process RECORDS, if present.
+
+Hooks remain authoritative for fresh sessions.  Resume commands already carry
+the vendor id, so recovering it here also covers sessions launched through PM
+or by hand without a vendor hook profile."
+  (let* ((marker (if (equal agent "codex")
+                     "\\(?:\\_<resume\\_>\\|--resume\\)"
+                   "\\(?:--resume\\|-r\\)"))
+         (regexp (concat marker "[=[:space:]]+\\("
+                         emacs-agent-track--uuid-regexp "\\)"))
+         (case-fold-search t))
+    (seq-some
+     (lambda (record)
+       (let ((command (plist-get record :cmdline)))
+         (and (stringp command)
+              (string-match regexp command)
+              (downcase (match-string 1 command)))))
+     records)))
+
 (defun emacs-agent-track--project (identity)
   "Resolve a pm project name for IDENTITY or the current buffer."
   (let* ((cwd (or (alist-get 'cwd identity) default-directory))
@@ -185,62 +216,105 @@ loop before the first frame becomes interactive."
   "Return non-nil when the current buffer is selected."
   (eq (current-buffer) (window-buffer (selected-window))))
 
-(defun emacs-agent-track--token (agent session-id)
-  "Build a stable identity token from AGENT and SESSION-ID."
-  (concat (or agent "") "\0" (or session-id "")))
+(defun emacs-agent-track--title-requests ()
+  "Return one native-title request for every identified live session."
+  (let (requests)
+    (maphash
+     (lambda (_key record)
+       (let ((session-id (alist-get 'vendor_session_id record)))
+         (when (and (stringp session-id) (not (string-empty-p session-id)))
+           (push `((id . ,(alist-get 'id record))
+                   (run_id . ,(alist-get 'run_id record))
+                   (kind . ,(alist-get 'kind record))
+                   (session_id . ,session-id)
+                   (transcript_path . ,(alist-get 'transcript_path record))
+                   (cwd . ,(alist-get 'cwd record))
+                   (title . ,(alist-get 'title record))
+                   (title_source . ,(alist-get 'title_source record))
+                   (title_cursor . ,(alist-get 'title_cursor record)))
+                 requests))))
+     emacs-agent-track--sessions)
+    requests))
 
-(defun emacs-agent-track--flatten-groups (groups)
-  "Flatten sectioned `pm agent ls' GROUPS."
-  (apply #'append (mapcar (lambda (group) (alist-get 'sessions group)) groups)))
+(defun emacs-agent-track--apply-native-title (result)
+  "Apply one native title RESULT if it still names the same live run."
+  (when-let* ((key (alist-get 'id result))
+              (record (gethash key emacs-agent-track--sessions)))
+    (when (and (equal (alist-get 'run_id result) (alist-get 'run_id record))
+               (equal (alist-get 'kind result) (alist-get 'kind record))
+               (equal (alist-get 'session_id result)
+                      (alist-get 'vendor_session_id record)))
+      (let* ((title (alist-get 'title result))
+             (source (alist-get 'source result))
+             (cursor (alist-get 'cursor result))
+             (changed (and (stringp title) (not (string-empty-p title))
+                           (or (not (equal title (alist-get 'title record)))
+                               (not (equal source (alist-get 'title_source record)))))))
+        ;; Resolver cursors are internal bookkeeping and must not create API
+        ;; revisions or sidebar redraws when the visible title is unchanged.
+        (when cursor (setf (alist-get 'title_cursor record) cursor))
+        (when changed
+          (setf (alist-get 'title record) title
+                (alist-get 'title_source record) source
+                (alist-get 'title_updated_at record) (emacs-agent-track--now-ms)
+                (alist-get 'revision record)
+                (1+ (or (alist-get 'revision record) 0))))
+        (puthash key record emacs-agent-track--sessions)
+        (when changed (emacs-agent-track--notify))))))
 
-(defun emacs-agent-track--schedule-title (key token attempt)
-  "Schedule transcript title lookup ATTEMPT for KEY and TOKEN."
-  (when (< attempt 3)
-    (when-let* ((old (gethash key emacs-agent-track--title-timers)))
-      (when (timerp old) (cancel-timer old)))
-    (puthash
-     key
-     (run-at-time
-      (nth attempt '(0.5 1.0 2.0)) nil
-      (lambda ()
-        (remhash key emacs-agent-track--title-timers)
-        (when-let* ((record (gethash key emacs-agent-track--sessions)))
-          (when (equal token (emacs-agent-track--token
-                              (alist-get 'agent record)
-                              (alist-get 'vendor_session_id record)))
-            (let ((project (alist-get 'project record))
-                  (agent (alist-get 'agent record)))
-              (when (and project agent)
-                (pm--run-async
-                 (list "agent" "ls" "--project" project "--agent" agent
-                       "--limit" "50" "--json")
-                 (lambda (groups)
-                   (emacs-agent-track--title-result key token groups attempt))
-                 :on-error (lambda (&rest _)
-                             (emacs-agent-track--schedule-title
-                              key token (1+ attempt))))))))))
-     emacs-agent-track--title-timers)))
+(defun emacs-agent-track--apply-native-title-output (output)
+  "Parse native-title helper OUTPUT and apply its current results."
+  (condition-case err
+      (let* ((payload (json-parse-string output :object-type 'alist :array-type 'list
+                                         :null-object nil :false-object nil))
+             (results (alist-get 'results payload)))
+        (dolist (result results) (emacs-agent-track--apply-native-title result)))
+    (error (message "emacs agent tracker: ignored malformed title output: %s"
+                    (error-message-string err)))))
 
-(defun emacs-agent-track--title-result (key token groups attempt)
-  "Apply title lookup GROUPS for KEY and TOKEN, or retry ATTEMPT."
-  (when-let* ((record (gethash key emacs-agent-track--sessions)))
-    (when (equal token (emacs-agent-track--token
-                        (alist-get 'agent record)
-                        (alist-get 'vendor_session_id record)))
-      (let ((row (seq-find
-                  (lambda (candidate)
-                    (and (equal (alist-get 'agent candidate) (alist-get 'agent record))
-                         (equal (alist-get 'session_id candidate)
-                                (alist-get 'vendor_session_id record))))
-                  (emacs-agent-track--flatten-groups groups))))
-        (if (and row (not (string-empty-p (or (alist-get 'title row) ""))))
-            (progn
-              (setf (alist-get 'title record) (alist-get 'title row)
-                    (alist-get 'revision record)
-                    (1+ (or (alist-get 'revision record) 0)))
-              (puthash key record emacs-agent-track--sessions)
-              (emacs-agent-track--notify))
-          (emacs-agent-track--schedule-title key token (1+ attempt)))))))
+(defun emacs-agent-track--schedule-title-refresh (&optional delay)
+  "Schedule a native title refresh after DELAY seconds."
+  (cond
+   ((process-live-p emacs-agent-track--title-process)
+    (setq emacs-agent-track--title-dirty t))
+   ((timerp emacs-agent-track--title-timer) nil)
+   ((emacs-agent-track--title-requests)
+    (setq emacs-agent-track--title-timer
+          (run-at-time (or delay 0) nil #'emacs-agent-track--start-title-refresh)))))
+
+(defun emacs-agent-track--title-filter (process output)
+  "Accumulate native title OUTPUT from PROCESS."
+  (process-put process 'emacs-agent-output
+               (concat (or (process-get process 'emacs-agent-output) "") output)))
+
+(defun emacs-agent-track--title-sentinel (process _event)
+  "Finish a native title PROCESS and arrange the next bounded refresh."
+  (when (memq (process-status process) '(exit signal))
+    (when (and (zerop (process-exit-status process))
+               (not (string-empty-p (or (process-get process 'emacs-agent-output) ""))))
+      (emacs-agent-track--apply-native-title-output
+       (process-get process 'emacs-agent-output)))
+    (setq emacs-agent-track--title-process nil)
+    (let ((immediate emacs-agent-track--title-dirty))
+      (setq emacs-agent-track--title-dirty nil)
+      (emacs-agent-track--schedule-title-refresh
+       (if immediate 0 emacs-agent-track-title-interval)))))
+
+(defun emacs-agent-track--start-title-refresh ()
+  "Start one asynchronous, batched native title refresh."
+  (setq emacs-agent-track--title-timer nil)
+  (let ((requests (emacs-agent-track--title-requests)))
+    (when (and requests (file-executable-p emacs-agent-track-native-title-program))
+      (setq emacs-agent-track--title-process
+            (make-process
+             :name "emacs-agent-native-title"
+             :command (list emacs-agent-track-native-title-program)
+             :connection-type 'pipe :noquery t :buffer nil
+             :filter #'emacs-agent-track--title-filter
+             :sentinel #'emacs-agent-track--title-sentinel))
+      (process-send-string emacs-agent-track--title-process
+                           (concat (json-serialize (vconcat requests)) "\n"))
+      (process-send-eof emacs-agent-track--title-process))))
 
 (defun emacs-agent-track--clear-idle ()
   "Clear the current buffer's pending idle confirmation."
@@ -267,21 +341,29 @@ loop before the first frame becomes interactive."
   (when clear-identity
     (setq emacs-agent-track--identity nil
           emacs-agent-track--identity-pgrp nil))
-  (when-let* ((timer (gethash key emacs-agent-track--title-timers)))
-    (when (timerp timer) (cancel-timer timer))
-    (remhash key emacs-agent-track--title-timers))
-  (when (remhash key emacs-agent-track--sessions) (emacs-agent-track--notify)))
+  (when (remhash key emacs-agent-track--sessions) (emacs-agent-track--notify))
+  (when (and (zerop (hash-table-count emacs-agent-track--sessions))
+             (timerp emacs-agent-track--title-timer))
+    (cancel-timer emacs-agent-track--title-timer)
+    (setq emacs-agent-track--title-timer nil)))
 
-(defun emacs-agent-track--fallback-title (agent project)
-  "Return a temporary title for AGENT and PROJECT."
-  (if project (format "%s — %s" agent project) agent))
+(defun emacs-agent-track--fallback-title (agent project name)
+  "Return a temporary title for AGENT, PROJECT, and launch NAME."
+  (or name (if project (format "%s — %s" agent project) agent)))
 
-(defun emacs-agent-track--publish (key agent detection foreground)
-  "Publish DETECTION for AGENT and FOREGROUND under KEY."
+(defun emacs-agent-track--publish (key agent detection foreground &optional processes)
+  "Publish DETECTION for AGENT and FOREGROUND under KEY.
+
+PROCESSES is the native foreground process evidence used to recover an
+explicit resume id when no hook identity is available."
   (setq emacs-agent-start-pending nil)
   (let* ((existing (gethash key emacs-agent-track--sessions))
          (identity emacs-agent-track--identity)
-         (session-id (or (alist-get 'session_id identity) ""))
+         (reported-session-id (alist-get 'session_id identity))
+         (session-id (if (and (stringp reported-session-id)
+                              (not (string-empty-p reported-session-id)))
+                         reported-session-id
+                       (or (emacs-agent-track--resumed-session-id agent processes) "")))
          (project (emacs-agent-track--project identity))
          (semantic (plist-get detection :state))
          (previous (alist-get 'semantic_status existing))
@@ -296,7 +378,9 @@ loop before the first frame becomes interactive."
                    "idle")
                   (t "done")))
          (title (if same-session (alist-get 'title existing)
-                  (emacs-agent-track--fallback-title agent project)))
+                  (emacs-agent-track--fallback-title agent project emacs-agent-name)))
+         (title-source (if same-session (alist-get 'title_source existing)
+                         (if emacs-agent-name "launch-name" "agent-project")))
          (record `((id . ,key) (buffer_id . ,key)
                    (run_id . ,emacs-agent-track--run-id)
                    (name . ,emacs-agent-name)
@@ -304,7 +388,12 @@ loop before the first frame becomes interactive."
                    (buffer_name . ,(buffer-name))
                    (vendor_session_id . ,session-id) (project . ,project)
                    (cwd . ,(expand-file-name default-directory))
-                   (title . ,title) (status . ,status)
+                   (transcript_path . ,(alist-get 'transcript_path identity))
+                   (title . ,title) (title_source . ,title-source)
+                   (title_cursor . ,(and same-session (alist-get 'title_cursor existing)))
+                   (title_updated_at . ,(and same-session
+                                             (alist-get 'title_updated_at existing)))
+                   (status . ,status)
                    (semantic_status . ,semantic)
                    (rule_id . ,(plist-get detection :rule-id))
                    (activity . ,foreground)
@@ -312,14 +401,18 @@ loop before the first frame becomes interactive."
                                             (emacs-agent-track--now-ms))))))
     (emacs-agent-track--store key record)
     (when (and (not same-session) (not (string-empty-p session-id)))
-      (emacs-agent-track--schedule-title key (emacs-agent-track--token agent session-id) 0))
+      (emacs-agent-track--schedule-title-refresh 0))
     record))
 
-(defun emacs-agent-track--accept (key agent detection foreground confirmation)
-  "Stabilize DETECTION for KEY before publishing it."
+(defun emacs-agent-track--accept (key agent detection foreground confirmation
+                                      &optional processes)
+  "Stabilize DETECTION for KEY before publishing it.
+
+PROCESSES is forwarded as native identity evidence."
   (if (plist-get detection :skip-state-update)
       (unless (gethash key emacs-agent-track--sessions)
-        (emacs-agent-track--publish key agent '(:state "idle" :rule-id nil) foreground))
+        (emacs-agent-track--publish key agent '(:state "idle" :rule-id nil)
+                                    foreground processes))
     (let* ((existing (gethash key emacs-agent-track--sessions))
            (previous (alist-get 'semantic_status existing))
            (next (plist-get detection :state))
@@ -328,7 +421,7 @@ loop before the first frame becomes interactive."
       (cond
        ((not plain-idle)
         (emacs-agent-track--clear-idle)
-        (emacs-agent-track--publish key agent detection foreground))
+        (emacs-agent-track--publish key agent detection foreground processes))
        ((null emacs-agent-track--idle-start)
         (setq emacs-agent-track--idle-start (float-time)
               emacs-agent-track--idle-confirmations 0)
@@ -337,7 +430,7 @@ loop before the first frame becomes interactive."
        ((or (>= (- (float-time) emacs-agent-track--idle-start) emacs-agent-track--idle-cap)
             (>= (cl-incf emacs-agent-track--idle-confirmations) emacs-agent-track--idle-required))
         (emacs-agent-track--clear-idle)
-        (emacs-agent-track--publish key agent detection foreground))
+        (emacs-agent-track--publish key agent detection foreground processes))
        (t (emacs-agent-track--schedule-idle))))))
 
 (defun emacs-agent-track--scan-buffer (&optional force confirmation)
@@ -379,7 +472,8 @@ loop before the first frame becomes interactive."
                  (emacs-agent-rules-detect agent (ghostel-active-screen-text)
                                         (ghostel-terminal-title)
                                         (emacs-agent-track--progress-text))
-                 (emacs-agent-track--foreground-label foreground) confirmation)))))))))
+                 (emacs-agent-track--foreground-label foreground) confirmation
+                 foreground)))))))))
 
 (defun emacs-agent-track--process-tick ()
   "Refresh every Ghostel buffer's foreground process group."

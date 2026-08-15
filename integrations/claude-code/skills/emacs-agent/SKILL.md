@@ -7,7 +7,7 @@ description: Start and control Claude, Codex, or Cursor agents inside the user's
 
 Use `emacs-agent` for all live agent operations. It is a safe CLI over the
 running Emacs daemon's Ghostel buffers. Do not call `emacsclient`, evaluate
-Elisp, or invoke Ghostel functions directly.
+Elisp, or invoke Ghostel functions directly during normal operation.
 
 ## Start an agent
 
@@ -59,6 +59,16 @@ emacs-agent stop reviewer
 
 Commands emit JSON. Address manually started agents by the `id` returned from
 `list`; API-started agents can also be addressed by their unique name.
+
+## Diagnostic escape hatch
+
+Use raw `emacsclient` only when an existing `emacs-agent` operation cannot
+complete the task, such as when a failed process has already disappeared from
+the live registry or `send-keys` cannot express a required key. First try the
+structured command and record its failure. Then evaluate the smallest possible
+Elisp expression, scope it to the exact known Ghostel buffer, and prefer
+read-only inspection. Do not use this exception to replace routine
+`emacs-agent` operations or manipulate unrelated buffers.
 
 PM remains the source for project names and durable history/resume. Do not use
 PM to infer live terminal state or to manipulate live buffers.

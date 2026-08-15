@@ -84,6 +84,7 @@
       (focused . ,(if (emacs-agent--buffer-focused-p buffer) t :json-false))
       (vendor_session_id . ,(unless (string-empty-p (or session-id "")) session-id))
       (title . ,(alist-get 'title record))
+      (title_source . ,(alist-get 'title_source record))
       (activity . ,(alist-get 'activity record))
       (last_activity_at . ,(emacs-agent--timestamp
                             (alist-get 'last_activity_at record)))

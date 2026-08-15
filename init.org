@@ -2344,7 +2344,10 @@ dependency.
 Ghostel monitor. Foreground process groups establish agent lifecycle; Ghostel's
 native active-screen snapshot plus pinned Herdr-derived rules classify working,
 blocked, idle, and unseen completion states even while a buffer is hidden. Agent
-hooks report identity only, so non-Ghostel sessions retain history/resume support
+hooks report fresh-session identity only; explicit resume commands expose the
+same identity through native process evidence. Emacs uses that identity to read
+live conversation titles from each vendor's own local metadata without routing
+title management through PM. Non-Ghostel sessions retain history/resume support
 without appearing in the live sidebar.
 
 #+begin_src emacs-lisp :tangle init.el

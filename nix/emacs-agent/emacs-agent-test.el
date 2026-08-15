@@ -44,6 +44,25 @@
   (should (equal (emacs-agent-track--record-agent '(:comm "agent" :cmdline "agent"))
                  "cursor")))
 
+(ert-deftest emacs-agent-track-recovers-explicit-resume-session-ids ()
+  (let ((session "01a00308-6ad2-7632-a6d4-1233d6aa67a5"))
+    (should
+     (equal
+      (emacs-agent-track--resumed-session-id
+       "codex"
+       `((:comm "dbexec"
+          :cmdline ,(concat "isaac.dbexec codex -- resume " session))))
+      session))
+    (should
+     (equal
+      (emacs-agent-track--resumed-session-id
+       "claude"
+       `((:comm "claude" :cmdline ,(concat "claude --resume=" session))))
+      session))
+    (should-not
+     (emacs-agent-track--resumed-session-id
+      "codex" '((:comm "codex" :cmdline "codex --model gpt-5.6"))))))
+
 (ert-deftest emacs-agent-track-finds-foreground-process-group-leader ()
   (cl-letf (((symbol-function 'emacs-agent-track--process-record)
              (lambda (pid)
@@ -63,7 +82,7 @@
     (let ((emacs-agent-track--sessions (make-hash-table :test 'equal))
           (emacs-agent-track--identity '((session_id . "s1") (cwd . "/tmp"))))
       (cl-letf (((symbol-function 'emacs-agent-track--selected-p) (lambda () nil))
-                ((symbol-function 'emacs-agent-track--schedule-title) #'ignore)
+                ((symbol-function 'emacs-agent-track--schedule-title-refresh) #'ignore)
                 ((symbol-function 'emacs-agent-track--project) (lambda (_) "demo")))
         (emacs-agent-track--publish "buffer" "claude" '(:state "idle") "claude")
         (should (equal (alist-get 'status (gethash "buffer" emacs-agent-track--sessions))
@@ -82,7 +101,7 @@
     (let ((emacs-agent-track--sessions (make-hash-table :test 'equal))
           (emacs-agent-track--identity '((session_id . "s1"))))
       (cl-letf (((symbol-function 'emacs-agent-track--selected-p) (lambda () nil))
-                ((symbol-function 'emacs-agent-track--schedule-title) #'ignore)
+                ((symbol-function 'emacs-agent-track--schedule-title-refresh) #'ignore)
                 ((symbol-function 'emacs-agent-track--schedule-idle) #'ignore)
                 ((symbol-function 'emacs-agent-track--project) (lambda (_) "demo")))
         (emacs-agent-track--publish "buffer" "claude" '(:state "working") "claude")
@@ -115,11 +134,100 @@
           (should (equal (alist-get 'run_id record) "run-one"))
           (should (equal (alist-get 'name record) "worker"))
           (should (equal (alist-get 'kind record) "codex"))
+          (should (equal (alist-get 'title record) "worker"))
+          (should (equal (alist-get 'title_source record) "launch-name"))
           (should (= (alist-get 'revision record) 1)))
         (emacs-agent-track--publish "buffer-one" "codex" '(:state "working") "codex")
         (should (= (alist-get 'revision
                               (gethash "buffer-one" emacs-agent-track--sessions))
                    2))))))
+
+(ert-deftest emacs-agent-record-uses-resume-id-when-hook-identity-is-missing ()
+  (with-temp-buffer
+    (let ((emacs-agent-track--sessions (make-hash-table :test 'equal))
+          (emacs-agent-track--identity nil)
+          (emacs-agent-track--run-id "run-one")
+          (emacs-agent-id "buffer-one")
+          (session "01a00308-6ad2-7632-a6d4-1233d6aa67a5")
+          scheduled)
+      (cl-letf (((symbol-function 'emacs-agent-track--selected-p) (lambda () t))
+                ((symbol-function 'emacs-agent-track--project) (lambda (_) "demo"))
+                ((symbol-function 'emacs-agent-track--schedule-title-refresh)
+                 (lambda (&optional _) (setq scheduled t))))
+        (emacs-agent-track--publish
+         "buffer-one" "codex" '(:state "idle") "dbexec"
+         `((:comm "dbexec"
+            :cmdline ,(concat "isaac.dbexec codex -- resume " session))))
+        (let ((record (gethash "buffer-one" emacs-agent-track--sessions)))
+          (should (equal (alist-get 'vendor_session_id record) session))
+          (should scheduled))))))
+
+(ert-deftest emacs-agent-native-title-updates-display-but-not-control-name ()
+  (let ((emacs-agent-track--sessions (make-hash-table :test 'equal))
+        (notifications 0))
+    (puthash "buffer-one"
+             '((id . "buffer-one") (run_id . "run-one")
+               (name . "worker") (kind . "codex")
+               (vendor_session_id . "session-one")
+               (title . "worker") (title_source . "launch-name")
+               (revision . 1))
+             emacs-agent-track--sessions)
+    (cl-letf (((symbol-function 'emacs-agent-track--notify)
+               (lambda () (cl-incf notifications))))
+      (emacs-agent-track--apply-native-title
+       '((id . "buffer-one") (run_id . "run-one") (kind . "codex")
+         (session_id . "session-one") (title . "Native title")
+         (source . "codex-explicit")))
+      (let ((record (gethash "buffer-one" emacs-agent-track--sessions)))
+        (should (equal (alist-get 'title record) "Native title"))
+        (should (equal (alist-get 'title_source record) "codex-explicit"))
+        (should (equal (alist-get 'name record) "worker"))
+        (should (= (alist-get 'revision record) 2))
+        (should (= notifications 1)))
+      ;; A stale response from the previous run must not rename its replacement.
+      (emacs-agent-track--apply-native-title
+       '((id . "buffer-one") (run_id . "old-run") (kind . "codex")
+         (session_id . "session-one") (title . "Stale title")
+         (source . "codex-explicit")))
+      (should (equal (alist-get 'title
+                                (gethash "buffer-one" emacs-agent-track--sessions))
+                     "Native title"))
+      (should (= notifications 1)))))
+
+(ert-deftest emacs-agent-native-title-cursor-does-not-create-visible-revision ()
+  (let ((emacs-agent-track--sessions (make-hash-table :test 'equal))
+        (notifications 0))
+    (puthash "buffer-one"
+             '((id . "buffer-one") (run_id . "run-one") (kind . "claude")
+               (vendor_session_id . "session-one")
+               (title . "Native title") (title_source . "claude-ai")
+               (revision . 3))
+             emacs-agent-track--sessions)
+    (cl-letf (((symbol-function 'emacs-agent-track--notify)
+               (lambda () (cl-incf notifications))))
+      (emacs-agent-track--apply-native-title
+       '((id . "buffer-one") (run_id . "run-one") (kind . "claude")
+         (session_id . "session-one") (title . "Native title")
+         (source . "claude-ai")
+         (cursor . ((path . "/tmp/session") (offset . 42)))))
+      (let ((record (gethash "buffer-one" emacs-agent-track--sessions)))
+        (should (= (alist-get 'revision record) 3))
+        (should (= (alist-get 'offset (alist-get 'title_cursor record)) 42))
+        (should (zerop notifications))))))
+
+(ert-deftest emacs-agent-native-title-batch-serializes-as-json-array ()
+  (let ((emacs-agent-track--sessions (make-hash-table :test 'equal)))
+    (puthash "buffer-one"
+             '((id . "buffer-one") (run_id . "run-one") (kind . "codex")
+               (vendor_session_id . "session-one") (cwd . "/tmp")
+               (title . "Fallback") (title_source . "agent-project"))
+             emacs-agent-track--sessions)
+    (let* ((requests (emacs-agent-track--title-requests))
+           (encoded (json-serialize (vconcat requests)))
+           (decoded (json-parse-string encoded :object-type 'alist
+                                       :array-type 'list)))
+      (should (= (length decoded) 1))
+      (should (equal (alist-get 'session_id (car decoded)) "session-one")))))
 
 (ert-deftest emacs-agent-resolves-id-and-unique-name ()
   (let ((emacs-agent-track--sessions (make-hash-table :test 'equal)))

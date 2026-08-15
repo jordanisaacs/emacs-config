@@ -124,11 +124,18 @@
 
           emacsAgentEl = pkgs.runCommand "emacs-agent-elisp" { } ''
             site=$out/share/emacs/site-lisp
-            mkdir -p "$site"
+            libexec=$out/libexec
+            mkdir -p "$site" "$libexec"
+            install -m0555 ${./nix/emacs-agent/emacs_agent_native_title.py} \
+              "$libexec/emacs-agent-native-title"
+            substituteInPlace "$libexec/emacs-agent-native-title" \
+              --replace-fail '@PYTHON@' '${pkgs.python3}/bin/python3'
             install -m0444 ${./nix/emacs-agent/emacs-agent-rules.el} \
               "$site/emacs-agent-rules.el"
-            install -m0444 ${./nix/emacs-agent/emacs-agent-track.el} \
-              "$site/emacs-agent-track.el"
+            substitute ${./nix/emacs-agent/emacs-agent-track.el} \
+              "$site/emacs-agent-track.el" \
+              --replace-fail '@EMACS_AGENT_NATIVE_TITLE@' \
+                "$libexec/emacs-agent-native-title"
             install -m0444 ${./nix/emacs-agent/emacs-agent-sidebar.el} \
               "$site/emacs-agent-sidebar.el"
             install -m0444 ${./nix/emacs-agent/emacs-agent.el} \
