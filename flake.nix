@@ -122,15 +122,25 @@
             '';
           };
 
-          pmAgentTrackerEl = pkgs.runCommand "pm-agent-tracker-elisp" { } ''
+          emacsAgentEl = pkgs.runCommand "emacs-agent-elisp" { } ''
             site=$out/share/emacs/site-lisp
             mkdir -p "$site"
-            install -m0444 ${./nix/pm-agent-tracker/pm-agent-rules.el} \
-              "$site/pm-agent-rules.el"
-            install -m0444 ${./nix/pm-agent-tracker/pm-agent-track.el} \
-              "$site/pm-agent-track.el"
-            install -m0444 ${./nix/pm-agent-tracker/pm-sidebar.el} \
-              "$site/pm-sidebar.el"
+            install -m0444 ${./nix/emacs-agent/emacs-agent-rules.el} \
+              "$site/emacs-agent-rules.el"
+            install -m0444 ${./nix/emacs-agent/emacs-agent-track.el} \
+              "$site/emacs-agent-track.el"
+            install -m0444 ${./nix/emacs-agent/emacs-agent-sidebar.el} \
+              "$site/emacs-agent-sidebar.el"
+            install -m0444 ${./nix/emacs-agent/emacs-agent.el} \
+              "$site/emacs-agent.el"
+          '';
+
+          emacsAgentCli = pkgs.runCommand "emacs-agent-cli" { } ''
+            mkdir -p $out/bin
+            install -m0555 ${./nix/emacs-agent/emacs_agent.py} $out/bin/emacs-agent
+            substituteInPlace $out/bin/emacs-agent \
+              --replace-fail '@PYTHON@' '${pkgs.python3}/bin/python3' \
+              --replace-fail '@EMACSCLIENT@' '${emacsPackage}/bin/emacsclient'
           '';
 
           monetShim = pkgs.runCommand "monet-shim" { } ''
@@ -205,9 +215,10 @@
               (when init-file-user
                 (add-to-list 'treesit-extra-load-path "${treesitterPackage}/lib"))
               (add-to-list 'load-path "${eglotFwatcherEl}/share/emacs/site-lisp")
-              ;; This local pm-sidebar intentionally shadows the package's
-              ;; server-backed implementation.
-              (add-to-list 'load-path "${pmAgentTrackerEl}/share/emacs/site-lisp")
+              ;; Emacs owns live agent tracking and control; pm only supplies
+              ;; project resolution and launch/history operations.
+              (add-to-list 'load-path "${emacsAgentEl}/share/emacs/site-lisp")
+              (autoload 'emacs-agent-api-call-base64 "emacs-agent")
               (defvar my/monet-shim-dir "${monetShim}/bin"
                 "Directory holding the nix-provided `claude' PATH shim.")
               (defvar my/monet-shim-zdotdir "${monetShim}/zdotdir"
@@ -238,7 +249,7 @@
 
           emacs-jd = pkgs.symlinkJoin {
             name = "emacs-jd";
-            paths = [ emacsEnv ];
+            paths = [ emacsEnv emacsAgentCli ];
             buildInputs = [ pkgs.makeWrapper ];
             postBuild = ''
               wrapProgram $out/bin/emacs \
@@ -257,7 +268,7 @@
 
           packages = {
             inherit emacsConfig emacs-jd emacsEnv emacsInit emacsPackage
-              ghostelModule fwatcher eglotFwatcherEl pmAgentTrackerEl monetShim
+              ghostelModule fwatcher eglotFwatcherEl emacsAgentEl emacsAgentCli monetShim
               ghostelEditor hostd hostctl;
             default = emacs-jd;
           };
@@ -267,6 +278,25 @@
             build-config = emacsConfig;
             build-env =
               emacsEnv.overrideScope (_: _: { executablePackages = [ ]; });
+            emacs-agent-cli = emacsAgentCli;
+            emacs-agent-python-tests = pkgs.runCommand "emacs-agent-python-tests" {
+              nativeBuildInputs = [ pkgs.python3 ];
+            } ''
+              export PYTHONDONTWRITEBYTECODE=1
+              python3 -m unittest discover -v -s ${./nix/emacs-agent}
+              touch $out
+            '';
+            emacs-agent-elisp-tests = pkgs.runCommand "emacs-agent-elisp-tests" {
+              nativeBuildInputs = [ emacsEnv ];
+            } ''
+              export HOME=$TMPDIR
+              emacs -Q --batch \
+                -L ${emacsAgentEl}/share/emacs/site-lisp \
+                -l ${./nix/emacs-agent/emacs-agent-test.el} \
+                -f ert-run-tests-batch-and-exit
+              touch $out
+            '';
+            patched-ghostel = ghostelModule;
           };
 
           apps = emacsEnv.makeApps { lockDirName = "lock"; };

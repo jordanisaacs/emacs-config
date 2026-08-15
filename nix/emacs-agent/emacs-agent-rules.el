@@ -1,4 +1,4 @@
-;;; pm-agent-rules.el --- Herdr-derived terminal rules -*- lexical-binding: t -*-
+;;; emacs-agent-rules.el --- Herdr-derived terminal rules -*- lexical-binding: t -*-
 
 ;;; Commentary:
 
@@ -13,7 +13,7 @@
 (require 'seq)
 (require 'subr-x)
 
-(defconst pm-agent-rules-manifests
+(defconst emacs-agent-rules-manifests
   `(("claude" :version "2026.08.13.1" :rules
      ((:id "osc_title_working" :state "working" :priority 1100 :region "osc_title"
        :visible-working t :regex ("^[⠀-⣿◐-◓] "))
@@ -135,15 +135,15 @@
        :line-regex ("^[[:space:]]*\\(?:⬡\\|⬢\\|[⠀-⣿]+\\)[[:space:]]+[[:alpha:]]+[[:word:]]*ing\\_>")))))
   "Pinned Herdr-derived manifests keyed by canonical agent name.")
 
-(defun pm-agent-rules--lines (text)
+(defun emacs-agent-rules--lines (text)
   "Split TEXT into lines while retaining empty lines."
   (split-string (string-replace "\r" "" (or text "")) "\n" nil))
 
-(defun pm-agent-rules--join (lines)
+(defun emacs-agent-rules--join (lines)
   "Join LINES as terminal text."
   (mapconcat #'identity lines "\n"))
 
-(defun pm-agent-rules--horizontal-rule-p (line)
+(defun emacs-agent-rules--horizontal-rule-p (line)
   "Return non-nil when LINE is a Claude-style horizontal rule."
   (let ((trimmed (string-trim line)))
     (and (not (string-empty-p trimmed))
@@ -152,99 +152,99 @@
                (suffix (string-trim-left (substring trimmed (match-end 0)))))
            (or (string-empty-p suffix) (>= count 3))))))
 
-(defun pm-agent-rules--bottom-non-empty (text count)
+(defun emacs-agent-rules--bottom-non-empty (text count)
   "Return TEXT from its COUNTth non-empty line from the bottom."
-  (let* ((lines (pm-agent-rules--lines text)) (seen 0) start)
+  (let* ((lines (emacs-agent-rules--lines text)) (seen 0) start)
     (cl-loop for line in (reverse lines) for reverse-index from 0
              when (not (string-empty-p (string-trim line))) do (cl-incf seen)
              when (= seen count)
              do (setq start (- (length lines) reverse-index 1)) and return nil)
-    (if start (pm-agent-rules--join (nthcdr start lines)) "")))
+    (if start (emacs-agent-rules--join (nthcdr start lines)) "")))
 
-(defun pm-agent-rules--top-non-empty (text count)
+(defun emacs-agent-rules--top-non-empty (text count)
   "Return TEXT through its COUNTth non-empty line."
-  (let ((lines (pm-agent-rules--lines text)) (seen 0) end)
+  (let ((lines (emacs-agent-rules--lines text)) (seen 0) end)
     (cl-loop for line in lines for index from 0
              when (not (string-empty-p (string-trim line))) do (cl-incf seen)
              when (= seen count) do (setq end (1+ index)) and return nil)
-    (pm-agent-rules--join (seq-take lines (or end (length lines))))))
+    (emacs-agent-rules--join (seq-take lines (or end (length lines))))))
 
-(defun pm-agent-rules--after-last-prompt (text)
+(defun emacs-agent-rules--after-last-prompt (text)
   "Return the portion of TEXT after its last Codex prompt marker."
-  (let ((lines (pm-agent-rules--lines text)) index)
+  (let ((lines (emacs-agent-rules--lines text)) index)
     (cl-loop for line in lines for i from 0
              when (or (string= line "›") (string-prefix-p "› " line)) do (setq index i))
-    (if index (pm-agent-rules--join (nthcdr (1+ index) lines)) text)))
+    (if index (emacs-agent-rules--join (nthcdr (1+ index) lines)) text)))
 
-(defun pm-agent-rules--after-last-rule (text)
+(defun emacs-agent-rules--after-last-rule (text)
   "Return the portion of TEXT after its last horizontal rule."
-  (let ((lines (pm-agent-rules--lines text)) index)
+  (let ((lines (emacs-agent-rules--lines text)) index)
     (cl-loop for line in lines for i from 0
-             when (pm-agent-rules--horizontal-rule-p line) do (setq index i))
-    (if index (pm-agent-rules--join (nthcdr (1+ index) lines)) text)))
+             when (emacs-agent-rules--horizontal-rule-p line) do (setq index i))
+    (if index (emacs-agent-rules--join (nthcdr (1+ index) lines)) text)))
 
-(defun pm-agent-rules--prompt-box-body (text)
+(defun emacs-agent-rules--prompt-box-body (text)
   "Return the body of the last Claude prompt box in TEXT."
-  (let ((lines (pm-agent-rules--lines text)) (borders '()))
+  (let ((lines (emacs-agent-rules--lines text)) (borders '()))
     (cl-loop for line in lines for i from 0
-             when (pm-agent-rules--horizontal-rule-p line) do (push i borders))
+             when (emacs-agent-rules--horizontal-rule-p line) do (push i borders))
     (if (< (length borders) 2) ""
       (let* ((top (nth 1 borders)) (body (nthcdr (1+ top) lines)) end)
         (cl-loop for line in body for i from 0
-                 when (pm-agent-rules--horizontal-rule-p line)
+                 when (emacs-agent-rules--horizontal-rule-p line)
                  do (setq end i) and return nil)
-        (pm-agent-rules--join (seq-take body (or end (length body))))))))
+        (emacs-agent-rules--join (seq-take body (or end (length body))))))))
 
-(defun pm-agent-rules--region (spec screen osc-title osc-progress)
+(defun emacs-agent-rules--region (spec screen osc-title osc-progress)
   "Select SPEC from SCREEN, OSC-TITLE, and OSC-PROGRESS."
   (cond
    ((string= spec "osc_title") (or osc-title ""))
    ((string= spec "osc_progress") (or osc-progress ""))
-   ((string= spec "after_last_prompt_marker") (pm-agent-rules--after-last-prompt screen))
-   ((string= spec "prompt_box_body") (pm-agent-rules--prompt-box-body screen))
-   ((string= spec "after_last_horizontal_rule") (pm-agent-rules--after-last-rule screen))
+   ((string= spec "after_last_prompt_marker") (emacs-agent-rules--after-last-prompt screen))
+   ((string= spec "prompt_box_body") (emacs-agent-rules--prompt-box-body screen))
+   ((string= spec "after_last_horizontal_rule") (emacs-agent-rules--after-last-rule screen))
    ((string-match "\\`bottom_non_empty_lines(\\([0-9]+\\))\\'" spec)
-    (pm-agent-rules--bottom-non-empty screen (string-to-number (match-string 1 spec))))
+    (emacs-agent-rules--bottom-non-empty screen (string-to-number (match-string 1 spec))))
    ((string-match "\\`top_non_empty_lines(\\([0-9]+\\))\\'" spec)
-    (pm-agent-rules--top-non-empty screen (string-to-number (match-string 1 spec))))
+    (emacs-agent-rules--top-non-empty screen (string-to-number (match-string 1 spec))))
    ((string= spec "whole_recent") screen)
    (t "")))
 
-(defun pm-agent-rules--regexp-match-p (regexp text)
+(defun emacs-agent-rules--regexp-match-p (regexp text)
   "Return non-nil when REGEXP matches TEXT."
   (let* ((fold (string-prefix-p "(?i)" regexp))
          (case-fold-search fold)
          (pattern (if fold (substring regexp 4) regexp)))
     (string-match-p pattern text)))
 
-(defun pm-agent-rules--gate-match-p (gate text)
+(defun emacs-agent-rules--gate-match-p (gate text)
   "Return non-nil when declarative GATE matches TEXT."
   (let ((lower (downcase text)))
     (and (seq-every-p (lambda (needle) (string-search (downcase needle) lower))
                       (plist-get gate :contains))
-         (seq-every-p (lambda (regexp) (pm-agent-rules--regexp-match-p regexp text))
+         (seq-every-p (lambda (regexp) (emacs-agent-rules--regexp-match-p regexp text))
                       (plist-get gate :regex))
          (seq-every-p
           (lambda (regexp)
-            (seq-some (lambda (line) (pm-agent-rules--regexp-match-p regexp line))
-                      (pm-agent-rules--lines text)))
+            (seq-some (lambda (line) (emacs-agent-rules--regexp-match-p regexp line))
+                      (emacs-agent-rules--lines text)))
           (plist-get gate :line-regex))
-         (seq-every-p (lambda (nested) (pm-agent-rules--gate-match-p nested text))
+         (seq-every-p (lambda (nested) (emacs-agent-rules--gate-match-p nested text))
                       (plist-get gate :all))
          (let ((any (plist-get gate :any)))
            (or (null any)
-               (seq-some (lambda (nested) (pm-agent-rules--gate-match-p nested text)) any)))
-         (not (seq-some (lambda (nested) (pm-agent-rules--gate-match-p nested text))
+               (seq-some (lambda (nested) (emacs-agent-rules--gate-match-p nested text)) any)))
+         (not (seq-some (lambda (nested) (emacs-agent-rules--gate-match-p nested text))
                         (plist-get gate :not))))))
 
-(defun pm-agent-rules-detect (agent screen &optional osc-title osc-progress)
+(defun emacs-agent-rules-detect (agent screen &optional osc-title osc-progress)
   "Detect AGENT state from SCREEN and optional OSC evidence."
-  (let* ((manifest (cdr (assoc agent pm-agent-rules-manifests)))
+  (let* ((manifest (cdr (assoc agent emacs-agent-rules-manifests)))
          (rules (plist-get manifest :rules)) best)
     (dolist (rule rules)
-      (let ((text (pm-agent-rules--region (plist-get rule :region)
+      (let ((text (emacs-agent-rules--region (plist-get rule :region)
                                           (or screen "") osc-title osc-progress)))
-        (when (and (pm-agent-rules--gate-match-p rule text)
+        (when (and (emacs-agent-rules--gate-match-p rule text)
                    (or (null best)
                        (> (plist-get rule :priority) (plist-get best :priority))))
           (setq best rule))))
@@ -257,6 +257,6 @@
               :skip-state-update (plist-get best :skip-state-update))
       (list :state (if manifest "idle" "unknown") :rule-id nil :priority -1))))
 
-(provide 'pm-agent-rules)
+(provide 'emacs-agent-rules)
 
-;;; pm-agent-rules.el ends here
+;;; emacs-agent-rules.el ends here

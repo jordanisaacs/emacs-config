@@ -2340,7 +2340,7 @@ Source lives at [[https://github.com/jordan-isaacs_data/project-manager][jordan-
 =integrations/emacs/= so twist.nix builds it like any other MELPA-style
 dependency.
 
-=pm-sidebar= is a live agent-session sidebar (=C-x p a=) backed by an Emacs-local
+=emacs-agent-sidebar= is a live agent-session sidebar (=C-x p a=) backed by an Emacs-local
 Ghostel monitor. Foreground process groups establish agent lifecycle; Ghostel's
 native active-screen snapshot plus pinned Herdr-derived rules classify working,
 blocked, idle, and unseen completion states even while a buffer is hidden. Agent
@@ -2351,13 +2351,13 @@ without appearing in the live sidebar.
 (use-package pm
   :ensure t
   :commands (pm-dispatch pm-project-dispatch pm-agent-launch-dispatch
-             pm-refresh pm--project-finder pm-jump-parent pm-jump-sibling
-             pm-sidebar)
-  :functions (pm-agent-track-setup)
+             pm-refresh pm--project-finder pm-jump-parent pm-jump-sibling)
+  :functions (emacs-agent-track-setup)
   :custom
   (pm-agent-dispatch-function #'pm-agent-dispatch-ghostel)
   (pm-manager-project "manager")
   :init
+  (autoload 'emacs-agent-sidebar "emacs-agent-sidebar" nil t)
   (with-eval-after-load 'project
     (add-hook 'project-find-functions #'pm--project-finder)
     (add-to-list 'project-switch-commands
@@ -2367,16 +2367,16 @@ without appearing in the live sidebar.
     ;; Resumes go through the regular pm flow (`?P' → `l').
     (add-to-list 'project-switch-commands
                  '(pm-agent-launch-dispatch "Agent" ?a) t))
-  ;; PM's launch integration assigns stable buffer ids.  The local tracker then
-  ;; seeds identity delivery and monitors every Ghostel terminal independently
-  ;; of whether the sidebar window is visible.
+  ;; Emacs assigns stable buffer ids, seeds identity delivery, and monitors
+  ;; every Ghostel terminal independently of whether the sidebar is visible.
   (with-eval-after-load 'ghostel
     (require 'pm-agent)
-    (require 'pm-agent-track)
-    (pm-agent-track-setup))
+    (require 'emacs-agent-track)
+    (require 'emacs-agent)
+    (emacs-agent-track-setup))
   (global-set-key (kbd "C-x p P") #'pm-dispatch)
   (global-set-key (kbd "C-x p .") #'pm-project-dispatch)
-  (global-set-key (kbd "C-x p a") #'pm-sidebar)  ; toggle local agent sidebar
+  (global-set-key (kbd "C-x p a") #'emacs-agent-sidebar)  ; toggle local agent sidebar
   (add-hook 'after-init-hook
             (lambda () (run-with-idle-timer 0.5 nil #'pm-refresh))))
 #+end_src
