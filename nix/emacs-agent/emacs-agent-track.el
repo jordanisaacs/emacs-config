@@ -36,6 +36,10 @@
   "Seconds used to coalesce bursts of terminal updates."
   :type 'number :group 'emacs-agent-track)
 
+(defcustom emacs-agent-track-descendant-limit 64
+  "Maximum wrapper descendants inspected for one foreground process group."
+  :type 'integer :group 'emacs-agent-track)
+
 (defcustom emacs-agent-track-title-interval 1.0
   "Seconds between native title refreshes while identified agents are live."
   :type 'number :group 'emacs-agent-track)
@@ -137,19 +141,53 @@
           :comm (or (alist-get 'comm attributes) "")
           :cmdline (or (alist-get 'args attributes) ""))))
 
+(defun emacs-agent-track--process-children (pid)
+  "Return the direct child process ids of PID."
+  (condition-case nil
+      (delete-dups
+       (seq-mapcat
+        (lambda (task)
+          (condition-case nil
+              (with-temp-buffer
+                (insert-file-contents (expand-file-name "children" task))
+                (mapcar #'string-to-number
+                        (split-string (buffer-string) nil t)))
+            (file-error nil)))
+        (directory-files (format "/proc/%d/task" pid) t "\\`[0-9]+\\'")))
+    (file-error nil)))
+
+(defun emacs-agent-track--native-agent-process-p (record)
+  "Return non-nil when RECORD is the vendor process, not a launch wrapper."
+  (member (downcase (plist-get record :comm)) '("agent" "claude" "codex")))
+
 (defun emacs-agent-track--foreground-processes (shell-pid)
-  "Return SHELL-PID's foreground process-group leader.
+  "Return SHELL-PID's foreground leader and bounded wrapper descendants.
 
 The foreground group id is also its leader's pid.  Agent launch wrappers put
-the agent name in that leader's command line, so two targeted native process
-lookups provide the lifecycle and classification evidence we need.  Avoid a
-global /proc sweep here: on process-heavy hosts it can starve Emacs's event
-loop before the first frame becomes interactive."
+the agent name in that leader's command line in the common case.  Some dbexec
+launches hide it in a short descendant chain, so follow only that process tree
+and stop at native vendor executables.  This remains bounded and avoids the
+global /proc sweep that can starve Emacs on process-heavy hosts."
   (when-let* ((shell (emacs-agent-track--process-record shell-pid)))
     (let ((tpgid (plist-get shell :tpgid)))
       (when (and (> tpgid 0) (/= tpgid (plist-get shell :pgrp)))
         (when-let* ((leader (emacs-agent-track--process-record tpgid)))
-          (list leader))))))
+          (let ((records (list leader))
+                (queue (emacs-agent-track--process-children tpgid))
+                (seen (make-hash-table :test 'eql))
+                (remaining emacs-agent-track-descendant-limit))
+            (puthash tpgid t seen)
+            (while (and queue (> remaining 0))
+              (let ((pid (pop queue)))
+                (unless (gethash pid seen)
+                  (puthash pid t seen)
+                  (cl-decf remaining)
+                  (when-let* ((record (emacs-agent-track--process-record pid)))
+                    (setq records (append records (list record)))
+                    (unless (emacs-agent-track--native-agent-process-p record)
+                      (setq queue
+                            (append queue (emacs-agent-track--process-children pid))))))))
+            records))))))
 
 (defun emacs-agent-track--record-agent (record)
   "Classify one process RECORD as an agent, if possible."
@@ -172,20 +210,23 @@ loop before the first frame becomes interactive."
 
 (defun emacs-agent-track--foreground-label (records)
   "Return a concise activity label for foreground RECORDS."
-  (when records
-    (plist-get (car (sort (copy-sequence records)
-                          (lambda (a b) (< (plist-get a :pid) (plist-get b :pid)))))
-               :comm)))
+  (or (emacs-agent-track--classify-processes records)
+      (when records
+        (plist-get (car (sort (copy-sequence records)
+                              (lambda (a b) (< (plist-get a :pid)
+                                               (plist-get b :pid)))))
+                   :comm))))
 
-(defun emacs-agent-track--resumed-session-id (agent records)
-  "Return AGENT's explicit resume id from process RECORDS, if present.
+(defun emacs-agent-track--command-session-id (agent records)
+  "Return AGENT's explicit session id from process RECORDS, if present.
 
 Hooks remain authoritative for fresh sessions.  Resume commands already carry
 the vendor id, so recovering it here also covers sessions launched through PM
 or by hand without a vendor hook profile."
-  (let* ((marker (if (equal agent "codex")
-                     "\\(?:\\_<resume\\_>\\|--resume\\)"
-                   "\\(?:--resume\\|-r\\)"))
+  (let* ((marker (pcase agent
+                   ("codex" "\\(?:\\_<resume\\_>\\|--resume\\)")
+                   ("claude" "\\(?:--resume\\|-r\\|--session-id\\)")
+                   (_ "\\(?:--resume\\|-r\\|--session-id\\)")))
          (regexp (concat marker "[=[:space:]]+\\("
                          emacs-agent-track--uuid-regexp "\\)"))
          (case-fold-search t))
@@ -196,6 +237,32 @@ or by hand without a vendor hook profile."
               (string-match regexp command)
               (downcase (match-string 1 command)))))
      records)))
+
+(defun emacs-agent-track--codex-open-session-id (records)
+  "Return the Codex session id exposed by open files in RECORDS."
+  (let ((case-fold-search t)
+        (regexp (concat "\\(?:/thread-writer-locks/\\|/rollout-[^/]*-\\)\\("
+                        emacs-agent-track--uuid-regexp
+                        "\\)\\(?:\\.lock\\|\\.jsonl\\)\\'")))
+    (seq-some
+     (lambda (record)
+       (when (string= (downcase (plist-get record :comm)) "codex")
+         (let ((directory (format "/proc/%d/fd" (plist-get record :pid))))
+           (condition-case nil
+               (seq-some
+                (lambda (fd)
+                  (when-let* ((target (file-symlink-p fd)))
+                    (and (string-match regexp target)
+                         (downcase (match-string 1 target)))))
+                (directory-files directory t "\\`[0-9]+\\'"))
+             (file-error nil)))))
+     records)))
+
+(defun emacs-agent-track--native-session-id (agent records)
+  "Return AGENT's session id from native process evidence in RECORDS."
+  (or (emacs-agent-track--command-session-id agent records)
+      (and (equal agent "codex")
+           (emacs-agent-track--codex-open-session-id records))))
 
 (defun emacs-agent-track--project (identity)
   "Resolve a pm project name for IDENTITY or the current buffer."
@@ -355,15 +422,24 @@ or by hand without a vendor hook profile."
   "Publish DETECTION for AGENT and FOREGROUND under KEY.
 
 PROCESSES is the native foreground process evidence used to recover an
-explicit resume id when no hook identity is available."
+agent's vendor session id when no hook identity is available."
   (setq emacs-agent-start-pending nil)
   (let* ((existing (gethash key emacs-agent-track--sessions))
          (identity emacs-agent-track--identity)
          (reported-session-id (alist-get 'session_id identity))
+         (existing-session-id
+          (and existing
+               (equal (alist-get 'run_id existing) emacs-agent-track--run-id)
+               (equal (alist-get 'agent existing) agent)
+               (alist-get 'vendor_session_id existing)))
          (session-id (if (and (stringp reported-session-id)
                               (not (string-empty-p reported-session-id)))
                          reported-session-id
-                       (or (emacs-agent-track--resumed-session-id agent processes) "")))
+                       (or (and (stringp existing-session-id)
+                                (not (string-empty-p existing-session-id))
+                                existing-session-id)
+                           (emacs-agent-track--native-session-id agent processes)
+                           "")))
          (project (emacs-agent-track--project identity))
          (semantic (plist-get detection :state))
          (previous (alist-get 'semantic_status existing))

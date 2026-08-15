@@ -33,35 +33,77 @@
     (should (equal (emacs-agent-rules--prompt-box-body screen) "❯ prompt"))))
 
 (ert-deftest emacs-agent-track-classifies-wrapper-process-groups ()
-  (should (equal
-           (emacs-agent-track--classify-processes
-            '((:pid 10 :comm "dbexec" :cmdline "dbexec isaac codex --")
-              (:pid 11 :comm "codex" :cmdline "/nix/store/hash/bin/codex")))
-           "codex"))
+  (let ((records
+         '((:pid 10 :comm "dbexec" :cmdline "dbexec isaac codex --")
+           (:pid 11 :comm "codex" :cmdline "/nix/store/hash/bin/codex"))))
+    (should (equal (emacs-agent-track--classify-processes records) "codex"))
+    (should (equal (emacs-agent-track--foreground-label records) "codex")))
+  (should (equal (emacs-agent-track--foreground-label
+                  '((:pid 10 :comm "dbexec" :cmdline "dbexec")))
+                 "dbexec"))
   (should (equal (emacs-agent-track--record-agent
                   '(:comm "node" :cmdline "/opt/claude-code/cli.js"))
                  "claude"))
   (should (equal (emacs-agent-track--record-agent '(:comm "agent" :cmdline "agent"))
                  "cursor")))
 
-(ert-deftest emacs-agent-track-recovers-explicit-resume-session-ids ()
+(ert-deftest emacs-agent-track-recovers-explicit-command-session-ids ()
   (let ((session "01a00308-6ad2-7632-a6d4-1233d6aa67a5"))
     (should
      (equal
-      (emacs-agent-track--resumed-session-id
+      (emacs-agent-track--command-session-id
        "codex"
        `((:comm "dbexec"
           :cmdline ,(concat "isaac.dbexec codex -- resume " session))))
       session))
     (should
      (equal
-      (emacs-agent-track--resumed-session-id
+      (emacs-agent-track--command-session-id
        "claude"
-       `((:comm "claude" :cmdline ,(concat "claude --resume=" session))))
+       `((:comm "claude" :cmdline ,(concat "claude --session-id " session))))
       session))
     (should-not
-     (emacs-agent-track--resumed-session-id
+     (emacs-agent-track--command-session-id
       "codex" '((:comm "codex" :cmdline "codex --model gpt-5.6"))))))
+
+(ert-deftest emacs-agent-track-finds-children-created-by-any-task ()
+  (cl-letf (((symbol-function 'directory-files)
+             (lambda (&rest _) '("/proc/7/task/7" "/proc/7/task/9")))
+            ((symbol-function 'insert-file-contents)
+             (lambda (file &rest _)
+               (insert (pcase file
+                         ("/proc/7/task/7/children" "8 10")
+                         ("/proc/7/task/9/children" "10 11")))
+               nil)))
+    (should (equal (emacs-agent-track--process-children 7) '(8 10 11)))))
+
+(ert-deftest emacs-agent-track-finds-agents-behind-wrapper-descendants ()
+  (cl-letf (((symbol-function 'emacs-agent-track--process-record)
+             (lambda (pid)
+               (pcase pid
+                 (1 '(:pid 1 :pgrp 1 :tpgid 20 :comm "zsh"))
+                 (20 '(:pid 20 :pgrp 20 :tpgid 20 :comm "dbexec" :cmdline "dbexec"))
+                 (21 '(:pid 21 :pgrp 20 :tpgid 20 :comm "python3" :cmdline "wrapper"))
+                 (22 '(:pid 22 :pgrp 22 :tpgid 22 :comm "claude"
+                       :cmdline "claude --session-id 00000000-0000-0000-0000-000000000022")))))
+            ((symbol-function 'emacs-agent-track--process-children)
+             (lambda (pid) (pcase pid (20 '(21)) (21 '(22)) (_ nil)))))
+    (let ((records (emacs-agent-track--foreground-processes 1)))
+      (should (equal (mapcar (lambda (record) (plist-get record :pid)) records)
+                     '(20 21 22)))
+      (should (equal (emacs-agent-track--classify-processes records) "claude")))))
+
+(ert-deftest emacs-agent-track-recovers-fresh-codex-id-from-open-lock ()
+  (let ((session "01a0042a-2b58-7e31-ba13-c4f51cbc5844"))
+    (cl-letf (((symbol-function 'directory-files)
+               (lambda (&rest _) '("/proc/42/fd/55")))
+              ((symbol-function 'file-symlink-p)
+               (lambda (_)
+                 (concat "/home/user/.codex/thread-writer-locks/" session ".lock"))))
+      (should
+       (equal (emacs-agent-track--codex-open-session-id
+               '((:pid 42 :comm "codex" :cmdline "codex")))
+              session)))))
 
 (ert-deftest emacs-agent-track-finds-foreground-process-group-leader ()
   (cl-letf (((symbol-function 'emacs-agent-track--process-record)
