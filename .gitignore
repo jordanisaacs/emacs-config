@@ -4,7 +4,9 @@ target
 .codex
 
 *.py
-!nix/emacs-agent/*.py
+!emacs-agent/*.py
+__pycache__/
+*.py[cod]
 *.c
 *.go
 !host-bridge/*.go

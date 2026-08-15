@@ -1147,7 +1147,7 @@ any directory proferred by `consult-dir'."
 *** Ghostel
 
 Terminal emulator powered by libghostty-vt. The native module is built
-and installed by Nix (see =nix/packageOverrides.nix=); don't let
+and installed by Nix (see =ghostel/default.nix=); don't let
 ghostel try to download it at runtime.
 
 =ghostel-ignore-cursor-change= is left at its default =nil= so shell

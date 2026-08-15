@@ -1,4 +1,4 @@
-{ pkgs, ghostelModule, ghostelSrc, pmSrc, }:
+{ pkgs, pmSrc, }:
 final: prev: {
   # Build pm from a local worktree (see flake.nix `pm-src' input) so
   # uncommitted changes show up. The recipe (`recipes/pm') still
@@ -41,20 +41,4 @@ final: prev: {
   lsp-mode = prev.lsp-mode.overrideAttrs (old: { LSP_USE_PLISTS = true; });
 
   ccls = prev.ccls.overrideAttrs (old: { LSP_USE_PLISTS = true; });
-
-  # Ghostel ships a Zig-built native module (libghostty-vt bindings) that is
-  # normally auto-downloaded at runtime.  The read-only Nix store blocks that,
-  # so drop in the Nix-built module (see flake.nix:ghostelModule) next to
-  # ghostel.el where `(locate-library "ghostel")` expects it.
-  ghostel = prev.ghostel.overrideAttrs (old:
-    let moduleSuffix = pkgs.stdenv.hostPlatform.extensions.sharedLibrary;
-    in {
-      src = ghostelSrc;
-      preBuild = (old.preBuild or "") + ''
-        install -m444 ${ghostelModule}/ghostel-module${moduleSuffix} \
-          ghostel-module${moduleSuffix}
-        install -m444 ${ghostelModule}/ghostel-module.version \
-          ghostel-module.version
-      '';
-    });
 }

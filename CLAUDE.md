@@ -31,6 +31,10 @@ This configuration uses `twist.nix`, a Nix-based Emacs package manager that prov
 #### Directory Structure
 - `lock/flake.nix` - Auto-generated lockfile with pinned package versions
 - `recipes/` - Custom MELPA-style recipes for packages not in standard repositories
+- `emacs/` - Patched Emacs build and source patches
+- `ghostel/` - Patched Ghostel build, Zig dependency lock, and editor wrapper
+- `eglot-fwatcher/` - Rust watcher daemon, Elisp integration, and package build
+- `emacs-agent/` - Emacs agent API, CLI, tests, and package build
 - `nix/registries.nix` - Registry configuration (MELPA, GNU ELPA, etc.)
 - `nix/inputOverrides.nix` - Custom input overrides for specific packages
 - `nix/packageOverrides.nix` - Package-specific build overrides

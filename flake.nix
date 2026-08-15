@@ -31,8 +31,8 @@
     # Upstream ghostel; pin tracked by flake.lock. To bump:
     #   1. `nix flake update ghostel`,
     #   2. bump `ghostelModule.version` to match upstream `build.zig.zon`,
-    #   3. regenerate `nix/ghostel/build.zig.zon2json-lock` if upstream
-    #      touched `build.zig.zon` (see ghostelModule comment).
+    #   3. regenerate `ghostel/build.zig.zon2json-lock` if upstream
+    #      touched `build.zig.zon` (see `ghostel/default.nix`).
     ghostel.url = "github:dakra/ghostel";
     ghostel.flake = false;
 
@@ -63,21 +63,22 @@
             (inputs.org-babel.lib.tangleOrgBabel { tangleArg = "init.el"; }
               (builtins.readFile ./init.org));
 
-          emacsPackage = pkgs.emacs-git-pgtk.overrideAttrs (old: {
-            patches = (old.patches or [ ])
-              ++ [
-                ./nix/patches/eln-cache-correct-spot.patch
-                ./nix/patches/tty-synchronized-output.patch
-              ];
-          });
+          emacsPackage = import ./emacs { inherit pkgs; };
 
-          fwatcher = pkgs.rustPlatform.buildRustPackage {
-            pname = "fwatcher";
-            version = "0.1.0";
-            src = ./nix/eglot-fwatcher;
-            cargoLock.lockFile = ./nix/eglot-fwatcher/Cargo.lock;
-            meta.mainProgram = "fwatcher";
+          eglotFwatcherBuild =
+            import ./eglot-fwatcher { inherit pkgs emacsPackage; };
+          inherit (eglotFwatcherBuild) fwatcher eglotFwatcherEl;
+
+          emacsAgentBuild =
+            import ./emacs-agent { inherit pkgs emacsPackage; };
+          inherit (emacsAgentBuild) emacsAgentEl emacsAgentCli;
+
+          ghostelBuild = import ./ghostel {
+            inherit pkgs system emacsPackage;
+            upstreamSrc = inputs.ghostel;
+            zig2nix = inputs.zig2nix;
           };
+          inherit (ghostelBuild) ghostelEditor ghostelSrc ghostelModule;
 
           hostd = pkgs.buildGoModule {
             pname = "hostd";
@@ -117,44 +118,6 @@
             };
           };
 
-          eglotFwatcherEl = emacsPackage.pkgs.trivialBuild {
-            pname = "eglot-fwatcher";
-            version = "0.1.0";
-            src = ./nix/eglot-fwatcher/elisp;
-            preBuild = ''
-              substituteInPlace eglot-fwatcher.el \
-                --replace-fail '"fwatcher"' '"${fwatcher}/bin/fwatcher"'
-            '';
-          };
-
-          emacsAgentEl = pkgs.runCommand "emacs-agent-elisp" { } ''
-            site=$out/share/emacs/site-lisp
-            libexec=$out/libexec
-            mkdir -p "$site" "$libexec"
-            install -m0555 ${./nix/emacs-agent/emacs_agent_native_title.py} \
-              "$libexec/emacs-agent-native-title"
-            substituteInPlace "$libexec/emacs-agent-native-title" \
-              --replace-fail '@PYTHON@' '${pkgs.python3}/bin/python3'
-            install -m0444 ${./nix/emacs-agent/emacs-agent-rules.el} \
-              "$site/emacs-agent-rules.el"
-            substitute ${./nix/emacs-agent/emacs-agent-track.el} \
-              "$site/emacs-agent-track.el" \
-              --replace-fail '@EMACS_AGENT_NATIVE_TITLE@' \
-                "$libexec/emacs-agent-native-title"
-            install -m0444 ${./nix/emacs-agent/emacs-agent-sidebar.el} \
-              "$site/emacs-agent-sidebar.el"
-            install -m0444 ${./nix/emacs-agent/emacs-agent.el} \
-              "$site/emacs-agent.el"
-          '';
-
-          emacsAgentCli = pkgs.runCommand "emacs-agent-cli" { } ''
-            mkdir -p $out/bin
-            install -m0555 ${./nix/emacs-agent/emacs_agent.py} $out/bin/emacs-agent
-            substituteInPlace $out/bin/emacs-agent \
-              --replace-fail '@PYTHON@' '${pkgs.python3}/bin/python3' \
-              --replace-fail '@EMACSCLIENT@' '${emacsPackage}/bin/emacsclient'
-          '';
-
           monetShim = pkgs.runCommand "monet-shim" { } ''
             mkdir -p $out/bin $out/zdotdir
             substitute ${./nix/monet-shim/claude} $out/bin/claude \
@@ -163,44 +126,6 @@
             install -m0644 ${./nix/monet-shim/zdotdir/.zshenv} $out/zdotdir/.zshenv
             install -m0644 ${./nix/monet-shim/zdotdir/.zshrc} $out/zdotdir/.zshrc
           '';
-
-          ghostelEditor = pkgs.runCommand "ghostel-editor" { } ''
-            mkdir -p $out/bin
-            substitute ${./nix/ghostel-editor/ghostel-editor} $out/bin/ghostel-editor \
-              --replace-fail '@EMACSCLIENT@' '${emacsPackage}/bin/emacsclient'
-            chmod +x $out/bin/ghostel-editor
-          '';
-
-          # Single source of truth shared by the Zig module build and the
-          # Elisp package override so they never drift.
-          ghostelSrc = pkgs.applyPatches {
-            name = "ghostel-source-0.50.0";
-            src = inputs.ghostel;
-            patches = [ ./nix/patches/ghostel-agent-monitor.patch ];
-          };
-
-          ghostelModule = let
-            zig = inputs.zig2nix.outputs.packages.${system}.zig-0_16_0;
-            zigEnv = inputs.zig2nix.outputs.zig-env.${system} {
-              inherit zig;
-            };
-          in zigEnv.package {
-            pname = "ghostel-module";
-            version = "0.50.0";
-            src = ghostelSrc;
-            # build.zig.zon2json-lock is regenerated via
-            #   nix run github:Cloudef/zig2nix#zon2json-lock -- build.zig.zon
-            # inside a checkout of the ghostel flake input.
-            zigBuildZonLock = ./nix/ghostel/build.zig.zon2json-lock;
-            zigBuildFlags = [ "-Doptimize=ReleaseFast" "-Dcpu=baseline" ];
-            # zig2nix's Linux hook wraps Zig in bubblewrap to provide
-            # /usr/bin/env. Ghostty's Zig 0.16 build recursively invokes
-            # `zig env', and nested bubblewrap fails with InvalidExe. Use the
-            # underlying static Zig binary for both the outer and nested calls.
-            preBuild = ''
-              export PATH=${zig}/bin:$PATH
-            '';
-          };
 
           twistArgs = {
             inherit pkgs emacsPackage;
@@ -242,11 +167,15 @@
             (lib.composeExtensions inputs.twist-overrides.overlays.twistScope
               (_: tsuper: {
                 elispPackages = tsuper.elispPackages.overrideScope
-                  (import ./nix/packageOverrides.nix {
-                    inherit pkgs ghostelModule ghostelSrc;
-                    pmSrc = inputs.pm-src;
-                  });
+                  (lib.composeExtensions
+                    (import ./nix/packageOverrides.nix {
+                      inherit pkgs;
+                      pmSrc = inputs.pm-src;
+                    })
+                    ghostelBuild.elispPackageOverride);
               }));
+
+          emacsAgentChecks = emacsAgentBuild.checks { inherit emacsEnv; };
 
           emacsConfig = pkgs.callPackage inputs.self {
             trivialBuild = pkgs.callPackage
@@ -290,24 +219,9 @@
             build-config = emacsConfig;
             build-env =
               emacsEnv.overrideScope (_: _: { executablePackages = [ ]; });
-            emacs-agent-cli = emacsAgentCli;
-            emacs-agent-python-tests = pkgs.runCommand "emacs-agent-python-tests" {
-              nativeBuildInputs = [ pkgs.python3 ];
-            } ''
-              export PYTHONDONTWRITEBYTECODE=1
-              python3 -m unittest discover -v -s ${./nix/emacs-agent}
-              touch $out
-            '';
-            emacs-agent-elisp-tests = pkgs.runCommand "emacs-agent-elisp-tests" {
-              nativeBuildInputs = [ emacsEnv ];
-            } ''
-              export HOME=$TMPDIR
-              emacs -Q --batch \
-                -L ${emacsAgentEl}/share/emacs/site-lisp \
-                -l ${./nix/emacs-agent/emacs-agent-test.el} \
-                -f ert-run-tests-batch-and-exit
-              touch $out
-            '';
+            emacs-agent-cli = emacsAgentChecks.cli;
+            emacs-agent-python-tests = emacsAgentChecks.python;
+            emacs-agent-elisp-tests = emacsAgentChecks.elisp;
             patched-ghostel = ghostelModule;
           };
 
