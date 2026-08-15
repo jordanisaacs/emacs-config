@@ -1730,12 +1730,6 @@ See embark. Using embark prefix. Type `C-h` after a prefix. Then can press
   :bind (:map yas-keymap
               ("M-}" . yas-next-field)
               ("M-{" . yas-prev-field))
-  :config
-  ;; Use the snippets directory from the init directory
-  (let ((snippets-dir (expand-file-name "snippets" init-directory)))
-    (if (file-directory-p snippets-dir)
-        (setq yas-snippet-dirs (list snippets-dir))
-      (message "Error: snippets directory not found at %s" snippets-dir)))
   :init
   (yas-global-mode 1))
 
@@ -2422,6 +2416,9 @@ without appearing in the live sidebar.
   :init
   (autoload 'emacs-agent-sidebar "emacs-agent-sidebar" nil t)
   (with-eval-after-load 'project
+    ;; Emacs 32 initializes its internal project list lazily.  PM reconciles
+    ;; that list during startup, so initialize it through the public API first.
+    (project-known-project-roots)
     (add-hook 'project-find-functions #'pm--project-finder)
     (add-to-list 'project-switch-commands
                  '(pm-project-dispatch "PM" ?P) t)

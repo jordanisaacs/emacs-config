@@ -35,6 +35,8 @@
 Resolved with `executable-find' if not absolute."
   :type 'string)
 
+(defvar eglot-fwatcher-mode)
+
 (defvar eglot-fwatcher--process nil
   "The running `fwatcher' daemon process, or nil.")
 
