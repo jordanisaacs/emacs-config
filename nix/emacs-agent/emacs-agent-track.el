@@ -56,6 +56,7 @@
 (defvar emacs-agent-track--title-process nil)
 (defvar emacs-agent-track--title-dirty nil)
 (defvar emacs-agent-track--setup-done nil)
+(defvar emacs-agent-track--next-buffer-order 0)
 
 (defvar-local emacs-agent-id nil
   "Opaque identity for the current managed Ghostel buffer.")
@@ -74,6 +75,7 @@
 (defvar-local emacs-agent-track--last-generation -1)
 (defvar-local emacs-agent-track--last-foreground nil)
 (defvar-local emacs-agent-track--last-activity-at nil)
+(defvar-local emacs-agent-track--buffer-order nil)
 
 (defconst emacs-agent-track--idle-delay 0.1)
 (defconst emacs-agent-track--idle-required 3)
@@ -91,7 +93,14 @@
 
 (defun emacs-agent-track-ensure-buffer-id ()
   "Return the current buffer's stable Emacs agent identifier."
+  (emacs-agent-track--ensure-buffer-order)
   (or emacs-agent-id (setq-local emacs-agent-id (emacs-agent-track--new-id))))
+
+(defun emacs-agent-track--ensure-buffer-order ()
+  "Return the current Ghostel buffer's daemon-lifetime creation order."
+  (or emacs-agent-track--buffer-order
+      (setq-local emacs-agent-track--buffer-order
+                  (cl-incf emacs-agent-track--next-buffer-order))))
 
 (defun emacs-agent-track-sessions ()
   "Return live local sessions as a list of alists."
@@ -458,6 +467,7 @@ agent's vendor session id when no hook identity is available."
          (title-source (if same-session (alist-get 'title_source existing)
                          (if emacs-agent-name "launch-name" "agent-project")))
          (record `((id . ,key) (buffer_id . ,key)
+                   (buffer_order . ,(emacs-agent-track--ensure-buffer-order))
                    (run_id . ,emacs-agent-track--run-id)
                    (name . ,emacs-agent-name)
                    (kind . ,agent) (agent . ,agent)

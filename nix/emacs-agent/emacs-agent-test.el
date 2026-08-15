@@ -4,6 +4,7 @@
 (require 'cl-lib)
 (require 'emacs-agent-track)
 (require 'emacs-agent)
+(require 'emacs-agent-sidebar)
 
 (ert-deftest emacs-agent-rules-detects-all-supported-agents ()
   (should (equal (plist-get (emacs-agent-rules-detect
@@ -157,9 +158,19 @@
 
 (ert-deftest emacs-agent-buffer-id-is-stable-and-opaque ()
   (with-temp-buffer
-    (let ((first (emacs-agent-track-ensure-buffer-id)))
+    (let* ((emacs-agent-track--next-buffer-order 0)
+           (first (emacs-agent-track-ensure-buffer-id)))
       (should (= (length first) 24))
-      (should (equal first (emacs-agent-track-ensure-buffer-id))))))
+      (should (equal first (emacs-agent-track-ensure-buffer-id)))
+      (should (= emacs-agent-track--buffer-order 1)))))
+
+(ert-deftest emacs-agent-sidebar-order-ignores-status-and-activity ()
+  (let ((first '((id . "first") (buffer_order . 1) (status . "idle")
+                 (last_activity_at . 1)))
+        (second '((id . "second") (buffer_order . 2) (status . "blocked")
+                  (last_activity_at . 999))))
+    (should (emacs-agent-sidebar--session-less-p first second))
+    (should-not (emacs-agent-sidebar--session-less-p second first))))
 
 (ert-deftest emacs-agent-record-includes-run-name-and-revision ()
   (with-temp-buffer
@@ -167,7 +178,8 @@
           (emacs-agent-track--identity nil)
           (emacs-agent-track--run-id "run-one")
           (emacs-agent-id "buffer-one")
-          (emacs-agent-name "worker"))
+          (emacs-agent-name "worker")
+          (emacs-agent-track--buffer-order 7))
       (cl-letf (((symbol-function 'emacs-agent-track--selected-p) (lambda () t))
                 ((symbol-function 'emacs-agent-track--project) (lambda (_) "demo")))
         (emacs-agent-track--publish "buffer-one" "codex" '(:state "idle") "codex")
@@ -175,6 +187,7 @@
           (should (equal (alist-get 'id record) "buffer-one"))
           (should (equal (alist-get 'run_id record) "run-one"))
           (should (equal (alist-get 'name record) "worker"))
+          (should (= (alist-get 'buffer_order record) 7))
           (should (equal (alist-get 'kind record) "codex"))
           (should (equal (alist-get 'title record) "worker"))
           (should (equal (alist-get 'title_source record) "launch-name"))

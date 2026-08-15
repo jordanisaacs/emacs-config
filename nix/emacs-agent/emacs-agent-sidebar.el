@@ -44,8 +44,6 @@
     ("working" "●" emacs-agent-sidebar-working nil)
     ("idle" "○" emacs-agent-sidebar-idle nil)
     ("unknown" "◌" emacs-agent-sidebar-idle nil)))
-(defconst emacs-agent-sidebar--attention
-  '(("blocked" . 0) ("done" . 1) ("working" . 2) ("idle" . 3) ("unknown" . 4)))
 (defconst emacs-agent-sidebar--age-width 5)
 
 (defvar emacs-agent-sidebar--render-timer nil)
@@ -86,17 +84,18 @@
   "Return a WIDTH-column separator."
   (pm-propertize-face (concat (make-string width ?─) "\n") 'emacs-agent-sidebar-rule))
 
-(defun emacs-agent-sidebar--attention-rank (session)
-  "Return SESSION's attention sort rank."
-  (or (cdr (assoc (alist-get 'status session) emacs-agent-sidebar--attention)) 99))
-
 (defun emacs-agent-sidebar--session-less-p (left right)
-  "Return non-nil when LEFT should appear before RIGHT."
-  (let ((left-rank (emacs-agent-sidebar--attention-rank left))
-        (right-rank (emacs-agent-sidebar--attention-rank right)))
-    (if (/= left-rank right-rank) (< left-rank right-rank)
-      (> (or (alist-get 'last_activity_at left) 0)
-         (or (alist-get 'last_activity_at right) 0)))))
+  "Return non-nil when LEFT's stable buffer order precedes RIGHT."
+  (let ((left-order (alist-get 'buffer_order left))
+        (right-order (alist-get 'buffer_order right)))
+    (cond ((and (numberp left-order) (numberp right-order)
+                (/= left-order right-order))
+           (< left-order right-order))
+          ((numberp left-order) t)
+          ((numberp right-order) nil)
+          (t
+           (string< (or (alist-get 'buffer_name left) (alist-get 'id left) "")
+                    (or (alist-get 'buffer_name right) (alist-get 'id right) ""))))))
 
 (defun emacs-agent-sidebar--detail (session status)
   "Return SESSION's secondary detail for STATUS."
