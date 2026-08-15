@@ -106,3 +106,66 @@ func TestShimHelpDoesNotRequireBridgeConfiguration(t *testing.T) {
 		}
 	}
 }
+
+func TestWlPasteSaveImage(t *testing.T) {
+	png := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}
+	host := &fakeHost{clipboard: png, clipboardTypes: []string{"image/png", "image/tiff"}}
+	server, tokenFile := testClipboardServer(t, host)
+	t.Setenv("EMACS_HOST_BRIDGE_TOKEN_FILE", tokenFile)
+	t.Setenv("EMACS_HOST_BRIDGE_URL", server.URL)
+
+	var stdout, stderr bytes.Buffer
+	exitCode := RunHostctl("wl-paste", []string{"--save", "--no-newline"}, strings.NewReader(""), &stdout, &stderr)
+	if exitCode != 0 {
+		t.Fatalf("exit = %d, stderr = %q", exitCode, stderr.String())
+	}
+	path := stdout.String()
+	t.Cleanup(func() { _ = os.RemoveAll(filepath.Dir(path)) })
+	contents, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(contents, png) {
+		t.Fatalf("saved image = %v, %v", contents, err)
+	}
+}
+
+func TestWlPasteSaveCopiedFolder(t *testing.T) {
+	sourceRoot := t.TempDir()
+	folder := filepath.Join(sourceRoot, "copied-folder")
+	if err := os.Mkdir(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(folder, "file.txt"), []byte("transferred"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	host := &fakeHost{clipboardFiles: []string{folder}}
+	server, tokenFile := testClipboardServer(t, host)
+	t.Setenv("EMACS_HOST_BRIDGE_TOKEN_FILE", tokenFile)
+	t.Setenv("EMACS_HOST_BRIDGE_URL", server.URL)
+
+	var stdout, stderr bytes.Buffer
+	exitCode := RunHostctl("wl-paste", []string{"--save"}, strings.NewReader(""), &stdout, &stderr)
+	if exitCode != 0 {
+		t.Fatalf("exit = %d, stderr = %q", exitCode, stderr.String())
+	}
+	savedFolder := strings.TrimSpace(stdout.String())
+	t.Cleanup(func() { _ = os.RemoveAll(filepath.Dir(savedFolder)) })
+	contents, err := os.ReadFile(filepath.Join(savedFolder, "file.txt"))
+	if err != nil || string(contents) != "transferred" {
+		t.Fatalf("saved file = %q, %v", contents, err)
+	}
+}
+
+func testClipboardServer(t *testing.T, host *fakeHost) (*httptest.Server, string) {
+	t.Helper()
+	token := strings.Repeat("b", 32)
+	server := httptest.NewServer(&bridgeHandler{
+		token:              token,
+		allowClipboardRead: true,
+		host:               host,
+	})
+	t.Cleanup(server.Close)
+	tokenFile := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(tokenFile, []byte(token+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return server, tokenFile
+}

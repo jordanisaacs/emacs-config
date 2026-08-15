@@ -19,6 +19,7 @@ type fakeHost struct {
 	clipboard      []byte
 	clipboardMIME  string
 	clipboardTypes []string
+	clipboardFiles []string
 	err            error
 }
 
@@ -45,6 +46,10 @@ func (host *fakeHost) ReadClipboard(_ context.Context, mimeType string) ([]byte,
 
 func (host *fakeHost) ClipboardTypes(_ context.Context) ([]string, error) {
 	return append([]string(nil), host.clipboardTypes...), host.err
+}
+
+func (host *fakeHost) ClipboardFiles(_ context.Context) ([]string, error) {
+	return append([]string(nil), host.clipboardFiles...), host.err
 }
 
 func TestBridgeHandlerRejectsMissingToken(t *testing.T) {

@@ -14,13 +14,15 @@ import (
 )
 
 const (
-	defaultListenAddress   = "127.0.0.1:24545"
-	defaultBaseURL         = "http://127.0.0.1:24545"
-	maxTextClipboardBytes  = 4 << 20
-	maxImageClipboardBytes = 25 << 20
-	maxClipboardBytes      = maxImageClipboardBytes
-	maxJSONBytes           = 64 << 10
-	defaultTextMIME        = "text/plain;charset=utf-8"
+	defaultListenAddress    = "127.0.0.1:24545"
+	defaultBaseURL          = "http://127.0.0.1:24545"
+	maxTextClipboardBytes   = 4 << 20
+	maxImageClipboardBytes  = 25 << 20
+	maxClipboardBytes       = maxImageClipboardBytes
+	maxClipboardFileBytes   = 1 << 30
+	maxClipboardFileEntries = 100000
+	maxJSONBytes            = 64 << 10
+	defaultTextMIME         = "text/plain;charset=utf-8"
 )
 
 var clipboardImageTypes = []string{

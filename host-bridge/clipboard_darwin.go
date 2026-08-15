@@ -10,10 +10,12 @@ package bridge
 int host_clipboard_write(const char *mime, const void *bytes, size_t length, char **error);
 int host_clipboard_read(const char *mime, void **bytes, size_t *length, char **error);
 int host_clipboard_types(void **bytes, size_t *length, char **error);
+int host_clipboard_files(void **bytes, size_t *length, char **error);
 */
 import "C"
 
 import (
+	"bytes"
 	"errors"
 	"runtime"
 	"strings"
@@ -61,6 +63,28 @@ func nativeClipboardTypes() ([]string, error) {
 		return nil, nil
 	}
 	return strings.Split(strings.TrimSuffix(string(encoded), "\n"), "\n"), nil
+}
+
+func nativeClipboardFiles() ([]string, error) {
+	var contents unsafe.Pointer
+	var length C.size_t
+	var cError *C.char
+	result := C.host_clipboard_files(&contents, &length, &cError)
+	encoded, err := nativeClipboardResult(result, contents, length, cError)
+	if err != nil {
+		return nil, err
+	}
+	if len(encoded) == 0 {
+		return nil, nil
+	}
+	parts := bytes.Split(bytes.TrimSuffix(encoded, []byte{0}), []byte{0})
+	paths := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if len(part) != 0 {
+			paths = append(paths, string(part))
+		}
+	}
+	return paths, nil
 }
 
 func nativeClipboardResult(

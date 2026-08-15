@@ -939,6 +939,8 @@ They send clipboard contents through the authenticated host bridge
 instead of encoding them in OSC 52 terminal sequences.  The shims are
 MIME-aware: Emacs uses UTF-8 text, while command-line tools can probe
 =wl-paste -l= and transfer PNG images with =--type image/png=.
+With =wl-paste --save=, copied images and Finder files or folders are
+transferred into a private temporary directory and returned as local paths.
 
 Clipboard reads are sensitive and remain disabled unless =hostd= is
 started with =--allow-clipboard-read=.  When the bridge is absent or

@@ -76,6 +76,44 @@ func (client *bridgeClient) clipboardTypes(ctx context.Context) ([]string, error
 	return response.Types, nil
 }
 
+func (client *bridgeClient) clipboardFiles(ctx context.Context) (io.ReadCloser, error) {
+	reference, err := url.Parse("/v1/clipboard/files")
+	if err != nil {
+		return nil, fmt.Errorf("create request URL: %w", err)
+	}
+	target := client.baseURL.ResolveReference(reference)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+client.token)
+	transferClient := *client.http
+	transferClient.Timeout = maxClipboardFileTransferDuration
+	response, err := transferClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("host bridge unavailable: %w", err)
+	}
+	if response.StatusCode == http.StatusNotFound {
+		response.Body.Close()
+		return nil, errClipboardHasNoFiles
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		defer response.Body.Close()
+		body, _ := io.ReadAll(io.LimitReader(response.Body, 8<<10))
+		message := strings.TrimSpace(string(body))
+		if message == "" {
+			message = response.Status
+		}
+		return nil, errors.New(message)
+	}
+	mediaType := strings.TrimSpace(strings.SplitN(response.Header.Get("Content-Type"), ";", 2)[0])
+	if mediaType != clipboardArchiveMIME {
+		response.Body.Close()
+		return nil, fmt.Errorf("host bridge returned unexpected clipboard archive type %q", mediaType)
+	}
+	return response.Body, nil
+}
+
 func (client *bridgeClient) health(ctx context.Context) error {
 	_, err := client.do(ctx, http.MethodGet, "/v1/health", "", nil)
 	return err

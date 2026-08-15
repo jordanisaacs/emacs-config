@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,6 +30,7 @@ type wlPasteOptions struct {
 	mimeType  string
 	listTypes bool
 	noNewline bool
+	save      bool
 	watch     []string
 	help      bool
 	version   bool
@@ -96,6 +98,9 @@ func runWlPaste(
 	}
 	if len(options.watch) != 0 {
 		return runWlPasteWatch(ctx, client, options, stdout, stderr)
+	}
+	if options.save {
+		return runWlPasteSave(ctx, client, options, stdout, stderr)
 	}
 
 	mimeType, contents, state, err := readWlPasteClipboard(ctx, client, options.mimeType)
@@ -232,7 +237,7 @@ func parseWlPaste(args []string) (wlPasteOptions, error) {
 				return options, err
 			}
 			if stop {
-				return options, nil
+				return validateWlPasteOptions(options)
 			}
 			continue
 		}
@@ -248,6 +253,8 @@ func parseWlPaste(args []string) (wlPasteOptions, error) {
 			options.listTypes = true
 		case "-n", "--no-newline":
 			options.noNewline = true
+		case "--save":
+			options.save = true
 		case "-t", "--type":
 			value, next, err := optionValue(args, position, inlineValue, hasInlineValue)
 			if err != nil {
@@ -269,12 +276,22 @@ func parseWlPaste(args []string) (wlPasteOptions, error) {
 				return options, fmt.Errorf("wl-paste: %s requires a command argument", name)
 			}
 			options.watch = append([]string(nil), args[position+1:]...)
-			return options, nil
+			return validateWlPasteOptions(options)
 		case "-p", "--primary":
 			// There is only one host pasteboard.
 		default:
 			return options, fmt.Errorf("wl-paste: unsupported option: %s", argument)
 		}
+	}
+	return validateWlPasteOptions(options)
+}
+
+func validateWlPasteOptions(options wlPasteOptions) (wlPasteOptions, error) {
+	if options.save && options.listTypes {
+		return options, fmt.Errorf("wl-paste: --save cannot be combined with --list-types")
+	}
+	if options.save && len(options.watch) != 0 {
+		return options, fmt.Errorf("wl-paste: --save cannot be combined with --watch")
 	}
 	return options, nil
 }
@@ -402,6 +419,107 @@ func chooseWlPasteMIME(types []string, requestedType string) (string, error) {
 	return "", fmt.Errorf("wl-paste: clipboard content is not available as requested type %q", requestedType)
 }
 
+func runWlPasteSave(
+	ctx context.Context,
+	client *bridgeClient,
+	options wlPasteOptions,
+	stdout, stderr io.Writer,
+) int {
+	if options.mimeType == "" {
+		archive, err := client.clipboardFiles(ctx)
+		if err == nil {
+			paths, extractErr := materializeClipboardArchive(archive)
+			closeErr := archive.Close()
+			if extractErr == nil {
+				extractErr = closeErr
+			}
+			if extractErr != nil {
+				fmt.Fprintln(stderr, extractErr)
+				return 1
+			}
+			return writeWlPastePaths(stdout, stderr, paths, options.noNewline)
+		}
+		if !errors.Is(err, errClipboardHasNoFiles) {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+	}
+
+	mimeType, contents, err := readWlPasteImage(ctx, client, options.mimeType)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	imagePath, err := materializeClipboardImage(mimeType, contents)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	return writeWlPastePaths(stdout, stderr, []string{imagePath}, options.noNewline)
+}
+
+func readWlPasteImage(
+	ctx context.Context,
+	client *bridgeClient,
+	requestedType string,
+) (string, []byte, error) {
+	if requestedType == defaultTextMIME {
+		return "", nil, errors.New("wl-paste: --save requires an image, file, or folder clipboard")
+	}
+	types, err := client.clipboardTypes(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	var selected string
+	for _, offered := range types {
+		normalized, err := normalizeClipboardMIME(offered)
+		if err != nil || normalized == defaultTextMIME {
+			continue
+		}
+		if selected == "" {
+			selected = normalized
+		}
+		if requestedType != "" && normalized == requestedType {
+			selected = normalized
+			break
+		}
+		if requestedType == "" && normalized == "image/png" {
+			selected = normalized
+			break
+		}
+	}
+	if selected == "" || (requestedType != "" && selected != requestedType) {
+		return "", nil, errors.New("wl-paste: clipboard has no image, file, or folder to save")
+	}
+	contents, err := client.readClipboard(ctx, selected)
+	if err != nil {
+		return "", nil, err
+	}
+	return selected, contents, nil
+}
+
+func writeWlPastePaths(stdout, stderr io.Writer, paths []string, noNewline bool) int {
+	for index, savedPath := range paths {
+		if index != 0 {
+			if _, err := io.WriteString(stdout, "\n"); err != nil {
+				fmt.Fprintln(stderr, err)
+				return 1
+			}
+		}
+		if _, err := io.WriteString(stdout, savedPath); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+	}
+	if !noNewline {
+		if _, err := io.WriteString(stdout, "\n"); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+	}
+	return 0
+}
+
 func runWlPasteWatch(
 	ctx context.Context,
 	client *bridgeClient,
@@ -475,6 +593,7 @@ Paste content from the connected host clipboard.
 Options:
 	-n, --no-newline	Do not append a newline character.
 	-l, --list-types	Instead of pasting, list the offered types.
+	    --save		Save an image or copied files under /tmp and print path(s).
 	-p, --primary		Use the "primary" clipboard.
 	-w, --watch command	Run a command each time the selection changes.
 	-t, --type mime/type	Override the inferred MIME type for the content.

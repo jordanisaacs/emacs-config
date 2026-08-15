@@ -37,6 +37,7 @@ type hostActions interface {
 	WriteClipboard(context.Context, string, []byte) error
 	ReadClipboard(context.Context, string) ([]byte, error)
 	ClipboardTypes(context.Context) ([]string, error)
+	ClipboardFiles(context.Context) ([]string, error)
 }
 
 type bridgeHandler struct {
@@ -62,6 +63,8 @@ func (handler *bridgeHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 		handler.handleClipboard(writer, request)
 	case "/v1/clipboard/types":
 		handler.handleClipboardTypes(writer, request)
+	case "/v1/clipboard/files":
+		handler.handleClipboardFiles(writer, request)
 	default:
 		http.Error(writer, "not found", http.StatusNotFound)
 	}
@@ -224,6 +227,38 @@ func (handler *bridgeHandler) handleClipboardTypes(writer http.ResponseWriter, r
 		Types []string `json:"types"`
 	}{Types: types}); err != nil {
 		return
+	}
+}
+
+func (handler *bridgeHandler) handleClipboardFiles(writer http.ResponseWriter, request *http.Request) {
+	if request.Method != http.MethodGet {
+		methodNotAllowed(writer, http.MethodGet)
+		return
+	}
+	if !handler.allowClipboardRead {
+		http.Error(writer, "clipboard reads are disabled", http.StatusForbidden)
+		return
+	}
+	ctx, cancel := context.WithTimeout(request.Context(), maxClipboardFileTransferDuration)
+	defer cancel()
+	paths, err := handler.host.ClipboardFiles(ctx)
+	if err != nil {
+		http.Error(writer, "clipboard file query failed", http.StatusBadGateway)
+		return
+	}
+	if len(paths) == 0 {
+		http.Error(writer, "clipboard has no files", http.StatusNotFound)
+		return
+	}
+	entries, err := prepareClipboardArchive(ctx, paths)
+	if err != nil {
+		http.Error(writer, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	writer.Header().Set("Content-Type", clipboardArchiveMIME)
+	writer.Header().Set("X-Content-Type-Options", "nosniff")
+	if err := writeClipboardArchive(ctx, writer, entries); err != nil {
+		log.Printf("clipboard file transfer failed: %v", err)
 	}
 }
 

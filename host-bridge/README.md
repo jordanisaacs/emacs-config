@@ -6,7 +6,7 @@ macOS desktop operations over an SSH reverse-forward.
 It has two Nix outputs:
 
 - `hostd` is the macOS daemon. It opens URLs, displays notifications, and uses
-  AppKit's `NSPasteboard` API directly for text and image clipboard data.
+  AppKit's `NSPasteboard` API directly for text, images, and copied files.
 - `hostctl` is the Linux client package. Its installed executables are
   `notify-send`, `xdg-open`, `wl-copy`, and `wl-paste`; callers never need to
   invoke a `hostctl` command.
@@ -83,9 +83,14 @@ wl-paste --no-newline
 wl-paste --list-types
 wl-paste --type image/png > clipboard.png
 wl-copy --type image/png < image.png
+wl-paste --save
 ```
 
 Text is limited to 4 MiB and must be UTF-8. Images are limited to 25 MiB.
 The supported image MIME types are PNG, JPEG, TIFF, GIF, BMP, and WebP;
 AppKit can synthesize PNG from other image representations on the pasteboard.
+`wl-paste --save` stores a copied image, file, or folder in a private temporary
+directory and prints its local path. Multiple copied Finder items produce one
+path per line. File transfers are streamed, recursively preserve directories,
+and are limited to 1 GiB and 100,000 entries.
 Only HTTP and HTTPS URLs may be opened.

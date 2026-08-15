@@ -156,3 +156,26 @@ int host_clipboard_types(void **bytes, size_t *length, char **error) {
     return copy_data([encoded dataUsingEncoding:NSUTF8StringEncoding], bytes, length, error);
   }
 }
+
+int host_clipboard_files(void **bytes, size_t *length, char **error) {
+  @autoreleasepool {
+    NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+    NSArray *urls = [pasteboard
+        readObjectsForClasses:@[[NSURL class]]
+                      options:@{NSPasteboardURLReadingFileURLsOnlyKey : @YES}];
+    NSMutableData *encoded = [NSMutableData data];
+    for (NSURL *url in urls) {
+      if (![url isFileURL]) {
+        continue;
+      }
+      const char *path = [[[url path] stringByStandardizingPath] fileSystemRepresentation];
+      if (path == NULL || path[0] == '\0') {
+        continue;
+      }
+      [encoded appendBytes:path length:strlen(path)];
+      const char separator = '\0';
+      [encoded appendBytes:&separator length:1];
+    }
+    return copy_data(encoded, bytes, length, error);
+  }
+}

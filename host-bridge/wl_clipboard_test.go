@@ -87,6 +87,19 @@ func TestParseWlPasteWatchAndVersion(t *testing.T) {
 	}
 }
 
+func TestParseWlPasteSave(t *testing.T) {
+	options, err := parseWlPaste([]string{"--save", "--no-newline"})
+	if err != nil || !options.save || !options.noNewline {
+		t.Fatalf("save options = %#v, %v", options, err)
+	}
+	if _, err := parseWlPaste([]string{"--save", "--list-types"}); err == nil {
+		t.Fatal("expected --save and --list-types to conflict")
+	}
+	if _, err := parseWlPaste([]string{"--save", "--watch", "cat"}); err == nil {
+		t.Fatal("expected --save and --watch to conflict")
+	}
+}
+
 func TestWlClipboardRejectsUnsupportedMIME(t *testing.T) {
 	if _, err := parseWlCopy([]string{"--type", "text/html"}); err == nil {
 		t.Fatal("expected wl-copy to reject text/html")

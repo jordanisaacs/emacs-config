@@ -86,6 +86,19 @@ func (host *macHostActions) ClipboardTypes(ctx context.Context) ([]string, error
 	return types, err
 }
 
+func (host *macHostActions) ClipboardFiles(ctx context.Context) ([]string, error) {
+	host.clipboard.Lock()
+	defer host.clipboard.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	paths, err := nativeClipboardFiles()
+	if contextErr := ctx.Err(); contextErr != nil {
+		return nil, contextErr
+	}
+	return paths, err
+}
+
 func runHostCommand(ctx context.Context, stdin io.Reader, program string, args ...string) error {
 	command := exec.CommandContext(ctx, program, args...)
 	command.Stdin = stdin
