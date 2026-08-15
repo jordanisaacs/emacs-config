@@ -1,11 +1,11 @@
 {
   "name": "emacs-daemon",
-  "version": "0.1.0",
-  "description": "Launch pm agents (claude/codex/cursor) inside the running Emacs daemon",
+  "version": "0.1.1",
+  "description": "Start and control coding agents inside the running Emacs daemon",
   "author": {
     "name": "Jordan Isaacs",
     "email": "jordan.isaacs@databricks.com"
   },
-  "keywords": ["emacs", "emacsclient", "pm", "agent", "terminal"],
-  "skills": ["./skills/pm-emacs"]
+  "keywords": ["emacs", "ghostel", "pm", "agent", "terminal"],
+  "skills": ["./skills/emacs-agent"]
 }

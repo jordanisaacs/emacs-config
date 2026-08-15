@@ -1,21 +1,21 @@
 # emacs-daemon Plugin
 
-Claude Code skill for launching `pm agent` sessions inside the user's running Emacs daemon.
+Claude Code skill for starting and controlling coding-agent sessions inside the user's running Emacs daemon.
 
 ## Skills
 
-### `pm-emacs`
+### `emacs-agent`
 
-Activates when the user asks to start a new agent (claude / codex / cursor) in Emacs, mentions `pm agent` + emacs, or asks for a new terminal in the running Emacs daemon.
+Activates when the user asks to start, prompt, inspect, focus, wait for, or stop a Claude, Codex, or Cursor agent in Emacs.
 
 Teaches the agent:
 
-- The `emacsclient` handoff pattern (eval an elisp form inside the running daemon)
-- How to set `default-directory` so the new shell lands in the right pm project (defaults to project root, not a worktree)
-- How to send `pm agent claude|codex|cursor --project <name>` into the new buffer once the shell is ready
-- Pre-flight checks (`server-running-p`, terminal backend loaded)
+- The `emacs-agent` CLI for low-level live-agent operations
+- Named starts in PM projects, with optional vendor arguments
+- Bounded prompt/wait workflows and structured state inspection
+- Reading terminal output, sending keys, focusing, and stopping agents
 
-The terminal buffer the skill creates is a ghostel buffer (`libghostty-vt`-backed, `ghostel-mode`); the skill treats this as an implementation detail.
+The CLI calls one fixed Elisp API in the daemon. Ghostel and raw `emacsclient` forms remain implementation details.
 
 ## Triggers
 
