@@ -130,6 +130,30 @@ func TestWlPasteSaveImage(t *testing.T) {
 	}
 }
 
+func TestWlPasteSavePassesTextThrough(t *testing.T) {
+	host := &fakeHost{
+		clipboard:      []byte("from host"),
+		clipboardTypes: []string{defaultTextMIME},
+	}
+	server, tokenFile := testClipboardServer(t, host)
+	t.Setenv("EMACS_HOST_BRIDGE_TOKEN_FILE", tokenFile)
+	t.Setenv("EMACS_HOST_BRIDGE_URL", server.URL)
+
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{args: []string{"--save", "--no-newline"}, want: "from host"},
+		{args: []string{"--save", "--type", "text"}, want: "from host\n"},
+	} {
+		var stdout, stderr bytes.Buffer
+		exitCode := RunHostctl("wl-paste", test.args, strings.NewReader(""), &stdout, &stderr)
+		if exitCode != 0 || stdout.String() != test.want {
+			t.Fatalf("args = %v, exit = %d, stdout = %q, stderr = %q", test.args, exitCode, stdout.String(), stderr.String())
+		}
+	}
+}
+
 func TestWlPasteSaveCopiedFolder(t *testing.T) {
 	sourceRoot := t.TempDir()
 	folder := filepath.Join(sourceRoot, "copied-folder")

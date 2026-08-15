@@ -84,7 +84,7 @@ wl-paste --no-newline
 wl-paste --list-types
 wl-paste --type image/png > clipboard.png
 wl-copy --type image/png < image.png
-wl-paste --save
+wl-paste --save # materialize files/images; pass text through
 ```
 
 Notification clicks activate the originating terminal application when
@@ -129,7 +129,8 @@ Text is limited to 4 MiB and must be UTF-8. Images are limited to 25 MiB.
 The supported image MIME types are PNG, JPEG, TIFF, GIF, BMP, and WebP;
 AppKit can synthesize PNG from other image representations on the pasteboard.
 `wl-paste --save` stores a copied image, file, or folder in a private temporary
-directory and prints its local path. Multiple copied Finder items produce one
-path per line. File transfers are streamed, recursively preserve directories,
-and are limited to 1 GiB and 100,000 entries.
+directory and prints its local path; ordinary text passes through unchanged.
+Multiple copied Finder items produce one path per line. File transfers are
+streamed, recursively preserve directories, and are limited to 1 GiB and
+100,000 entries.
 Only HTTP and HTTPS URLs may be opened.

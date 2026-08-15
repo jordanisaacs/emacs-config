@@ -445,10 +445,20 @@ func runWlPasteSave(
 		}
 	}
 
-	mimeType, contents, err := readWlPasteImage(ctx, client, options.mimeType)
+	mimeType, contents, save, err := readWlPasteSaveContent(ctx, client, options.mimeType)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
+	}
+	if !save {
+		if !options.noNewline {
+			contents = append(contents, '\n')
+		}
+		if _, err := stdout.Write(contents); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		return 0
 	}
 	imagePath, err := materializeClipboardImage(mimeType, contents)
 	if err != nil {
@@ -458,44 +468,50 @@ func runWlPasteSave(
 	return writeWlPastePaths(stdout, stderr, []string{imagePath}, options.noNewline)
 }
 
-func readWlPasteImage(
+func readWlPasteSaveContent(
 	ctx context.Context,
 	client *bridgeClient,
 	requestedType string,
-) (string, []byte, error) {
-	if requestedType == defaultTextMIME {
-		return "", nil, errors.New("wl-paste: --save requires an image, file, or folder clipboard")
-	}
+) (string, []byte, bool, error) {
 	types, err := client.clipboardTypes(ctx)
 	if err != nil {
-		return "", nil, err
+		return "", nil, false, err
 	}
-	var selected string
+	var selected, textType string
 	for _, offered := range types {
 		normalized, err := normalizeClipboardMIME(offered)
-		if err != nil || normalized == defaultTextMIME {
+		if err != nil {
 			continue
 		}
-		if selected == "" {
-			selected = normalized
+		if normalized == defaultTextMIME {
+			textType = normalized
 		}
 		if requestedType != "" && normalized == requestedType {
 			selected = normalized
 			break
+		}
+		if requestedType == "" && normalized != defaultTextMIME && selected == "" {
+			selected = normalized
 		}
 		if requestedType == "" && normalized == "image/png" {
 			selected = normalized
 			break
 		}
 	}
-	if selected == "" || (requestedType != "" && selected != requestedType) {
-		return "", nil, errors.New("wl-paste: clipboard has no image, file, or folder to save")
+	if selected == "" && requestedType == "" {
+		selected = textType
+	}
+	if selected == "" {
+		if requestedType != "" {
+			return "", nil, false, fmt.Errorf("wl-paste: clipboard content is not available as requested type %q", requestedType)
+		}
+		return "", nil, false, errors.New("Nothing is copied")
 	}
 	contents, err := client.readClipboard(ctx, selected)
 	if err != nil {
-		return "", nil, err
+		return "", nil, false, err
 	}
-	return selected, contents, nil
+	return selected, contents, selected != defaultTextMIME, nil
 }
 
 func writeWlPastePaths(stdout, stderr io.Writer, paths []string, noNewline bool) int {
@@ -593,7 +609,7 @@ Paste content from the connected host clipboard.
 Options:
 	-n, --no-newline	Do not append a newline character.
 	-l, --list-types	Instead of pasting, list the offered types.
-	    --save		Save an image or copied files under /tmp and print path(s).
+	    --save		Save images or copied files under /tmp; pass text through.
 	-p, --primary		Use the "primary" clipboard.
 	-w, --watch command	Run a command each time the selection changes.
 	-t, --type mime/type	Override the inferred MIME type for the content.
