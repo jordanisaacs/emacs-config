@@ -259,11 +259,11 @@
     "compile-multi": {
       "flake": false,
       "locked": {
-        "lastModified": 1756654975,
-        "narHash": "sha256-Rl6vTKMpgsUnT3lmK/1jlwXZcsDGObTD8NkotigvzzI=",
+        "lastModified": 1759612882,
+        "narHash": "sha256-VcY7mKOvIwpB+YX6r/WLT2LiNwhKGT8q4Fm3lp+fUAY=",
         "owner": "mohkale",
         "repo": "compile-multi",
-        "rev": "d111f99303ceb0354e37e2a5cd7f504d19f105f7",
+        "rev": "2976058c416b19f9761d5b8cf596210803afd2d7",
         "type": "github"
       },
       "original": {
@@ -275,11 +275,11 @@
     "compile-multi-embark": {
       "flake": false,
       "locked": {
-        "lastModified": 1756654975,
-        "narHash": "sha256-Rl6vTKMpgsUnT3lmK/1jlwXZcsDGObTD8NkotigvzzI=",
+        "lastModified": 1759612882,
+        "narHash": "sha256-VcY7mKOvIwpB+YX6r/WLT2LiNwhKGT8q4Fm3lp+fUAY=",
         "owner": "mohkale",
         "repo": "compile-multi",
-        "rev": "d111f99303ceb0354e37e2a5cd7f504d19f105f7",
+        "rev": "2976058c416b19f9761d5b8cf596210803afd2d7",
         "type": "github"
       },
       "original": {
@@ -291,11 +291,11 @@
     "compile-multi-nerd-icons": {
       "flake": false,
       "locked": {
-        "lastModified": 1756654975,
-        "narHash": "sha256-Rl6vTKMpgsUnT3lmK/1jlwXZcsDGObTD8NkotigvzzI=",
+        "lastModified": 1759612882,
+        "narHash": "sha256-VcY7mKOvIwpB+YX6r/WLT2LiNwhKGT8q4Fm3lp+fUAY=",
         "owner": "mohkale",
         "repo": "compile-multi",
-        "rev": "d111f99303ceb0354e37e2a5cd7f504d19f105f7",
+        "rev": "2976058c416b19f9761d5b8cf596210803afd2d7",
         "type": "github"
       },
       "original": {
@@ -339,11 +339,11 @@
     "consult-compile-multi": {
       "flake": false,
       "locked": {
-        "lastModified": 1756654975,
-        "narHash": "sha256-Rl6vTKMpgsUnT3lmK/1jlwXZcsDGObTD8NkotigvzzI=",
+        "lastModified": 1759612882,
+        "narHash": "sha256-VcY7mKOvIwpB+YX6r/WLT2LiNwhKGT8q4Fm3lp+fUAY=",
         "owner": "mohkale",
         "repo": "compile-multi",
-        "rev": "d111f99303ceb0354e37e2a5cd7f504d19f105f7",
+        "rev": "2976058c416b19f9761d5b8cf596210803afd2d7",
         "type": "github"
       },
       "original": {
@@ -371,11 +371,11 @@
     "consult-eglot": {
       "flake": false,
       "locked": {
-        "lastModified": 1756632318,
-        "narHash": "sha256-T6ZYTnc9tqwU+UE7f7Yk74mgPg8O5S9rnNZOQs5seBA=",
+        "lastModified": 1781361828,
+        "narHash": "sha256-oONTmkhUC+11lec00s0mdwyVOXEi3eQjd02agXaBemU=",
         "owner": "mohkale",
         "repo": "consult-eglot",
-        "rev": "d8b444aac39edfc6473ffbd228df3e9119451b51",
+        "rev": "3e4d9a40911b897c0a2c5d20199d0f7c30bfc1c2",
         "type": "github"
       },
       "original": {
