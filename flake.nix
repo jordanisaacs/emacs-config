@@ -86,6 +86,11 @@
             vendorHash = null;
             subPackages = [ "cmd/hostd" ];
             env.CGO_ENABLED = "1";
+            postPatch = ''
+              substituteInPlace host_darwin.go \
+                --replace-fail '"terminal-notifier"' \
+                '"${lib.getExe pkgs.terminal-notifier}"'
+            '';
             meta = {
               description = "Authenticated macOS host integration daemon";
               mainProgram = "hostd";

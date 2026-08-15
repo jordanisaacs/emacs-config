@@ -5,8 +5,9 @@ macOS desktop operations over an SSH reverse-forward.
 
 It has two Nix outputs:
 
-- `hostd` is the macOS daemon. It opens URLs, displays notifications, and uses
-  AppKit's `NSPasteboard` API directly for text, images, and copied files.
+- `hostd` is the macOS daemon. It opens URLs, displays notifications through
+  the bundled `terminal-notifier` application, and uses AppKit's
+  `NSPasteboard` API directly for text, images, and copied files.
 - `hostctl` is the Linux client package. Its installed executables are
   `notify-send`, `xdg-open`, `wl-copy`, and `wl-paste`; callers never need to
   invoke a `hostctl` command.
@@ -85,6 +86,44 @@ wl-paste --type image/png > clipboard.png
 wl-copy --type image/png < image.png
 wl-paste --save
 ```
+
+Notification clicks activate the originating terminal application when
+`TERM_PROGRAM` identifies Ghostty, Terminal, iTerm2, WezTerm, or Kitty.
+Set `HOSTCTL_NOTIFICATION_FOCUS_BUNDLE_ID` on the client to override the
+inferred macOS bundle identifier. Callers that construct `notify-send`
+arguments directly can instead pass
+`--hint string:x-hostctl-focus-bundle:com.example.Terminal`. The server
+validates this value as a bundle identifier before forwarding it.
+
+For exact Ghostty targeting, export
+`HOSTCTL_NOTIFICATION_FOCUS_TTY=/dev/ttysNNN` from the originating Mac
+terminal and propagate it into the remote session. The `notify-send` shim
+forwards the value, and a notification click asks Ghostty to focus the terminal
+whose AppleScript `tty` property matches it. The equivalent explicit hint is
+`--hint string:x-hostctl-focus-tty:/dev/ttysNNN`. Hostd validates the TTY and
+passes it as data to a fixed AppleScript; it is never evaluated as code.
+
+The connection launcher must inject the value because the remote host cannot
+recover the Mac's TTY after connecting. In Mac zsh, launch an Eternal Terminal
+or SSH login with:
+
+```zsh
+arca et -c "export HOSTCTL_NOTIFICATION_FOCUS_TTY=${TTY:q}; exec zsh -l"
+arca ssh -t -- env HOSTCTL_NOTIFICATION_FOCUS_TTY="$TTY" zsh -l
+```
+
+Put the relevant command behind the normal Arca shell function or alias so each
+new session gets its focus target automatically. Once connected,
+`notify-send 'Title' 'Body'` needs no additional option.
+
+Emacsclient includes its environment in the TTY frame it creates. The Emacs
+configuration remembers this variable per Ghostel buffer, so notifications
+from simultaneous Emacs frames retain distinct click targets even though they
+share one daemon.
+
+The Nix `hostd` package pins the helper's absolute store path. Non-Nix builds
+must put `terminal-notifier` on `PATH` or set
+`HOSTD_NOTIFICATION_HELPER` in the launch agent environment.
 
 Text is limited to 4 MiB and must be UTF-8. Images are limited to 25 MiB.
 The supported image MIME types are PNG, JPEG, TIFF, GIF, BMP, and WebP;

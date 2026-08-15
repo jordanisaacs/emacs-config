@@ -41,6 +41,52 @@ func TestParseNotifySendSupportsLongEqualsOptions(t *testing.T) {
 	}
 }
 
+func TestParseNotifySendPreservesFocusBundleHint(t *testing.T) {
+	request, _, err := parseNotifySend([]string{
+		"--hint", focusBundleHint + "com.mitchellh.ghostty",
+		"Title",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.FocusBundleID != "com.mitchellh.ghostty" {
+		t.Fatalf("focus bundle = %q", request.FocusBundleID)
+	}
+}
+
+func TestParseNotifySendPreservesFocusTTYHint(t *testing.T) {
+	request, _, err := parseNotifySend([]string{
+		"--hint", focusTTYHint + "/dev/ttys017",
+		"Title",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.FocusTTY != "/dev/ttys017" {
+		t.Fatalf("focus tty = %q", request.FocusTTY)
+	}
+}
+
+func TestNotificationFocusBundleIDFromEnvironment(t *testing.T) {
+	t.Setenv("HOSTCTL_NOTIFICATION_FOCUS_BUNDLE_ID", "")
+	t.Setenv("TERM_PROGRAM", "ghostty")
+	if bundleID := notificationFocusBundleIDFromEnvironment(); bundleID != "com.mitchellh.ghostty" {
+		t.Fatalf("focus bundle = %q", bundleID)
+	}
+
+	t.Setenv("HOSTCTL_NOTIFICATION_FOCUS_BUNDLE_ID", "dev.example.Terminal")
+	if bundleID := notificationFocusBundleIDFromEnvironment(); bundleID != "dev.example.Terminal" {
+		t.Fatalf("configured focus bundle = %q", bundleID)
+	}
+}
+
+func TestNotificationFocusTTYFromEnvironment(t *testing.T) {
+	t.Setenv("HOSTCTL_NOTIFICATION_FOCUS_TTY", " /dev/ttys017 ")
+	if tty := notificationFocusTTYFromEnvironment(); tty != "/dev/ttys017" {
+		t.Fatalf("focus tty = %q", tty)
+	}
+}
+
 func TestParseNotifySendRejectsUnknownOption(t *testing.T) {
 	if _, _, err := parseNotifySend([]string{"--action", "open=Open", "Title"}); err == nil {
 		t.Fatal("expected unsupported option error")

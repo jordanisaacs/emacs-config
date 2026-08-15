@@ -86,6 +86,42 @@ func TestBridgeHandlerDispatchesNotification(t *testing.T) {
 	}
 }
 
+func TestBridgeHandlerRejectsInvalidNotificationFocusBundle(t *testing.T) {
+	token := strings.Repeat("a", 32)
+	handler := &bridgeHandler{token: token, host: &fakeHost{}}
+	payload, err := json.Marshal(notificationRequest{
+		Title:         "Build finished",
+		FocusBundleID: "com.example.bad value",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := authenticatedRequest(http.MethodPost, "/v1/notify", token, bytes.NewReader(payload))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d: %s", response.Code, http.StatusBadRequest, response.Body.String())
+	}
+}
+
+func TestBridgeHandlerRejectsInvalidNotificationFocusTTY(t *testing.T) {
+	token := strings.Repeat("a", 32)
+	handler := &bridgeHandler{token: token, host: &fakeHost{}}
+	payload, err := json.Marshal(notificationRequest{
+		Title:    "Build finished",
+		FocusTTY: "/dev/ttys001;open /tmp/x",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := authenticatedRequest(http.MethodPost, "/v1/notify", token, bytes.NewReader(payload))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d: %s", response.Code, http.StatusBadRequest, response.Body.String())
+	}
+}
+
 func TestBridgeHandlerAllowsOnlyHTTPURLs(t *testing.T) {
 	host := &fakeHost{}
 	token := strings.Repeat("a", 32)

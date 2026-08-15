@@ -4,9 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 )
+
+const focusBundleHint = "string:x-hostctl-focus-bundle:"
+const focusTTYHint = "string:x-hostctl-focus-tty:"
 
 func parseNotifySend(args []string) (notificationRequest, bool, error) {
 	var request notificationRequest
@@ -53,10 +57,21 @@ func parseNotifySend(args []string) (notificationRequest, bool, error) {
 			}
 			request.AppName = value
 			position = next
-		case "--icon", "-i", "--category", "-c", "--hint", "-h":
+		case "--icon", "-i", "--category", "-c":
 			_, next, err := optionValue(args, position, inlineValue, hasInlineValue)
 			if err != nil {
 				return request, false, fmt.Errorf("%s: %w", name, err)
+			}
+			position = next
+		case "--hint", "-h":
+			value, next, err := optionValue(args, position, inlineValue, hasInlineValue)
+			if err != nil {
+				return request, false, fmt.Errorf("%s: %w", name, err)
+			}
+			if strings.HasPrefix(value, focusBundleHint) {
+				request.FocusBundleID = strings.TrimPrefix(value, focusBundleHint)
+			} else if strings.HasPrefix(value, focusTTYHint) {
+				request.FocusTTY = strings.TrimPrefix(value, focusTTYHint)
 			}
 			position = next
 		default:
@@ -72,6 +87,30 @@ func parseNotifySend(args []string) (notificationRequest, bool, error) {
 		request.Body = positional[1]
 	}
 	return request, false, nil
+}
+
+func notificationFocusBundleIDFromEnvironment() string {
+	if configured := strings.TrimSpace(os.Getenv("HOSTCTL_NOTIFICATION_FOCUS_BUNDLE_ID")); configured != "" {
+		return configured
+	}
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("TERM_PROGRAM"))) {
+	case "ghostty":
+		return "com.mitchellh.ghostty"
+	case "apple_terminal":
+		return "com.apple.Terminal"
+	case "iterm.app", "iterm2":
+		return "com.googlecode.iterm2"
+	case "wezterm":
+		return "com.github.wez.wezterm"
+	case "kitty":
+		return "net.kovidgoyal.kitty"
+	default:
+		return ""
+	}
+}
+
+func notificationFocusTTYFromEnvironment() string {
+	return strings.TrimSpace(os.Getenv("HOSTCTL_NOTIFICATION_FOCUS_TTY"))
 }
 
 func optionValue(
@@ -102,6 +141,6 @@ Options:
   -a, --app-name=APP         Application name
   -i, --icon=ICON            Accepted for compatibility
   -c, --category=TYPE        Accepted for compatibility
-  -h, --hint=HINT            Accepted for compatibility
+  -h, --hint=HINT            Pass notification metadata
   -?, --help                 Show this help`)
 }

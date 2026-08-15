@@ -20,11 +20,13 @@ import (
 )
 
 type notificationRequest struct {
-	Title      string `json:"title"`
-	Body       string `json:"body,omitempty"`
-	AppName    string `json:"app_name,omitempty"`
-	Urgency    string `json:"urgency,omitempty"`
-	ExpireTime int    `json:"expire_time_ms,omitempty"`
+	Title         string `json:"title"`
+	Body          string `json:"body,omitempty"`
+	AppName       string `json:"app_name,omitempty"`
+	Urgency       string `json:"urgency,omitempty"`
+	ExpireTime    int    `json:"expire_time_ms,omitempty"`
+	FocusBundleID string `json:"focus_bundle_id,omitempty"`
+	FocusTTY      string `json:"focus_tty,omitempty"`
 }
 
 type openRequest struct {
@@ -103,8 +105,16 @@ func (handler *bridgeHandler) handleNotify(writer http.ResponseWriter, request *
 		http.Error(writer, "notification title is required", http.StatusBadRequest)
 		return
 	}
-	if len(notification.Title) > 1024 || len(notification.Body) > 16<<10 || len(notification.AppName) > 1024 {
+	if len(notification.Title) > 1024 || len(notification.Body) > 16<<10 || len(notification.AppName) > 1024 || len(notification.FocusBundleID) > 255 || len(notification.FocusTTY) > 128 {
 		http.Error(writer, "notification is too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+	if !validBundleIdentifier(notification.FocusBundleID) {
+		http.Error(writer, "invalid notification focus bundle identifier", http.StatusBadRequest)
+		return
+	}
+	if !validTerminalTTY(notification.FocusTTY) {
+		http.Error(writer, "invalid notification focus tty", http.StatusBadRequest)
 		return
 	}
 	ctx, cancel := context.WithTimeout(request.Context(), 5*time.Second)

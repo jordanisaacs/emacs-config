@@ -7,9 +7,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"sync"
 )
+
+const defaultNotificationHelper = "terminal-notifier"
 
 type macHostActions struct {
 	clipboard sync.Mutex
@@ -20,27 +23,11 @@ func newPlatformHostActions() (hostActions, error) {
 }
 
 func (*macHostActions) Notify(ctx context.Context, notification notificationRequest) error {
-	const script = `on run argv
-set notificationTitle to item 1 of argv
-set notificationBody to item 2 of argv
-set notificationSubtitle to item 3 of argv
-if notificationSubtitle is "" then
-  display notification notificationBody with title notificationTitle
-else
-  display notification notificationBody with title notificationTitle subtitle notificationSubtitle
-end if
-end run`
-	return runHostCommand(
-		ctx,
-		nil,
-		"/usr/bin/osascript",
-		"-e",
-		script,
-		"--",
-		notification.Title,
-		notification.Body,
-		notification.AppName,
-	)
+	helper := os.Getenv("HOSTD_NOTIFICATION_HELPER")
+	if helper == "" {
+		helper = defaultNotificationHelper
+	}
+	return runHostCommand(ctx, nil, helper, terminalNotifierArguments(notification)...)
 }
 
 func (*macHostActions) OpenURL(ctx context.Context, target string) error {

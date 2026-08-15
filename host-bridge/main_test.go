@@ -27,6 +27,9 @@ func TestInstalledShimCommands(t *testing.T) {
 	}
 	t.Setenv("EMACS_HOST_BRIDGE_TOKEN_FILE", tokenFile)
 	t.Setenv("EMACS_HOST_BRIDGE_URL", server.URL)
+	t.Setenv("TERM_PROGRAM", "ghostty")
+	t.Setenv("HOSTCTL_NOTIFICATION_FOCUS_BUNDLE_ID", "")
+	t.Setenv("HOSTCTL_NOTIFICATION_FOCUS_TTY", "/dev/ttys017")
 
 	var stdout, stderr bytes.Buffer
 	exitCode := RunHostctl("/nix/store/example/bin/notify-send", []string{
@@ -41,7 +44,7 @@ func TestInstalledShimCommands(t *testing.T) {
 	if exitCode != 0 {
 		t.Fatalf("notify-send exit = %d, stderr = %q", exitCode, stderr.String())
 	}
-	if host.notification.Title != "Build finished" || host.notification.AppName != "Emacs" {
+	if host.notification.Title != "Build finished" || host.notification.AppName != "Emacs" || host.notification.FocusBundleID != "com.mitchellh.ghostty" || host.notification.FocusTTY != "/dev/ttys017" {
 		t.Fatalf("notification = %#v", host.notification)
 	}
 

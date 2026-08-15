@@ -907,17 +907,71 @@ Adds xref stack support for consult.
 
 *** Alert
 
-Ghostel's OSC 9 / OSC 777 handler uses =alert=.  The =hostctl= package
-installs a real =notify-send= shim on the Arca, turning terminal
-notifications into native host notifications through the authenticated
-host bridge.  The shim implements the standard options used by Alert,
-so use Alert's built-in =libnotify= backend directly.
+Generic Emacs alerts use the =notify-send= shim installed by =hostctl=.
+The authenticated host bridge presents those through a bundled macOS
+notification helper, which gives Notification Settings a stable app identity.
+
+When =HOSTCTL_NOTIFICATION_FOCUS_TTY= names the originating macOS Ghostty
+TTY, clicking the notification focuses that exact Ghostty surface.  Emacsclient
+records its environment on the TTY frame, so remember the variable when a
+Ghostel buffer is selected and dynamically pass it to =notify-send=.  All
+notifications use this path; without a TTY target, clicks activate Ghostty at
+the application level.
 
 #+begin_src emacs-lisp :tangle init.el
 (use-package alert
   :ensure t
   :custom
   (alert-default-style 'libnotify))
+
+(declare-function ghostel-default-notify "ghostel")
+
+(defvar-local my/ghostel-notification-focus-tty nil
+  "Host Ghostty TTY associated with this Ghostel buffer.")
+
+(defconst my/host-notification-focus-tty-variable
+  "HOSTCTL_NOTIFICATION_FOCUS_TTY"
+  "Environment variable used to target host notifications.")
+
+(defconst my/host-notification-focus-bundle-variable
+  "HOSTCTL_NOTIFICATION_FOCUS_BUNDLE_ID"
+  "Environment variable used to target host notification applications.")
+
+(defun my/frame-client-environment-variable (frame variable)
+  "Return VARIABLE from FRAME's emacsclient environment."
+  (let ((prefix (concat variable "=")))
+    (when-let* ((entry (seq-find
+                        (lambda (value) (string-prefix-p prefix value))
+                        (frame-parameter frame 'environment))))
+      (substring entry (length prefix)))))
+
+(defun my/ghostel-remember-notification-target ()
+  "Remember the selected frame's host TTY for its Ghostel buffer."
+  (when-let* ((window (selected-window))
+              (buffer (window-buffer window)))
+    (with-current-buffer buffer
+      (when (and (derived-mode-p 'ghostel-mode)
+                 (not (display-graphic-p (window-frame window))))
+        (setq my/ghostel-notification-focus-tty
+              (my/frame-client-environment-variable
+               (window-frame window)
+               my/host-notification-focus-tty-variable))))))
+
+(defun my/ghostel-host-notify (title body)
+  "Send Ghostel TITLE and BODY with its originating host TTY."
+  (let* ((process-environment
+          (cons (concat my/host-notification-focus-bundle-variable
+                        "=com.mitchellh.ghostty")
+                process-environment))
+         (process-environment
+          (if my/ghostel-notification-focus-tty
+              (cons (concat my/host-notification-focus-tty-variable
+                            "=" my/ghostel-notification-focus-tty)
+                    process-environment)
+            process-environment)))
+    (ghostel-default-notify title body)))
+
+(add-hook 'buffer-list-update-hook #'my/ghostel-remember-notification-target)
 #+end_src
 
 ** Terminals
@@ -1223,6 +1277,7 @@ host, so local /proc can't see them — skip them."
   :functions (ghostel--terminal-env ghostel--send-event)
   :custom
   (ghostel-module-auto-install nil)
+  (ghostel-notification-function #'my/ghostel-host-notify)
   (ghostel-ignore-cursor-change nil)
   (ghostel-query-before-killing nil)
   ;; Leaving point in the scrollback (isearch, consult-line, minibuffer
@@ -1267,6 +1322,11 @@ host, so local /proc can't see them — skip them."
   (add-hook 'ghostel-mode-hook
             (lambda ()
               "Ghostel buffer-local tweaks."
+              (unless (display-graphic-p (selected-frame))
+                (setq-local my/ghostel-notification-focus-tty
+                            (my/frame-client-environment-variable
+                             (selected-frame)
+                             my/host-notification-focus-tty-variable)))
               (setq-local ghostel-ignore-cursor-change nil)
               ;; Ink-based TUIs (Claude Code) pad the active input row
               ;; with U+00A0; the `nobreak-space' face underlines it,

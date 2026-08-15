@@ -141,6 +141,12 @@ func runClientCommand(
 			fmt.Fprintln(stderr, err)
 			return 2
 		}
+		if notification.FocusBundleID == "" {
+			notification.FocusBundleID = notificationFocusBundleIDFromEnvironment()
+		}
+		if notification.FocusTTY == "" {
+			notification.FocusTTY = notificationFocusTTYFromEnvironment()
+		}
 		client, err := getClient()
 		if err != nil {
 			fmt.Fprintln(stderr, err)
