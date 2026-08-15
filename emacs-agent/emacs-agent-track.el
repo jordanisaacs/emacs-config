@@ -19,7 +19,6 @@
 (declare-function ghostel-active-screen-text "ghostel" ())
 (declare-function ghostel-terminal-title "ghostel" ())
 (declare-function ghostel-terminal-progress "ghostel" ())
-(defvar ghostel-terminal-update-generation)
 (defvar ghostel-terminal-update-hook)
 (defvar ghostel--pid)
 (defvar server-name)
@@ -32,8 +31,16 @@
   "Seconds between foreground-process scans."
   :type 'number :group 'emacs-agent-track)
 
-(defcustom emacs-agent-track-update-delay 0.075
+(defcustom emacs-agent-track-update-delay 0.2
   "Seconds used to coalesce bursts of terminal updates."
+  :type 'number :group 'emacs-agent-track)
+
+(defcustom emacs-agent-track-fallback-interval 1.0
+  "Seconds between slow discovery attempts behind unidentified wrappers."
+  :type 'number :group 'emacs-agent-track)
+
+(defcustom emacs-agent-track-fallback-window 10.0
+  "Seconds to keep looking for a delayed agent behind a stable wrapper."
   :type 'number :group 'emacs-agent-track)
 
 (defcustom emacs-agent-track-descendant-limit 64
@@ -68,11 +75,19 @@
 (defvar-local emacs-agent-track--identity-pgrp nil)
 (defvar-local emacs-agent-track--run-id nil)
 (defvar-local emacs-agent-track--foreground-pgrp nil)
+(defvar-local emacs-agent-track--foreground-records nil)
+(defvar-local emacs-agent-track--agent nil)
+(defvar-local emacs-agent-track--native-fingerprint nil)
+(defvar-local emacs-agent-track--foreground-label-cache nil)
+(defvar-local emacs-agent-track--fallback-start nil)
+(defvar-local emacs-agent-track--fallback-last nil)
+(defvar-local emacs-agent-track--semantic-fingerprint nil)
+(defvar-local emacs-agent-track--cached-session-id nil)
+(defvar-local emacs-agent-track--session-id-attempted nil)
 (defvar-local emacs-agent-track--update-timer nil)
 (defvar-local emacs-agent-track--idle-timer nil)
 (defvar-local emacs-agent-track--idle-start nil)
 (defvar-local emacs-agent-track--idle-confirmations 0)
-(defvar-local emacs-agent-track--last-generation -1)
 (defvar-local emacs-agent-track--last-foreground nil)
 (defvar-local emacs-agent-track--last-activity-at nil)
 (defvar-local emacs-agent-track--buffer-order nil)
@@ -119,15 +134,17 @@
   "Notify registry consumers."
   (run-hooks 'emacs-agent-track-change-hook))
 
-(defun emacs-agent-track--record-without-revision (record)
-  "Return a copy of RECORD without its revision field."
-  (assq-delete-all 'revision (copy-tree record)))
+(defun emacs-agent-track--meaningful-record (record)
+  "Return RECORD without fields that do not describe a visible state change."
+  (assq-delete-all
+   'last_activity_at
+   (assq-delete-all 'revision (copy-tree record))))
 
 (defun emacs-agent-track--store (key record)
   "Store RECORD under KEY, advancing its revision when it changed."
   (let* ((existing (gethash key emacs-agent-track--sessions))
-         (changed (not (equal (emacs-agent-track--record-without-revision existing)
-                              record)))
+         (changed (not (equal (emacs-agent-track--meaningful-record existing)
+                              (emacs-agent-track--meaningful-record record))))
          (revision (if changed
                        (1+ (or (alist-get 'revision existing) 0))
                      (or (alist-get 'revision existing) 1))))
@@ -147,6 +164,7 @@
           :ppid (alist-get 'ppid attributes)
           :pgrp (alist-get 'pgrp attributes)
           :tpgid (alist-get 'tpgid attributes)
+          :start (alist-get 'start attributes)
           :comm (or (alist-get 'comm attributes) "")
           :cmdline (or (alist-get 'args attributes) ""))))
 
@@ -164,6 +182,13 @@
             (file-error nil)))
         (directory-files (format "/proc/%d/task" pid) t "\\`[0-9]+\\'")))
     (file-error nil)))
+
+(defun emacs-agent-track--shell-foreground-pgrp (shell-pid)
+  "Return SHELL-PID's active foreground process group, or nil when idle."
+  (when-let* ((attributes (process-attributes shell-pid))
+              (pgrp (alist-get 'pgrp attributes))
+              (tpgid (alist-get 'tpgid attributes)))
+    (and (> tpgid 0) (/= tpgid pgrp) tpgid)))
 
 (defun emacs-agent-track--native-agent-process-p (record)
   "Return non-nil when RECORD is the vendor process, not a launch wrapper."
@@ -225,6 +250,37 @@ global /proc sweep that can starve Emacs on process-heavy hosts."
                               (lambda (a b) (< (plist-get a :pid)
                                                (plist-get b :pid)))))
                    :comm))))
+
+(defun emacs-agent-track--native-process-record (agent records)
+  "Return AGENT's native executable record from RECORDS, if present."
+  (seq-find (lambda (record)
+              (and (emacs-agent-track--native-agent-process-p record)
+                   (equal agent (emacs-agent-track--record-agent record))))
+            records))
+
+(defun emacs-agent-track--process-fingerprint (record)
+  "Return the stable process identity fields from RECORD."
+  (and record
+       (list (plist-get record :pid)
+             (plist-get record :start)
+             (downcase (or (plist-get record :comm) "")))))
+
+(defun emacs-agent-track--native-process-live-p ()
+  "Return non-nil when the cached native agent process is still the same process."
+  (when emacs-agent-track--native-fingerprint
+    (pcase-let ((`(,pid ,start ,comm) emacs-agent-track--native-fingerprint))
+      (when-let* ((attributes (process-attributes pid)))
+        (and (equal start (alist-get 'start attributes))
+             (equal comm (downcase (or (alist-get 'comm attributes) ""))))))))
+
+(defun emacs-agent-track--fallback-due-p (now)
+  "Return non-nil when a slow fallback discovery is due at NOW."
+  (and emacs-agent-track--fallback-start
+       (<= (- now emacs-agent-track--fallback-start)
+           emacs-agent-track-fallback-window)
+       (or (null emacs-agent-track--fallback-last)
+           (>= (- now emacs-agent-track--fallback-last)
+               emacs-agent-track-fallback-interval))))
 
 (defun emacs-agent-track--command-session-id (agent records)
   "Return AGENT's explicit session id from process RECORDS, if present.
@@ -409,7 +465,7 @@ or by hand without a vendor hook profile."
                (when (buffer-live-p buffer)
                  (with-current-buffer buffer
                    (setq emacs-agent-track--idle-timer nil)
-                   (emacs-agent-track--scan-buffer t t)))))))))
+                   (emacs-agent-track--semantic-refresh t t)))))))))
 
 (defun emacs-agent-track--remove (key &optional clear-identity)
   "Remove registry KEY and optionally CLEAR-IDENTITY in the current buffer."
@@ -426,6 +482,14 @@ or by hand without a vendor hook profile."
 (defun emacs-agent-track--fallback-title (agent project name)
   "Return a temporary title for AGENT, PROJECT, and launch NAME."
   (or name (if project (format "%s — %s" agent project) agent)))
+
+(defun emacs-agent-track--process-session-id (agent processes)
+  "Return cached native session evidence for AGENT in PROCESSES."
+  (unless emacs-agent-track--session-id-attempted
+    (setq emacs-agent-track--session-id-attempted t
+          emacs-agent-track--cached-session-id
+          (emacs-agent-track--native-session-id agent processes)))
+  emacs-agent-track--cached-session-id)
 
 (defun emacs-agent-track--publish (key agent detection foreground &optional processes)
   "Publish DETECTION for AGENT and FOREGROUND under KEY.
@@ -447,7 +511,7 @@ agent's vendor session id when no hook identity is available."
                        (or (and (stringp existing-session-id)
                                 (not (string-empty-p existing-session-id))
                                 existing-session-id)
-                           (emacs-agent-track--native-session-id agent processes)
+                           (emacs-agent-track--process-session-id agent processes)
                            "")))
          (project (emacs-agent-track--project identity))
          (semantic (plist-get detection :state))
@@ -519,47 +583,136 @@ PROCESSES is forwarded as native identity evidence."
         (emacs-agent-track--publish key agent detection foreground processes))
        (t (emacs-agent-track--schedule-idle))))))
 
-(defun emacs-agent-track--scan-buffer (&optional force confirmation)
-  "Scan the current Ghostel buffer's foreground process."
+(defun emacs-agent-track--clear-foreground (key)
+  "Clear cached foreground state and remove KEY from the registry."
+  (setq emacs-agent-track--run-id nil
+        emacs-agent-track--foreground-pgrp nil
+        emacs-agent-track--foreground-records nil
+        emacs-agent-track--agent nil
+        emacs-agent-track--native-fingerprint nil
+        emacs-agent-track--foreground-label-cache nil
+        emacs-agent-track--fallback-start nil
+        emacs-agent-track--fallback-last nil
+        emacs-agent-track--semantic-fingerprint nil
+        emacs-agent-track--cached-session-id nil
+        emacs-agent-track--session-id-attempted nil
+        emacs-agent-track--last-foreground nil)
+  (emacs-agent-track--remove key t))
+
+(defun emacs-agent-track--cache-foreground (key records pgrp)
+  "Cache deep process discovery RECORDS in PGRP for registry KEY.
+
+Return the classified agent kind, or nil when this foreground group is not an
+agent yet."
+  (let* ((now (float-time))
+         (old-pgrp emacs-agent-track--foreground-pgrp)
+         (old-agent emacs-agent-track--agent)
+         (agent (emacs-agent-track--classify-processes records))
+         (native (and agent (emacs-agent-track--native-process-record agent records)))
+         (native-fingerprint (emacs-agent-track--process-fingerprint native))
+         (foreground-id (sort (mapcar (lambda (record) (plist-get record :pid))
+                                      records) #'<))
+         (records-changed (not (equal foreground-id emacs-agent-track--last-foreground)))
+         (group-changed (not (equal pgrp old-pgrp)))
+         (run-changed (or group-changed
+                          (null emacs-agent-track--run-id)
+                          (not (equal agent old-agent)))))
+    (when group-changed
+      (setq emacs-agent-track--fallback-start now
+            emacs-agent-track--fallback-last now)
+      (unless (equal emacs-agent-track--identity-pgrp pgrp)
+        (setq emacs-agent-track--identity nil
+              emacs-agent-track--identity-pgrp nil)))
+    (when (and (null native-fingerprint)
+               (null emacs-agent-track--fallback-start))
+      (setq emacs-agent-track--fallback-start now
+            emacs-agent-track--fallback-last now))
+    (setq emacs-agent-track--foreground-pgrp pgrp
+          emacs-agent-track--foreground-records records
+          emacs-agent-track--agent agent
+          emacs-agent-track--native-fingerprint native-fingerprint
+          emacs-agent-track--foreground-label-cache
+          (emacs-agent-track--foreground-label records)
+          emacs-agent-track--last-foreground foreground-id)
+    (when native-fingerprint
+      (setq emacs-agent-track--fallback-start nil
+            emacs-agent-track--fallback-last nil))
+    ;; New process evidence may expose a session id that was unavailable on
+    ;; the previous attempt, without implying a new foreground run.
+    (when (or run-changed records-changed)
+      (setq emacs-agent-track--cached-session-id nil
+            emacs-agent-track--session-id-attempted nil))
+    (if agent
+        (progn
+          (when run-changed
+            (setq emacs-agent-track--run-id (emacs-agent-track--new-id)
+                  emacs-agent-track--last-activity-at (emacs-agent-track--now-ms)
+                  emacs-agent-track--semantic-fingerprint nil
+                  emacs-agent-track--cached-session-id nil
+                  emacs-agent-track--session-id-attempted nil))
+          agent)
+      (setq emacs-agent-track--run-id nil
+            emacs-agent-track--semantic-fingerprint nil
+            emacs-agent-track--cached-session-id nil
+            emacs-agent-track--session-id-attempted nil)
+      (emacs-agent-track--remove key t)
+      nil)))
+
+(defun emacs-agent-track--semantic-refresh (&optional force confirmation)
+  "Refresh cached agent semantics without inspecting processes.
+
+When FORCE is non-nil, evaluate rules even if the terminal observation is
+unchanged.  CONFIRMATION advances a pending working-to-idle transition."
+  (when-let* ((key (bound-and-true-p emacs-agent-id))
+              (agent emacs-agent-track--agent))
+    (let* ((screen (ghostel-active-screen-text))
+           (title (ghostel-terminal-title))
+           (progress (emacs-agent-track--progress-text))
+           (fingerprint (list agent screen title progress)))
+      (when (or force
+                (not (equal fingerprint emacs-agent-track--semantic-fingerprint))
+                (null (gethash key emacs-agent-track--sessions)))
+        (setq emacs-agent-track--semantic-fingerprint fingerprint)
+        (emacs-agent-track--accept
+         key agent (emacs-agent-rules-detect agent screen title progress)
+         emacs-agent-track--foreground-label-cache confirmation
+         emacs-agent-track--foreground-records)))))
+
+(defun emacs-agent-track--discover-foreground (key shell-pid expected-pgrp
+                                                   &optional defer-semantic)
+  "Deeply discover SHELL-PID's foreground for KEY.
+
+EXPECTED-PGRP came from the cheap shell probe and covers the short race where
+the full discovery cannot read the group leader.  When DEFER-SEMANTIC is
+non-nil, leave semantic publication to the caller."
+  (let* ((records (emacs-agent-track--foreground-processes shell-pid))
+         (pgrp (or (and records (plist-get (car records) :pgrp)) expected-pgrp)))
+    (setq emacs-agent-track--fallback-last (float-time))
+    (when (emacs-agent-track--cache-foreground key records pgrp)
+      (unless defer-semantic (emacs-agent-track--semantic-refresh t))
+      emacs-agent-track--agent)))
+
+(defun emacs-agent-track--scan-buffer (&optional force)
+  "Cheaply probe the current Ghostel buffer and discover only when needed.
+
+FORCE requests a full descendant discovery."
   (when (and (derived-mode-p 'ghostel-mode) (not (file-remote-p default-directory)))
-    (let* ((key (bound-and-true-p emacs-agent-id))
-           (pid (bound-and-true-p ghostel--pid))
-           (foreground (and pid (emacs-agent-track--foreground-processes pid))))
-      (when key
-        (if (null foreground)
-            (progn (setq emacs-agent-track--last-foreground nil
-                         emacs-agent-track--foreground-pgrp nil
-                         emacs-agent-track--run-id nil)
-                   (emacs-agent-track--remove key t))
-          (let* ((agent (emacs-agent-track--classify-processes foreground))
-                 (generation (or (bound-and-true-p ghostel-terminal-update-generation) 0))
-                 (foreground-id (sort (mapcar (lambda (record) (plist-get record :pid))
-                                              foreground) #'<))
-                 (pgrp (plist-get (car foreground) :pgrp))
-                 (changed (not (equal foreground-id emacs-agent-track--last-foreground))))
-            (when changed
-              (setq emacs-agent-track--run-id (emacs-agent-track--new-id)
-                    emacs-agent-track--foreground-pgrp pgrp
-                    emacs-agent-track--last-activity-at (emacs-agent-track--now-ms))
-              (unless (equal emacs-agent-track--identity-pgrp pgrp)
-                (setq emacs-agent-track--identity nil
-                      emacs-agent-track--identity-pgrp nil)))
-            (setq emacs-agent-track--last-foreground foreground-id)
-            (if (null agent)
-                (progn
-                  (setq emacs-agent-track--run-id nil
-                        emacs-agent-track--foreground-pgrp nil)
-                  (emacs-agent-track--remove key t))
-              (when (or force changed (/= generation emacs-agent-track--last-generation)
-                        (null (gethash key emacs-agent-track--sessions)))
-                (setq emacs-agent-track--last-generation generation)
-                (emacs-agent-track--accept
-                 key agent
-                 (emacs-agent-rules-detect agent (ghostel-active-screen-text)
-                                        (ghostel-terminal-title)
-                                        (emacs-agent-track--progress-text))
-                 (emacs-agent-track--foreground-label foreground) confirmation
-                 foreground)))))))))
+    (when-let* ((key (bound-and-true-p emacs-agent-id)))
+      (let* ((shell-pid (bound-and-true-p ghostel--pid))
+             (pgrp (and shell-pid
+                        (emacs-agent-track--shell-foreground-pgrp shell-pid)))
+             (now (float-time)))
+        (if (null pgrp)
+            (emacs-agent-track--clear-foreground key)
+          (when (or force
+                    (not (equal pgrp emacs-agent-track--foreground-pgrp))
+                    emacs-agent-start-pending
+                    (and emacs-agent-track--native-fingerprint
+                         (not (emacs-agent-track--native-process-live-p)))
+                    (and (or (null emacs-agent-track--agent)
+                             (null emacs-agent-track--native-fingerprint))
+                         (emacs-agent-track--fallback-due-p now)))
+            (emacs-agent-track--discover-foreground key shell-pid pgrp)))))))
 
 (defun emacs-agent-track--process-tick ()
   "Refresh every Ghostel buffer's foreground process group."
@@ -572,8 +725,14 @@ PROCESSES is forwarded as native identity evidence."
                     (error-message-string err)))))
 
 (defun emacs-agent-track--terminal-updated ()
-  "Coalesce a Ghostel terminal update into a state scan."
+  "Record activity and coalesce terminal updates into a semantic refresh."
   (setq emacs-agent-track--last-activity-at (emacs-agent-track--now-ms))
+  (when-let* ((key (bound-and-true-p emacs-agent-id))
+              (record (gethash key emacs-agent-track--sessions)))
+    ;; Activity timestamps are useful API data but are not state transitions:
+    ;; do not advance revisions or wake sidebar consumers for every PTY chunk.
+    (setf (alist-get 'last_activity_at record) emacs-agent-track--last-activity-at)
+    (puthash key record emacs-agent-track--sessions))
   (unless (timerp emacs-agent-track--update-timer)
     (let ((buffer (current-buffer)))
       (setq emacs-agent-track--update-timer
@@ -583,7 +742,7 @@ PROCESSES is forwarded as native identity evidence."
                (when (buffer-live-p buffer)
                  (with-current-buffer buffer
                    (setq emacs-agent-track--update-timer nil)
-                   (emacs-agent-track--scan-buffer t)))))))))
+                   (emacs-agent-track--semantic-refresh)))))))))
 
 (defun emacs-agent-track--buffer-killed ()
   "Remove current Ghostel buffer from the registry."
@@ -640,13 +799,16 @@ PROCESSES is forwarded as native identity evidence."
                      (native-kind (emacs-agent-track--classify-processes foreground))
                      (pgrp (and foreground (plist-get (car foreground) :pgrp))))
                 (when (equal kind native-kind)
+                  ;; Adopt this corroborating discovery directly.  Calling the
+                  ;; periodic scan here would walk the same /proc tree twice.
+                  (emacs-agent-track--cache-foreground id foreground pgrp)
                   (setf (alist-get 'agent identity) kind
                         (alist-get 'kind identity) kind
                         (alist-get 'buffer_id identity) id
                         (alist-get 'id identity) id)
                   (setq emacs-agent-track--identity identity
                         emacs-agent-track--identity-pgrp pgrp)
-                  (emacs-agent-track--scan-buffer t)))))))
+                  (emacs-agent-track--semantic-refresh t)))))))
     (error (message "emacs agent tracker: ignored malformed identity: %s"
                     (error-message-string err)))))
 
