@@ -707,11 +707,11 @@
     "hl-todo": {
       "flake": false,
       "locked": {
-        "lastModified": 1767292490,
-        "narHash": "sha256-AHX0lyRfi9XdjG0RCptz5NwmLorShOfORNdHHMP1Lgc=",
+        "lastModified": 1780326485,
+        "narHash": "sha256-Op1DDuyN/faI1j01C6iJiiyAnUS2QgK6b2e+VMWsxX4=",
         "owner": "tarsius",
         "repo": "hl-todo",
-        "rev": "9540fc414014822dde00f0188b74e17ac99e916d",
+        "rev": "527d545b8c2f36243194cbe4a8d0e6ac9d50e6a7",
         "type": "github"
       },
       "original": {
@@ -931,11 +931,11 @@
     "modus-themes": {
       "flake": false,
       "locked": {
-        "lastModified": 1777661523,
-        "narHash": "sha256-TDIg/gZteMVbOgPRii+lLU/qqLTX0sk6Qg/hg7ktmOI=",
+        "lastModified": 1786619243,
+        "narHash": "sha256-ym4j/Z6x9VST7k4d4u+1c+axokJzAr4m39xJCPj88KY=",
         "owner": "protesilaos",
         "repo": "modus-themes",
-        "rev": "010ed945271bbf98e2bd46cd419ab41878cc279f",
+        "rev": "887af1139ea5832bd4469ded991cc992f0bf2229",
         "type": "github"
       },
       "original": {
@@ -947,11 +947,11 @@
     "nerd-icons": {
       "flake": false,
       "locked": {
-        "lastModified": 1777407833,
-        "narHash": "sha256-3BLTL4Imncin4bG+jmFMzCgu1a8nWEObsovAV3woYkU=",
+        "lastModified": 1785911709,
+        "narHash": "sha256-LtHyI6HMvlzPwt/ld+fw1sxwxtbbw+TJCZhr8Dsm8uc=",
         "owner": "rainstormstudio",
         "repo": "nerd-icons.el",
-        "rev": "ae1b85c487c2b0bb1efb8bc0edc23af74282eec2",
+        "rev": "1e75075e323dedaf9f2fd5837082c60a2d0dfae3",
         "type": "github"
       },
       "original": {
