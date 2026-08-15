@@ -1,7 +1,7 @@
 # Host bridge
 
-The host bridge gives programs on an Arca access to a small, explicit set of
-macOS desktop operations over an SSH reverse-forward.
+The host bridge gives programs on a remote Linux host access to a small,
+explicit set of macOS desktop operations over an SSH reverse-forward.
 
 It has two Nix outputs:
 
@@ -21,23 +21,26 @@ hostd init-token
 ```
 
 This creates `~/.config/emacs-host-bridge/token` with mode `0600`. Copy the
-same file to that path on the Arca, keeping it readable only by your user. Set
-`EMACS_HOST_BRIDGE_TOKEN_FILE` on either side to use a different path.
+same file to that path on the remote host, keeping it readable only by your
+user. Set `EMACS_HOST_BRIDGE_TOKEN_FILE` on either side to use a different
+path.
 
 The server accepts only loopback listen addresses and every request requires
 the token. The client likewise refuses non-loopback bridge URLs.
 
 ## SSH forwarding
 
-Add the reverse-forward to the SSH host entry used to reach the Arca:
+Add the reverse-forward and notification TTY forwarding to the SSH host entry
+used to reach the remote host:
 
 ```sshconfig
-Host arca.ssh
+Host remote.example
   RemoteForward 24545 127.0.0.1:24545
+  SendEnv HOSTCTL_NOTIFICATION_FOCUS_TTY
 ```
 
-The shims connect to `http://127.0.0.1:24545` on the Arca. Override that with
-`EMACS_HOST_BRIDGE_URL` if the forwarded loopback port must differ.
+The shims connect to `http://127.0.0.1:24545` on the remote host. Override that
+with `EMACS_HOST_BRIDGE_URL` if the forwarded loopback port must differ.
 
 ## Running hostd
 
@@ -103,18 +106,26 @@ whose AppleScript `tty` property matches it. The equivalent explicit hint is
 `--hint string:x-hostctl-focus-tty:/dev/ttysNNN`. Hostd validates the TTY and
 passes it as data to a fixed AppleScript; it is never evaluated as code.
 
-The connection launcher must inject the value because the remote host cannot
-recover the Mac's TTY after connecting. In Mac zsh, launch an Eternal Terminal
-or SSH login with:
+The remote host cannot recover the Mac's TTY after connecting. Export the
+value in each originating terminal before starting SSH; for example, in the
+Mac's zsh startup configuration:
 
 ```zsh
-arca et -c "export HOSTCTL_NOTIFICATION_FOCUS_TTY=${TTY:q}; exec zsh -l"
-arca ssh -t -- env HOSTCTL_NOTIFICATION_FOCUS_TTY="$TTY" zsh -l
+export HOSTCTL_NOTIFICATION_FOCUS_TTY="$TTY"
 ```
 
-Put the relevant command behind the normal Arca shell function or alias so each
-new session gets its focus target automatically. Once connected,
-`notify-send 'Title' 'Body'` needs no additional option.
+`SendEnv` in the client configuration above transmits the exported value. The
+remote SSH server must also allow it; add this to the remote host's
+`sshd_config` before the first login and reload or restart `sshd` after
+changing its configuration:
+
+```sshconfig
+AcceptEnv HOSTCTL_NOTIFICATION_FOCUS_TTY
+```
+
+Both directives are required: `SendEnv` alone does not place the variable in
+the remote session. Once connected, `notify-send 'Title' 'Body'` needs no
+additional option.
 
 Emacsclient includes its environment in the TTY frame it creates. The Emacs
 configuration remembers this variable per Ghostel buffer, so notifications
