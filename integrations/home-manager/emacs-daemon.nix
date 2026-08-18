@@ -20,7 +20,7 @@
     };
     Service = {
       Type = "notify";
-      Environment = "PATH=%h/.local/bin:%h/.nix-profile/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+      Environment = "PATH=%h/bin:%h/.local/bin:%h/.nix-profile/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
       ExecStart = "${pkgs.emacs-jd}/bin/emacs --fg-daemon";
       ExecStop = ''${pkgs.emacs-jd}/bin/emacsclient --eval "(kill-emacs)"'';
       Restart = "on-failure";
