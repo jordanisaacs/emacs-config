@@ -22,10 +22,10 @@
       Type = "notify";
       Environment = "PATH=%h/bin:%h/.local/bin:%h/.nix-profile/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
       ExecStart = "${pkgs.emacs-jd}/bin/emacs --fg-daemon";
-      ExecStop = ''${pkgs.emacs-jd}/bin/emacsclient --eval "(kill-emacs)"'';
+      ExecStop = ''${pkgs.emacs-jd}/bin/emacsclient --eval "(if (fboundp 'emacs-session-shutdown) (emacs-session-shutdown) (kill-emacs))"'';
       Restart = "on-failure";
       TimeoutStartSec = 90;
-      TimeoutStopSec = 30;
+      TimeoutStopSec = 60;
     };
     Install = {
       WantedBy = [ "default.target" ];

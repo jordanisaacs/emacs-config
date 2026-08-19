@@ -20,6 +20,8 @@
 (declare-function ghostel-send-key "ghostel" (key-name &optional mods))
 (declare-function ghostel--copy-all-text "ghostel-module" (term))
 (declare-function pm-agent--cwd "pm-agent" (project))
+(declare-function emacs-agent-bookmark-forget-buffer "emacs-agent-bookmark"
+                  (buffer))
 (defvar ghostel--pid)
 (defvar ghostel--term)
 (defvar ghostel-buffer-name)
@@ -335,7 +337,9 @@
           (signal-process (- pgrp) 'SIGTERM)
         (error (emacs-agent--raise "internal_error"
                                    (format "failed to stop process group: %s"
-                                           (error-message-string err))))))
+                                           (error-message-string err)))))
+      (when (fboundp 'emacs-agent-bookmark-forget-buffer)
+        (emacs-agent-bookmark-forget-buffer buffer)))
     `((type . "stop") (agent . ,(emacs-agent--public-record record)))))
 
 (defun emacs-agent--cancel-start (request)

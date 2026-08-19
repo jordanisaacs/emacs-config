@@ -76,7 +76,7 @@
 
 (defun emacs-agent-sidebar--width ()
   "Return the sidebar's usable text width."
-  (if-let ((window (get-buffer-window emacs-agent-sidebar-buffer-name t)))
+  (if-let* ((window (get-buffer-window emacs-agent-sidebar-buffer-name t)))
       (max 24 (window-max-chars-per-line window))
     emacs-agent-sidebar-width))
 
@@ -254,7 +254,7 @@
 (defun emacs-agent-sidebar ()
   "Toggle the local coding-agent sidebar."
   (interactive)
-  (if-let ((window (get-buffer-window emacs-agent-sidebar-buffer-name t)))
+  (if-let* ((window (get-buffer-window emacs-agent-sidebar-buffer-name t)))
       (delete-window window)
     (emacs-agent-sidebar--open)))
 

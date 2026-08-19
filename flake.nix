@@ -73,6 +73,10 @@
             import ./emacs-agent { inherit pkgs emacsPackage; };
           inherit (emacsAgentBuild) emacsAgentEl emacsAgentCli;
 
+          emacsSessionBuild =
+            import ./emacs-session { inherit pkgs emacsPackage; };
+          inherit (emacsSessionBuild) emacsSessionEl;
+
           ghostelBuild = import ./ghostel {
             inherit pkgs system emacsPackage;
             upstreamSrc = inputs.ghostel;
@@ -152,6 +156,7 @@
               (when init-file-user
                 (add-to-list 'treesit-extra-load-path "${treesitterPackage}/lib"))
               (add-to-list 'load-path "${eglotFwatcherEl}/share/emacs/site-lisp")
+              (add-to-list 'load-path "${emacsSessionEl}/share/emacs/site-lisp")
               ;; Emacs owns live agent tracking and control; pm only supplies
               ;; project resolution and launch/history operations.
               (add-to-list 'load-path "${emacsAgentEl}/share/emacs/site-lisp")
@@ -176,6 +181,7 @@
               }));
 
           emacsAgentChecks = emacsAgentBuild.checks { inherit emacsEnv; };
+          emacsSessionChecks = emacsSessionBuild.checks { inherit emacsEnv; };
 
           emacsConfig = pkgs.callPackage inputs.self {
             trivialBuild = pkgs.callPackage
@@ -209,7 +215,8 @@
 
           packages = {
             inherit emacsConfig emacs-jd emacsEnv emacsInit emacsPackage
-              ghostelModule fwatcher eglotFwatcherEl emacsAgentEl emacsAgentCli monetShim
+              ghostelModule fwatcher eglotFwatcherEl emacsAgentEl emacsAgentCli
+              emacsSessionEl monetShim
               ghostelEditor hostd hostctl;
             default = emacs-jd;
           };
@@ -222,6 +229,7 @@
             emacs-agent-cli = emacsAgentChecks.cli;
             emacs-agent-python-tests = emacsAgentChecks.python;
             emacs-agent-elisp-tests = emacsAgentChecks.elisp;
+            emacs-session-elisp-tests = emacsSessionChecks.elisp;
             patched-ghostel = ghostelModule;
           };
 

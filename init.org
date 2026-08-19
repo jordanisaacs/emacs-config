@@ -523,6 +523,16 @@ Returns the modified ALIST."
 (use-package re-builder
   :custom (reb-re-syntax 'string))
 
+;; Desktop owns buffers and GUI frames; `emacs-session' supplies delayed
+;; daemon restore, atomic/last-good persistence, and client-frame MRU slots.
+;; It must be active before Savehist is enabled so histories load from the
+;; managed owner-only state directory on their first read.
+(use-package emacs-session
+  :ensure nil
+  :demand t
+  :config
+  (emacs-session-mode 1))
+
 ;; recent file list
 (recentf-mode 1)
 
@@ -2408,6 +2418,15 @@ title management through PM. Non-Ghostel sessions retain history/resume support
 without appearing in the live sidebar.
 
 #+begin_src emacs-lisp :tangle init.el
+(use-package emacs-agent-bookmark
+  :ensure nil
+  :demand t
+  :config
+  ;; Surviving package-owned markers can load Ghostel and resume their agents
+  ;; during daemon startup, without waiting for PM, a terminal command, or the
+  ;; live-only sidebar to be opened.
+  (emacs-agent-bookmark-mode 1))
+
 (use-package pm
   :ensure t
   :commands (pm-dispatch pm-project-dispatch pm-agent-launch-dispatch

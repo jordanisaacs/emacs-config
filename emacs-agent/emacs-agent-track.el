@@ -14,13 +14,14 @@
 (require 'seq)
 (require 'subr-x)
 (require 'emacs-agent-rules)
-(require 'pm-project)
 
 (declare-function ghostel-active-screen-text "ghostel" ())
 (declare-function ghostel-terminal-title "ghostel" ())
 (declare-function ghostel-terminal-progress "ghostel" ())
+(declare-function pm--container-of "pm-project" (directory))
 (defvar ghostel-terminal-update-hook)
 (defvar ghostel--pid)
+(defvar pm-projects-dir)
 (defvar server-name)
 
 (defgroup emacs-agent-track nil
@@ -332,7 +333,9 @@ or by hand without a vendor hook profile."
 (defun emacs-agent-track--project (identity)
   "Resolve a pm project name for IDENTITY or the current buffer."
   (let* ((cwd (or (alist-get 'cwd identity) default-directory))
-         (container (and cwd (boundp 'pm-projects-dir)
+         (container (and cwd
+                         (require 'pm-project nil t)
+                         (boundp 'pm-projects-dir)
                          (pm--container-of cwd))))
     (and container (file-name-nondirectory (directory-file-name container)))))
 
