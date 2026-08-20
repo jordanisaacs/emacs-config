@@ -1483,11 +1483,13 @@ shells that don't honor our ZDOTDIR."
   :commands winner-undo
   :preface
   (defun my/toggle-delete-other-windows ()
-    "Delete other windows, or if already alone, undo via `winner-undo'."
+    "Delete other windows, or undo when the selected window fills the main area."
     (interactive)
     (if (and winner-mode
-             (equal (selected-window) (next-window)))
-        (winner-undo)
+             (eq (selected-window) (window-main-window)))
+        (progn
+          (setq this-command #'winner-undo)
+          (winner-undo))
       (delete-other-windows)))
   :bind ("C-x 1" . my/toggle-delete-other-windows)
   :init

@@ -230,6 +230,15 @@
             emacs-agent-python-tests = emacsAgentChecks.python;
             emacs-agent-elisp-tests = emacsAgentChecks.elisp;
             emacs-session-elisp-tests = emacsSessionChecks.elisp;
+            winner-mode-elisp-tests = pkgs.runCommand "winner-mode-elisp-tests" {
+              nativeBuildInputs = [ emacsEnv ];
+            } ''
+              env HOME="$TMPDIR" emacs -Q --batch \
+                --eval '(setq winner-mode-test-init-file "${./init.org}")' \
+                -l ${./tests/winner-mode-test.el} \
+                -f ert-run-tests-batch-and-exit
+              touch $out
+            '';
             patched-ghostel = ghostelModule;
           };
 
